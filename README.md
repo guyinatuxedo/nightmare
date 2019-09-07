@@ -26,155 +26,155 @@ If you get stuck on something for hours on end and google can't answer your ques
 
 Also if you notice any typos or mistakes, feel free to mention it in the Discord. With how much content is here, there is bound to be at least one.
 
-## Index
+# Index
 
 Here is the index for all of the content in this course. Feel free to go through the whole thing, or only parts of it (don't let me tell you how to live your life). For the order that you do the challenges in a module, I would recommend starting with the first.
 
 
-# Intro 
+## Intro 
 
-### 0.) Intro to Project    
+#### 0.) Intro to the Project    
 
-### 1.) Intro to Assembly     
+#### 1.) Intro to Assembly     
 -    Intro to assembly
 -    Sample assembly reverse challs
 
-### 2.) Intro to Tooling     
+#### 2.) Intro to Tooling     
 -    gdb-gef     
 -    pwntools
 -    ghidra
 
-### 3.) Beginner RE     
+#### 3.) Beginner RE     
 -    pico18_strings     
 -    helithumper_re
 -    csaw18_tourofx86pt1     
 
 
 
-# Stack pt 0 	Stack Tendencies
+## Stack pt 0 	Stack Tendencies
 
-### 4.) Buffer Overflow of Variables 
+#### 4.) Buffer Overflow of Variables 
 
 -    Csaw18/boi 
 -    TokyoWesterns17/just_do_it 
 -    Tamu19_pwn1 
 
-### 5.) Buffer Overflow Call Function 
+#### 5.) Buffer Overflow Call Function 
 -    Csaw18_getit     
 -    Tu17_vulnchat 
 -    Csaw16_warmup 
 
-### 5.1) aslr/pie intro     
+#### 5.1) aslr/pie intro     
 -    quick aslr/pie explanation
 
-### 6.) Buffer Overflow Call Shellcode 
+#### 6.) Buffer Overflow Call Shellcode 
 -    Tamu19_pwn3  
 -    Csaw17_pilot 
 -    Tu18_shelleasy  
 
-### 6.1) nx intro     
+#### 6.1) nx intro     
 -    nx explanation
 
-### 7.) ROP Chain Statically compiled 
+#### 7.) ROP Chain Statically compiled 
 -    dcquals19_speedrun1 
 -    bkp16_simplecalc
 -    dcquals16_feedme
 
-### 7.1) stack canary intro     
+#### 7.1) stack canary intro     
 -    stack canary introduction
 
-### 7.2) relro intro     
+#### 7.2) relro intro     
 -    relro introduction
 
-### 8.) ROP Dynamically Compiled 
+#### 8.) ROP Dynamically Compiled 
 -    csaw17_svc    
 -    fb19_overfloat    
 -    hs19_storytime    
 
 
 
-# General pt 0 	Stardust Challenges
+## General pt 0 	Stardust Challenges
 
-### 9.) Bad Seed     
+#### 9.) Bad Seed     
 -    h3_time      
 -    hsctf19_tuxtalkshow        
 -    sunshinectf17_prepared    
 
 
-### 10.) Format strings     
+#### 10.) Format strings     
 -    backdoor17_bbpwn  
 -    twesterns16_greeting 
 -    pico_echo 
 
-### 11.) Index Array    
+#### 11.) Index Array    
 -    dcquals16_xkcd 
 -    sawmpctf19_dreamheaps
 -    sunshinectf2017_alternativesolution
 
-### 12.) Z3    
+#### 12.) Z3    
 -    tokyowesterns17_revrevrev        
 -    tuctf_future    
 -    hsctf19_abyte    
 
-### 13.) Angr    
+#### 13.) Angr    
 -    securityfest_fairlight    
 -    plaid19_icancount
 -    defcamp15_r100
 
 
 
-# Stack pt 1  	Return to Stack (truly a perfect game)
+## Stack pt 1  	Return to Stack (truly a perfect game)
 
-### 14.) Ret2system     
+#### 14.) Ret2system     
 -    asis17_marymorton    
 -    hxp18_poorcanary    
 -    tu_guestbook
 
-### 15.) Partial Overwrite     
+#### 15.) Partial Overwrite     
 -    Tu17_vulnchat2     
 -    Tamu19_pwn2
 -    hacklu15_stackstuff
 
-### 16.) SROP     
+#### 16.) SROP     
 -    backdoorctf_funsignals    
 -    inctf17_stupiddrop
 -    swamp19_syscaller
 
-### 17.) Stack Pivot / Partial Overwrite 
+#### 17.) Stack Pivot / Partial Overwrite 
 -    defconquals19_speedrun4 
 -    insomnihack18_onewrite
 -    xctf16_b0verfl0w
 
-### 18.) Ret2Csu / Ret2dl     
+#### 18.) Ret2Csu / Ret2dl     
 -    ropemporium_ret2csu 
 -    0ctf 2018 babystack
 
 
 
-# General pt 1 	
+## General pt 1 	
 
-### 19.) Shellcoding pt 1    
+#### 19.) Shellcoding pt 1    
 -    defconquals19_s3    
 -    Csaw18_shellpointcode
 -    defconquals19_s6
 
-### 20.) Patching/Jumping    
+#### 20.) Patching/Jumping    
 -    dcquals18_elfcrumble                
 -    plaid19_plaid_part_planning_III        
 -    csaw16_gametime    
 
 
-### 21.) .NET Reversing    
+#### 21.) .NET Reversing    
 -    csaw13_dotnet        
 -    csaw13_bikinibonanza
 -    whitehat18_re06
 
-### 22.) Movfuscation    
+#### 22.) Movfuscation    
 -    sawmpctf19_future    
 -    asis18quals_babyc    
 -    other_movfuscated
 
-### 23.) Custom Architectures 
+#### 23.) Custom Architectures 
 -    h3_challenge0    
 -    h3_challenge1
 -    h3_challenge2
@@ -182,104 +182,104 @@ Here is the index for all of the content in this course. Feel free to go through
 
 
 
-# Heap Pt 0
+## Heap Pt 0
 
-### 24.) Basic Heap overflow 
+#### 24.) Basic Heap overflow 
 -    protostar_heap1 
 -    protostar_heap0
 -    protostar_heap2
 
-### 25.) Intro to heap exploitation / binning    
+#### 25.) Intro to heap exploitation / binning    
 -    explanation
 
-### 26.) Heap Grooming     
+#### 26.) Heap Grooming     
 -    explanation     
 -    swamp19_heapgolf
 -    pico_areyouroot  
 
-### 27.) Edit Freed Chunk (pure explanation)    
+#### 27.) Edit Freed Chunk (pure explanation)    
 -    Use After Free     
 -    Double Free     
 -    Null Byte Heap Consolidation
 
-### 28.) Fastbin Attack    
+#### 28.) Fastbin Attack    
 -    explanation     
 -    0ctf18_babyheap
 -    csaw17_auir    
 
-### 29.) tcache        
+#### 29.) tcache        
 -    explanation
 -    dcquals19_babyheap
 -    plaid19_cpp        
 
-### 30.) unlink        
+#### 30.) unlink        
 -    explanation
 -    hitcon14_stkof    
 -    zctf16_note        
 
-### 31.) Unsorted Bin Attack     
+#### 31.) Unsorted Bin Attack     
 -    explanation
 -    hitcon_magicheap     
 -    0ctf16_zer0storage     
 
-### 32.) Large Bin Attack    
+#### 32.) Large Bin Attack    
 -    largebin0_explanation
 -    largebin1_explanation
 
-### 33.) Custom Malloc     
+#### 33.) Custom Malloc     
 -    csawquals17_minesweeper     
 -    csawquals18_AliensVSSamurai
 
 
 
-# General Pt 2
+## General Pt 2
 
-### 34.) Qemu / Emulated Targets     
+#### 34.) Qemu / Emulated Targets     
 -   csaw18_tour_of_x86_pt_2     
 -   csaw15_hackingtime             
 -   csaw17_realism
 
-### 35.) Integer Exploitation     
+#### 35.) Integer Exploitation     
 -   puzzle 
 -   int_overflow_post
 -   signed_unsigned_int_expl
 
-### 36.) Obfuscated Reversing     
+#### 36.) Obfuscated Reversing     
 - 	csaw15_wyvern     
 - 	csaw17_prophecy
 - 	bkp16_unholy
 
-### 37.) FS Exploitation    
+#### 37.) FS Exploitation    
 - 	swamp19_badfile 
 
-### 38.) Grab Bag         
+#### 38.) Grab Bag         
 - 	csaw18_doubletrouble
 - 	hackim19_shop        
 - 	unit_vars_expl
 
 
 
-# Heap pt 1
+## Heap pt 1
 
-### 39.) House of Spirit     
+#### 39.) House of Spirit     
 -    explanation
 -    hacklu14_oreo
 
-### 40.) House of Lore         
+#### 40.) House of Lore         
 -    explanation
 
-### 41.) House of Force        
+#### 41.) House of Force        
 -    explanation
 -    bkp16_cookbook
 
-### 42.) House of Einherjar     
+#### 42.) House of Einherjar     
 -    explanation
 
-### 43.) House of Orange     
+#### 43.) House of Orange     
 -    explanation
 
-# Ending Documentation
+## Ending Documentation
 
-### References
+#### References
 
-### What's next 
+#### What's next 
