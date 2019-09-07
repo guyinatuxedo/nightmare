@@ -1,0 +1,36 @@
+digraph fun_804899e {
+node [shape = box];
+0 [label="804899e"];
+3 [label="8049853_f"];
+4 [label="804b5d0"];
+6 [label="8049b26_f"];
+7 [label="804b3f6"];
+9 [label="8049e50_f"];
+11 [label="804a17a_f"];
+13 [label="804a6fc_f"];
+14 [label="804b21c"];
+16 [label="804aa08_f"];
+17 [label="804b042"];
+18 [label="804b97c"];
+0 -> 3 [label=false, color=red];
+0 -> 4 [label=true, color=green];
+3 -> 6 [label=false, color=red];
+3 -> 7 [label=true, color=green];
+4 -> 18;
+6 -> 7 [label=true, color=green];
+6 -> 9 [label=false, color=red];
+7 -> 4;
+9 -> 7 [label=true, color=green];
+9 -> 11 [label=false, color=red];
+11 -> 13 [label=false, color=red];
+11 -> 14 [label=true, color=green];
+13 -> 16 [label=false, color=red];
+13 -> 17 [label=true, color=green];
+14 -> 7;
+16 -> 18 [label=jmp];
+17 -> 14;
+}
+
+
+digraph calls {
+}
