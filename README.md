@@ -7,7 +7,7 @@ Nightmare is an into to binary exploitation / reverse engineering course based a
 It's true there are a lot of resources out there to learn binary exploitation / reverse engineering skills, so what makes this different?
 
 ```
-*    Amount of Content     			-    There is a large amount of content in this course (currently over 90 challenges), laid out in a linear fashion.
+*    Amount of Content     		-    There is a large amount of content in this course (currently over 90 challenges), laid out in a linear fashion.
 
 *    Well Documented Write Ups 		-    Each challenge comes with a well documented writeup explaining how to go from being handed the binary to doing the exploit dev.
 
