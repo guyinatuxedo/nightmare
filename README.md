@@ -256,6 +256,7 @@ Here is the index for all of the content in this course. Feel free to go through
 - 	csaw18_doubletrouble
 - 	hackim19_shop        
 - 	unit_vars_expl
+-	csaw19_gibberish
 
 
 
