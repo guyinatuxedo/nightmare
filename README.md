@@ -90,6 +90,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csaw17_svc    
 -    fb19_overfloat    
 -    hs19_storytime    
+-	 csaw19_babyboi
 
 
 
@@ -139,6 +140,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    backdoorctf_funsignals    
 -    inctf17_stupiddrop
 -    swamp19_syscaller
+-	 csaw19_smallboi
 
 #### 17.) Stack Pivot / Partial Overwrite 
 -    defconquals19_speedrun4 
