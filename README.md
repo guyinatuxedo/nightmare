@@ -1,6 +1,6 @@
 # Nightmare
 
-Nightmare is an into to binary exploitation / reverse engineering course based around ctf challenges. I call it that because it's a lot of people's nightmare to get hit by weaponized 0 days, which these skills directly tranlate into doing that type of work (plus it's a really cool song).
+Nightmare is an intro to binary exploitation / reverse engineering course based around ctf challenges. I call it that because it's a lot of people's nightmare to get hit by weaponized 0 days, which these skills directly tranlate into doing that type of work (plus it's a really cool song).
 
 ## What makes Nightmare different?
 
