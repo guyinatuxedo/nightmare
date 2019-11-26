@@ -1,4 +1,4 @@
-[Nightmare](./../README.md)
+[Nightmare](./README.md)
 
 - [Introduction](./00-intro/readme.md)
   - [Assembly](./01-intro_assembly/assembly/readme.md)
