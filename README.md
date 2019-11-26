@@ -26,6 +26,9 @@ If you get stuck on something for hours on end and google can't answer your ques
 
 Also if you notice any typos or mistakes, feel free to mention it in the Discord. With how much content is here, there is bound to be at least one.
 
+## Building the Book
+Nightmare uses [mdbook](https://rust-lang.github.io/mdBook/index.html) to typeset its HTML output. To build the book, [you need to install Rust](https://www.rust-lang.org/tools/install), then run `cargo install mdbook`. This will install the `mdbook` globally. Make sure it's working by running `mdbook help`. Finally, run `mdbook build` in the root directory and your book will be generated at `book/`.
+
 # Index
 
 Here is the index for all of the content in this course. Feel free to go through the whole thing, or only parts of it (don't let me tell you how to live your life). For the order that you do the challenges in a module, I would recommend starting with the first.
