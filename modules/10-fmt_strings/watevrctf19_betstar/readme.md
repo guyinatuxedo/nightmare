@@ -1,5 +1,7 @@
 # Watevr ctf 2019 betstar5000
 
+This writeup goes out to noopnoop, for his eternal love of format strings.
+
 Let's take a look at the binary / libc:
 
 ```
