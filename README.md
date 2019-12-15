@@ -107,6 +107,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    backdoor17_bbpwn  
 -    twesterns16_greeting 
 -    pico_echo 
+- 	 watevr19_betstar
 
 #### 11.) Index Array    
 -    dcquals16_xkcd 
