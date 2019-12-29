@@ -1,3 +1,4 @@
+from __future__ import print_function
 #First import the z3 library
 from z3 import *
 
@@ -21,16 +22,16 @@ def decrypt(inp, z):
 
     #Check if the conditions are satisfiable, if it is model it and get the password
     if z.check() == sat:
-        print "The condition is: " + str(z.check())
+        print("The condition is: " + str(z.check()))
         solve = z.model()
         cred = ""
         #Sort out the data, and print the passord
         for i in xrange(24):
             cred = cred + chr(int(str(solve[inp[i]])))
-        print cred
+        print(cred)
     else:
         #Something failed and the condition isn't satisifiable, I would recogmend crying
-        print "The condition is: " + str(z.check())
+        print("The condition is: " + str(z.check()))
 
 
 #Establish the solver, and the input array

@@ -1,3 +1,4 @@
+from __future__ import print_function
 # https://github.com/p4-team/ctf/blob/master/2018-08-18-whitehat/re06/README.md
 # ^ That writeup helped me with unpacking issues
 
@@ -33,4 +34,4 @@ for i in range(0, len(desiredOutput), 2):
         if (out == check):
             flag += chr(c)
 
-print flag
+print(flag)

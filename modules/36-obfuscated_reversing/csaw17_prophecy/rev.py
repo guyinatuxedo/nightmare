@@ -1,3 +1,4 @@
+from __future__ import print_function
 #First import pwntools
 from pwn import *
 
@@ -9,7 +10,7 @@ target = process('./prophecy')
 #gdb.attach(target)
 
 #Print out the starting menu, prompt for input from user, then send filename
-print target.recvuntil(">>")
+print(target.recvuntil(">>"))
 raw_input()
 target.sendline(".starcraft")
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Import the libraries
 from subprocess import *
 import string
@@ -28,4 +29,4 @@ while True:
             ins_count = instructions
     # Add the character with the highest instruction count to flag, print it, and restart
     flag += count_chr
-    print flag
+    print(flag)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 #Establish the flag after the binary not
 flag = [ 0xd5, 0x15, 0x3d, 0xd5, 0x9d, 0x21, 0x71, 0xf1, 0xa1, 0x69, 0x31, 0x61, 0xdd, 0x89, 0xb9, 0x49, 0xb9, 0x09, 0xa1, 0x13, 0x93, 0x09, 0x19, 0xc9, 0xe1, 0xf1, 0xa1, 0x65, 0xd9, 0x29, 0x41]
 
@@ -10,7 +11,7 @@ def not_inp(inp):
     if len(string) < 8:
         diff = 8 - len(string)
         string = diff*"0" + string
-    print "Binary string is:  " + string
+    print("Binary string is:  " + string)
     
     #Swap the ones with zeroes, and vice versa
     for s in string:
@@ -18,7 +19,7 @@ def not_inp(inp):
             result += "1"
         if s == "1":
             result += "0"
-    print "Binary inverse is: " + result
+    print("Binary inverse is: " + result)
     
     #Convert the binary string to an int, and return it
     output = int(result, 2)
@@ -30,7 +31,7 @@ out = []
 for i in flag:
     x = not_inp(i)
     out.append(x)
-    print hex(x)
+    print(hex(x))
 
 #Print the flag before the binary not
-print "alt_flag = " + str(out)
+print("alt_flag = " + str(out))

@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Import hashlib
 import hashlib
 
@@ -13,7 +14,7 @@ def enc(inp):
 		out = ""
 		c = inp
 		out = xor(c, i)
-		print out
+		print(out)
 
 
 def xor(inp, c):

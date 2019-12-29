@@ -1,3 +1,4 @@
+from __future__ import print_function
 #Import pwntools
 from pwn import *
 
@@ -8,7 +9,7 @@ target = process('./32_new')
 gdb.attach(target, gdbscript='b *0x080487dc')
 
 #Print the first line of text
-print target.recvline()
+print(target.recvline())
 
 #Establish the addresses which we will be writing to
 fflush_adr0 = p32(0x804a028)

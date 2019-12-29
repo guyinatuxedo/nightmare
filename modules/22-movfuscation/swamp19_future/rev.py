@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Import the libraries
 from subprocess import *
 import string
@@ -18,4 +19,4 @@ while True:
 			count_chr = i
 			ins_count = instructions
 	flag += count_chr
-	print flag
+	print(flag)

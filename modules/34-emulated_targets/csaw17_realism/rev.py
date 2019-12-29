@@ -1,3 +1,4 @@
+from __future__ import print_function
 # This script is from a solution here: https://github.com/DMArens/CTF-Writeups/blob/master/2017/CSAWQuals/reverse/realistic.py
 # I basically just added comments to it
 
@@ -58,9 +59,9 @@ for i in range(8):
 
 # Check if it z3 can solve the problem
 if z.check() == sat:
-	print "z3 can solve it"
+	print("z3 can solve it")
 elif z.check() == unsat:
-	print "The condition isn't satisified, I would recommend crying."
+	print("The condition isn't satisified, I would recommend crying.")
 	exit(0)
 
 # Model the solution (it makes z3 come up with a solution), and then filter out the flag and convert it ASCII
@@ -81,6 +82,6 @@ flag = ''.join(solutions)
 
 # Next we need to essentially undo the `pshfud` instruction which occurs at `0x7c86`, that way when we give the flag and it applies the instruction, it will have the string needed to pass the eight checks
 flag = flag[12:] + flag[8:12] + flag[:8]
-print "flag{}".format(flag)
+print("flag{}".format(flag))
 
 

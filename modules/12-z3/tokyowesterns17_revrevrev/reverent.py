@@ -1,3 +1,4 @@
+from __future__ import print_function
 #Import z3
 from z3 import *
 
@@ -27,17 +28,17 @@ def solve(alt_flag):
 
     #Check if the problem is solvable by z3
     if zolv.check() == sat:
-        print "The condition is satisfied, would still recommend crying: " + str(zolv.check())
+        print("The condition is satisfied, would still recommend crying: " + str(zolv.check()))
         #The problem is solvable, model it and print the solution
         solution = zolv.model()
         flag = ""
         for i in range(0, len(alt_flag)):
             flag += chr(int(str(solution[inp[i]])))
-        print flag
+        print(flag)
 
     #The problem is not solvable by z3    
     if zolv.check() == unsat:
-        print "The condition is not satisfied, would recommend crying: " + str(zolv.check())
+        print("The condition is not satisfied, would recommend crying: " + str(zolv.check()))
 
 
 solve(alt_flag)

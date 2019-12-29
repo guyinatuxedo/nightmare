@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Import Angr
 import angr
 
@@ -20,4 +21,4 @@ simulation = target.factory.simulation_manager(entry_state)
 simulation.explore(find = desired_adr, avoid = wrong_adr)
 
 solution = simulation.found[0].posix.dumps(0)
-print solution
+print(solution)

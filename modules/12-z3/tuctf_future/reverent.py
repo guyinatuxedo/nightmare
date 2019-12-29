@@ -1,3 +1,4 @@
+from __future__ import print_function
 #Import z3
 from z3 import *
 
@@ -75,13 +76,13 @@ for i in xrange(25):
 #Check if z3 can solve it, and if it can print out the solution
 if z.check() == sat:
 #	print z
-	print "Condition is satisfied, would still recommend crying: " + str(z.check())
+	print("Condition is satisfied, would still recommend crying: " + str(z.check()))
 	solution = z.model()
 	flag = ""
 	for i in inp:
 		flag += chr(int(str(solution[i])))
-	print "solution is: " + flag
+	print("solution is: " + flag)
 
 #Check if z3 can't solve it
 if z.check() == unsat:
-	print "Condition is not satisfied, would recommend crying: " + str(z.check())
+	print("Condition is not satisfied, would recommend crying: " + str(z.check()))

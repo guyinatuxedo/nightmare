@@ -1,3 +1,4 @@
+from __future__ import print_function
 #This script is based off of the writeup from: https://github.com/smokeleeteveryday/CTF_WRITEUPS/tree/master/2016/BKPCTF/reversing/unholy
 
 #Import libraries
@@ -34,7 +35,7 @@ def solvePython():
 
     #Check to see if the z3 conditions are possible to solve
     if z.check() == sat:
-        print "The condition is satisfiable, would still recommend crying: " + str(z.check())
+        print("The condition is satisfiable, would still recommend crying: " + str(z.check()))
         #Solve it, store it in matrix, then return
         solution = z.model()
         matrix = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
@@ -43,7 +44,7 @@ def solvePython():
                 matrix[i0][i1] = solution[X[i0][i1]].as_long()
         return matrix
     else:
-        print "The condition is not satisfiable, would recommend crying alot: " + str(z.check())
+        print("The condition is not satisfiable, would recommend crying alot: " + str(z.check()))
  
 def xteaDecrypt(matrix):
     #Establish the key
@@ -77,4 +78,4 @@ def xteaDecrypt(matrix):
 #Run the code
 matrix = solvePython()
 flag = xteaDecrypt(matrix)
-print "The flag is: " + flag
+print("The flag is: " + flag)
