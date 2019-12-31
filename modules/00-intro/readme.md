@@ -1,4 +1,4 @@
-# Into
+# Intro
 
 So I just want to say a few things for the people who are super new to binary exploitation / reverse engineering. If you are already familiar with assembly code / binary exploitation and reverse engineering, and tools like ghidra / pwntools / gdb, feel free to skip this whole section (and any other content you already know). The purpose of this section is to give sort of an introduction to the super new people.
 
