@@ -29,7 +29,7 @@ Special thanks to these people:
 
 ```
 noopnoop 	-	For dealing with me
-digitalcold   -	For showing me how good nightmare could look with mdbook
+digitalcold     -	For showing me how good nightmare could look with mdbook
 you nerds 	-	For looking at this
 ```
 
