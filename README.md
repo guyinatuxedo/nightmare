@@ -1,6 +1,12 @@
 # Nightmare
 
-Nightmare is an intro to binary exploitation / reverse engineering course based around ctf challenges. I call it that because it's a lot of people's nightmare to get hit by weaponized 0 days, which these skills directly tranlate into doing that type of work (plus it's a really cool song).
+Nightmare is an intro to binary exploitation / reverse engineering course based around ctf challenges. I call it that because it's a lot of people's nightmare to get hit by weaponized 0 days, which these skills directly translate into doing that type of work (plus it's a really cool song).
+
+## Static Site
+
+There is a github pages site which basically hosts the content of Nightmare, but it actually looks good. You can find it at: https://guyinatuxedo.github.io/
+
+If you want to manually build the site, I just used mdbook. After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
 
 ## What makes Nightmare different?
 
@@ -25,6 +31,16 @@ I have found that resources that have many of these things to be few and far bet
 If you get stuck on something for hours on end and google can't answer your question, try asking in the discord (or if you just feel like talking about cool security things). Here is a link to it `https://discord.gg/p5E3VZF`
 
 Also if you notice any typos or mistakes, feel free to mention it in the Discord. With how much content is here, there is bound to be at least one.
+
+## Special Thanks
+
+Special Thanks to these people:
+
+```
+noopnoop 	-	For dealing with me / making a few writeups
+digitalcold -	For giving the advice / showing me how good the static sit would look
+you nerd 	- 	For looking at this
+```
 
 # Index
 
