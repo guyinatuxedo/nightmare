@@ -73,7 +73,7 @@ In `x64` linux arguments to a function are passed via registers. The first few a
 rdi:    First Argument
 rsi:    Second Argument
 rdx:    Third Argument
-r10:    Fourth Argument
+rcx:    Fourth Argument
 r8:     Fifth Argument
 r9:     Sixth Argument
 ```
