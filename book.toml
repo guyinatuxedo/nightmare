@@ -1,0 +1,11 @@
+[book]
+title = "Nightmare"
+authors = ["guyinatuxedo"]
+description = "Nightmare: an intro to binary exploitation / reverse engineering course based around CTF challenges."
+src = "modules"
+language = "en"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/guyinatuxedo/nightmare/"
+git-repository-icon = "fa-github"
