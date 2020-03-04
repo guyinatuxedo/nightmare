@@ -38,7 +38,7 @@ That code isn't ran. Thing is that code is compiled into assembly code, which lo
 
 The purpose of languages like C, is that we can program without having to really deal with assembly code. We write code that is handed to a compiler, and the compiler takes that code and generates assembly code that will accomplish whatever the C code tells it to. Then the assembly code is what is actually ran on the processor. Since this is the code that is actually ran, it helps to understand it. Also since most of the time we are handed compiled binaries we only have the assembly code to work from. However we have tools such as Ghidra that will take compiled assembly code and give us a view of what it thinks the C code that the code was compiled from looks like, so we don't need to read endless lines of assembly code.
 
-Also with assembly code, there is a lot of different architectures. Different types of processors can run different types of assembly code architectures. The two we are dealing with the most here will be 64 bit, and 32 bit ELF (Executable Linux File). I will often call these two things `x64` and `x86`.
+Also with assembly code, there is a lot of different architectures. Different types of processors can run different types of assembly code architectures. The two we are dealing with the most here will be 64 bit, and 32 bit ELF (Executable and Linkable Format). I will often call these two things `x64` and `x86`.
 
 ## Registers
 
@@ -73,7 +73,7 @@ In `x64` linux arguments to a function are passed via registers. The first few a
 rdi:    First Argument
 rsi:    Second Argument
 rdx:    Third Argument
-r10:    Fourth Argument
+rcx:    Fourth Argument
 r8:     Fifth Argument
 r9:     Sixth Argument
 ```

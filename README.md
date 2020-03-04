@@ -25,6 +25,19 @@ It's true there are a lot of resources out there to learn binary exploitation / 
 ```
 
 I have found that resources that have many of these things to be few and far between. As a result it can make learning these skills difficult since you don't really know what to learn, or how to learn it. This is essentially my attempt to help fix some of those problems.
+## Static Site
+
+If you want, there is a static github pages site which people say looks better: https://guyinatuxedo.github.io/
+
+## Special Thanks
+
+Special thanks to these people:
+
+```
+noopnoop 	-	For dealing with me
+digitalcold     -	For showing me how good nightmare could look with mdbook
+you nerds 	-	For looking at this
+```
 
 ## Discord
 
