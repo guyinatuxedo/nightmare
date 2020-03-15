@@ -216,7 +216,7 @@ The lea instruction calculates the address of the second operand, and moves that
 lea rdi, [rbx+0x10]
 ```
 
-This will move the address of `rbx+0x10`  into the `rdi` instruction.
+This will move the address `rbx+0x10` into the `rdi` register.
 
 #### add
 This just adds the two values together, and stores the sum in the first argument. For instance:
