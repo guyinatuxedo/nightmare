@@ -46,6 +46,10 @@ call   80482d0 <puts@plt>
 
 Looking through the rest of the code, we really don't see much else that is interesting for our perspective. So this code probably just prints a string. When we run the binary, we see that is correct:
 
+
+If the binary does not run, it is likely because of this problem. Read the Stack Overflow answer and try to understand what is wrong and what is being done to fix this. <https://superuser.com/questions/1266195/change-file-permissions-in-kali-linux>
+
+
 ```
 $    ./hello_world
 hello world!
