@@ -312,7 +312,7 @@ Breakpoint 1, 0xf7e4a360 in puts () from /lib32/libc.so.6
 
 ## Viewing Things
 
-So one thing that gdb is really useful for is viewing the values of different things. Once we are dropped into a debugger while the process is viewing, let's view the contents of the `esp` register:
+So one thing that gdb is really useful for is viewing the values of different things. Once we are dropped into a debugger while the process is viewing, let's view the contents of the `esp` register. To get there we will break on main, run, and then advance three instructions: 
 
 ```
 gef➤  break main 
@@ -369,7 +369,7 @@ gef➤
 
 ```
 
-If we take one more "nexti" we can see that the register `esp` holds the value `0xffffd0d0`, which is a pointer. Let's see what it points to:
+We can see that the register `esp` holds the value `0xffffd0d0`, which is a pointer. Let's see what it points to:
 
 ```
 gef➤  x/a 0xffffd0d0
@@ -381,7 +381,7 @@ gef➤  x/s 0x80484b0
 0x80484b0:	"hello world!"
 ```
 
-So we can see that it points to the string `hello world!`, which will be printed by `puts` (since `puts` takes a single argument which is a char pointer). One thing in gdb when you examine things with `x`, you can specify what you want to examine it as. Possible things include as an address 'x/a', a number of characters 'x/10c' string `x/s`, as a qword `x/g`, or as a dword `x/w`.
+So we can see that it points to the string `hello world!`, which will be printed by `puts` (since `puts` takes a single argument which is a char pointer). One thing in gdb when you examine things with `x`, you can specify what you want to examine it as. Possible things include as an address `x/a`, a number of characters `x/10c` string `x/s`, as a qword `x/g`, or as a dword `x/w`.
 
 let's view the contents of all of the registers:
 
@@ -514,3 +514,5 @@ Let's say we wanted to jump directly to an instruction like `0x08048451`, and sk
 gef➤  j *0x08048451
 Continuing at 0x0x08048451.
 ```
+
+That was a lot, keep referring to this, your notes, and GDB cheatsheets as you go along. 
