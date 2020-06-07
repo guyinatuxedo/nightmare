@@ -15,7 +15,7 @@ Line `129` is:
 
 This command is xoring the `dh` register with itself, and stores the value in the `dh` register. Due to how the binary operation xoring works, whenever you xor something by itself the result is 0. So the value of dh after line 129 executes is `0x0`.
 
-#### What is the value of dh after line 145 executes?
+#### What is the value of gs after line 145 executes?
 
 Line `145` is:
 ```
