@@ -48,11 +48,11 @@ int main(void)
 	+-------+---------------------+------+
 	| 0x10: | Chunk # 0 content   | 0x00 |
 	+-------+---------------------+------+
-	| 0x70: | Chunk # 1 prev size | 0x00 |
+	| 0x60: | Chunk # 1 prev size | 0x00 |
 	+-------+---------------------+------+
-	| 0x78: | Chunk # 1 size      | 0x40 |
+	| 0x68: | Chunk # 1 size      | 0x40 |
 	+-------+---------------------+------+
-	| 0x80: | Chunk # 1 content   | 0x00 |
+	| 0x70: | Chunk # 1 content   | 0x00 |
 	+-------+---------------------+------+
 
 	for what we are doing the prev size values don't matter too much
