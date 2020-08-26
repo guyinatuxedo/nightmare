@@ -73,7 +73,7 @@ undefined8 main(void)
 }
 ```
 
-Looking through the code here, we see that the part we are really interested about is `chart_course` function call, which takes the pointer `charBuf` as an argument. When we look at the `chart_course` disassembly in IDA, we see this: 
+Looking through the code here, we see that the part we are really interested about is `chart_course` function call, which takes the pointer `charBuf` as an argument. When we look at the `chart_course` disassembly in Ghidra, we see this: 
 
 ```
 void chart_course(long ptr)

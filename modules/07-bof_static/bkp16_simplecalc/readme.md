@@ -251,7 +251,7 @@ Stack level 0, frame at 0x7fffffffdeb0:
   rbp at 0x7fffffffdea0, rip at 0x7fffffffdea8
 ```
 
-So we can see that the offset between the start of our input and the return address is `0x7fffffffdea8 - 0x7fffffffde60 = 0x48`, which will be `18` integers. Now for what to execute when we get the return address. Since the binary is statically linked and there is no PIE, we can just build a rop chain using the binary for gadgets and we without an infoleak. The ROP Chain will essentially just make an execve syscall to `/bin/sh`. There are four registers that we need to control in order to make this syscall (checkout https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for more details):
+So we can see that the offset between the start of our input and the return address is `0x7fffffffdea8 - 0x7fffffffde60 = 0x48`, which will be `18` integers. Now for what to execute when we get the return address. Since the binary is statically linked and there is no PIE, we can just build a rop chain using the binary for gadgets and without an infoleak. The ROP Chain will essentially just make an execve syscall to `/bin/sh`. There are four registers that we need to control in order to make this syscall (checkout https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for more details):
 
 ```
 rax:  0x3b              Specify execve syscall

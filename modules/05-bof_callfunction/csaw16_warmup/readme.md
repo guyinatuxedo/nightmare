@@ -183,4 +183,4 @@ WOW:0x40060d
 [*] Got EOF while reading in interactive
 ```
 
-Just like that, we got the flag!
+Just like that, we got the flag! As a sidenote, I've heard of instances where in certain enviornments the offset is `0x40` instead of `0x48`.

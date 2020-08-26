@@ -1,5 +1,7 @@
 # House of Spirit Explanation
 
+Shoutout to `fanpu` for a fix to a mistake for the diagram.
+
 So this is a well documented C source file that explains how a House of Spirit attack works. It was ran on Ubuntu 16.04. Essentially with a House of Spirit attack, we create two fake chunks by writing two integers to a region of memory that will represent the sizes of the fake chunks. Then we get a pointer to point to the first fake chunk, and free it. Then we get malloc to return a pointer to that memory region. So it essentially allows us to get malloc to return a pointer to a region of memory that we can write two integers to.
 
 It might seem a bit redundant since we can already write to this memory region. However if we can get malloc to return a pointer to a memory region, depending on the code we should be able to edit/view/manipulate that region of memory differently.
@@ -48,11 +50,11 @@ int main(void)
 	+-------+---------------------+------+
 	| 0x10: | Chunk # 0 content   | 0x00 |
 	+-------+---------------------+------+
-	| 0x70: | Chunk # 1 prev size | 0x00 |
+	| 0x60: | Chunk # 1 prev size | 0x00 |
 	+-------+---------------------+------+
-	| 0x78: | Chunk # 1 size      | 0x40 |
+	| 0x68: | Chunk # 1 size      | 0x40 |
 	+-------+---------------------+------+
-	| 0x80: | Chunk # 1 content   | 0x00 |
+	| 0x70: | Chunk # 1 content   | 0x00 |
 	+-------+---------------------+------+
 
 	for what we are doing the prev size values don't matter too much
