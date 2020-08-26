@@ -65,7 +65,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    pico18_strings     
 -    helithumper_re
 -    csaw18_tourofx86pt1     
--      csaw19_beleaf
+-    csaw19_beleaf
 
 ## Stack pt 0 Stack Tendencies
 
@@ -106,8 +106,8 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csaw17_svc    
 -    fb19_overfloat    
 -    hs19_storytime    
--     csaw19_babyboi
--     utc19_shellme
+-    csaw19_babyboi
+-    utc19_shellme
 
 ## General pt 0 Stardust Challenges
 
@@ -121,7 +121,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    backdoor17_bbpwn  
 -    twesterns16_greeting
 -    pico_echo
--      watevr19_betstar
+-    watevr19_betstar
 
 #### 11.) Index Array    
 -    dcquals16_xkcd
@@ -292,10 +292,8 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csaw19_poppingCaps0
 -    csaw19_poppingCaps1
 
-## Ending Documentation
-
-#### References
-
-#### What's next
+#### Ending Documentation
+-    References
+-    What's next
 
 
