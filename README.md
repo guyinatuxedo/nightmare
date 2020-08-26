@@ -33,7 +33,7 @@ Special thanks to these people:
 
 ```
 noopnoop     -    For dealing with me
-digitalcold     -    For showing me how good nightmare could look with mdbook
+digitalcold  -    For showing me how good nightmare could look with mdbook
 you nerds     -    For looking at this
 ```
 
@@ -48,7 +48,7 @@ Also if you notice any typos or mistakes, feel free to mention it in the Discord
 Here is the index for all of the content in this course. Feel free to go through the whole thing, or only parts of it (don't let me tell you how to live your life). For the order that you do the challenges in a module, I would recommend starting with the first.
 
 
-## Intro (Departure)
+## Intro Departure
 
 #### 0.) Intro to the Project    
 
@@ -67,9 +67,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csaw18_tourofx86pt1     
 -      csaw19_beleaf
 
-
-
-## Stack pt 0 (Stack Tendencies)
+## Stack pt 0 Stack Tendencies
 
 #### 4.) Buffer Overflow of Variables
 
@@ -111,9 +109,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -     csaw19_babyboi
 -     utc19_shellme
 
-
-
-## General pt 0 (Stardust Challenges)
+## General pt 0 Stardust Challenges
 
 #### 9.) Bad Seed     
 -    h3_time      
@@ -142,9 +138,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    plaid19_icancount
 -    defcamp15_r100
 
-
-
-## Stack pt 1 (Return to Stack, truly a perfect game)
+## Stack pt 1 Return to Stack, truly a perfect game
 
 #### 14.) Ret2system     
 -    asis17_marymorton    
@@ -171,9 +165,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    ropemporium_ret2csu
 -    0ctf 2018 babystack
 
-
-
-## General pt 1 (Armstrong challenges)
+## General pt 1 Armstrong challenges
 
 #### 19.) Shellcoding pt 1    
 -    defconquals19_s3    
@@ -202,7 +194,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    h3_challenge2
 -    h3_challenge3
 
-## Heap Pt 0 (rip Angel Beats)
+## Heap Pt 0 rip Angel Beats
 
 #### 24.) Basic Heap overflow
 -    protostar_heap1
@@ -251,7 +243,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csawquals18_AliensVSSamurai
 -    csawquals19_traveller
 
-## General Pt 2 (Generic Isekai #367)
+## General Pt 2 Generic Isekai #367
 
 #### 34.) Qemu / Emulated Targets     
 -   csaw18_tour_of_x86_pt_2     
@@ -277,7 +269,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -     unit_vars_expl
 -    csaw19_gibberish
 
-## Heap pt 1 (heap x heap)
+## Heap pt 1 heap x heap
 
 #### 39.) House of Spirit     
 -    explanation
