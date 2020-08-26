@@ -1,0 +1,33 @@
+exec """
+
+#Import libraries
+import struct
+import sys
+
+#Establish alliases
+e=range
+I=len
+F=sys.exit
+
+
+X=[[%d,%d,%d],[%d,%d,%d],[%d,%d,%d]]
+Y = [[383212,38297,8201833],[382494 ,348234985,3492834886],[3842947 ,984328,38423942839]]
+n=[5034563854941868,252734795015555591,55088063485350767967,-2770438152229037,142904135684288795,-33469734302639376803,-3633507310795117,195138776204250759,-34639402662163370450]
+y=[[0,0,0],[0,0,0],[0,0,0]]
+A=[0,0,0,0,0,0,0,0,0]
+
+for i in e(I(X)):
+ for j in e(I(Y[0])):
+  for k in e(I(Y)):
+   y[i][j]+=X[i][k]*Y[k][j]
+c=0
+
+for r in y:
+ for x in r:
+ #Check to see if we have the desired input
+  if x!=n[c]:
+   print "dang...\"
+   F(47)
+  c=c+1
+  print ":)\"
+"""
