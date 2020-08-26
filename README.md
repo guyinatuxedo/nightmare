@@ -154,7 +154,7 @@ Here is the index for all of the content in this course. Feel free to go through
 -    backdoorctf_funsignals    
 -    inctf17_stupiddrop
 -    swamp19_syscaller
--     csaw19_smallboi
+-    csaw19_smallboi
 
 #### 17.) Stack Pivot / Partial Overwrite
 -    defconquals19_speedrun4
@@ -256,17 +256,17 @@ Here is the index for all of the content in this course. Feel free to go through
 -   signed_unsigned_int_expl
 
 #### 36.) Obfuscated Reversing     
--     csaw15_wyvern     
--     csaw17_prophecy
--     bkp16_unholy
+-    csaw15_wyvern     
+-    csaw17_prophecy
+-    bkp16_unholy
 
 #### 37.) FS Exploitation    
--     swamp19_badfile
+-    swamp19_badfile
 
 #### 38.) Grab Bag         
--     csaw18_doubletrouble
--     hackim19_shop        
--     unit_vars_expl
+-    csaw18_doubletrouble
+-    hackim19_shop        
+-    unit_vars_expl
 -    csaw19_gibberish
 
 ## Heap pt 1 heap x heap
