@@ -292,6 +292,9 @@ Here is the index for all of the content in this course. Feel free to go through
 -    csaw19_poppingCaps0
 -    csaw19_poppingCaps1
 
+#### 45.) Automatic Exploit Generation
+-    csaw20_rop
+
 #### Ending Documentation
 -    References
 -    What's next
