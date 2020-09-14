@@ -23,8 +23,6 @@ I have found that resources that have many of these things to be few and far bet
 
 If you want, there is a static github pages site which people say looks better: https://guyinatuxedo.github.io/
 
-If you want to manually build the site, I just used mdbook. After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
-
 ## Github
 
 A copy of all of the challenges listed, can be found on the github: https://github.com/guyinatuxedo/nightmare
@@ -36,7 +34,7 @@ Special thanks to these people:
 ```
 noopnoop     -    For dealing with me
 digitalcold  -    For showing me how good nightmare could look with mdbook
-you nerds    -    For looking at this
+you nerds     -    For looking at this
 ```
 
 ## Discord
@@ -293,6 +291,9 @@ Here is the index for all of the content in this course. Feel free to go through
 #### 44.) More tcache
 -    csaw19_poppingCaps0
 -    csaw19_poppingCaps1
+
+#### 45.) Automatic Exploit Generation
+-    csaw20_rop
 
 #### Ending Documentation
 -    References
