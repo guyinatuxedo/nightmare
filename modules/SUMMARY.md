@@ -160,5 +160,6 @@
   - [CSAW'19: Gibberishcheck](./38-grab_bad/csaw19_gibberishCheck/readme.md)
   - [HackIM'19: Shop](./38-grab_bad/hackim19_shop/readme.md)
 
+[Auto Pwning](./45-automatic_exploit_generation/readme.md)
 [What's Next](./next/readme.md)
 [References](./references/readme.md)
