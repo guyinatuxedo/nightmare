@@ -476,4 +476,4 @@ delete(0)
 target.interactive()
 ```
 
-I would like to give credit to this writeup for helping me solve an issue with the merging free affecting the fastbin size: [https://stfwlg.github.io/archivers/2016_0ctf-_zerostorage_%ED%92%80%EC%9D%B4]
+I would like to give credit to this writeup for helping me solve an issue with the merging free affecting the fastbin size: https://stfwlg.github.io/archivers/2016\_0ctf-\_zerostorage\_%ED%92%80%EC%9D%B4
