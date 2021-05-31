@@ -4,7 +4,7 @@ This module is literally just an explanation as to how various parts of the heap
 
 ## Libc
 
-The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions change, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependant). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in exploit).
+The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions change, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependent). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in exploit).
 
 ## Malloc Chunk
 
@@ -107,7 +107,7 @@ Now the fast bin is called that, because allocating from the fast bin is typical
 
 The tcache is sort of like the Fast Bins, however it has it's differences.
 
-The tcahce is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcahce). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Also in versions of libc that have a tcache, the tcache is the first place that it will look to either allocate chunks from or place freed chunks (since it's faster).
+The tcache is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcache). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Also in versions of libc that have a tcache, the tcache is the first place that it will look to either allocate chunks from or place freed chunks (since it's faster).
 
 An actual tcache list is stored like a Fast Bin where it is a linked list. Also like the Fast Bin, it is LIFO. However a tcache list can only hold `7` chunks at a time. If a chunk is freed that meets the size requirement of a tcache however it's list is full, then it is inserted into the next bin that meets its size requirements. Let's see this in action.
 
@@ -789,7 +789,7 @@ Here we can see the check that we failed. The check is being done on a chunk all
 
 #### Linking
 
-When you attempt to use `LD_PRELOAD` to have a binary use a specific libc file, you might find an issue if the linker's are not compatible. If you run into that issue where you try to `LD_PRELOAD` a libc version that isn't compatible and you have gdb attached, you should see an error message from gdb like this:
+When you attempt to use `LD_PRELOAD` to have a binary use a specific libc file, you might find an issue if the linker is not compatible. If you run into that issue where you try to `LD_PRELOAD` a libc version that isn't compatible and you have gdb attached, you should see an error message from gdb like this:
 
 ```
 GEF for linux ready, type `gef' to start, `gef config' to configure
@@ -807,7 +807,7 @@ ptrace: Operation not permitted.
 gef➤  
 ```
 
-There are several ways you can tackle this problem. You could just keep all of the linkers on hand, and just use them as you need to. What I currently do is run several different vms with different versions of Ubuntu. This is because different versions of Ubuntu ship with different linkers, and different linkers work with different libc versions. I find this to be less of a hassle. For all of the libc dependant challenges, in the writeup I put what version of Ubuntu I used, so if you want to take the same approach you can.
+There are several ways you can tackle this problem. You could just keep all of the linkers on hand, and just use them as you need to. What I currently do is run several different vms with different versions of Ubuntu. This is because different versions of Ubuntu ship with different linkers, and different linkers work with different libc versions. I find this to be less of a hassle. For all of the libc dependent challenges, in the writeup I put what version of Ubuntu I used, so if you want to take the same approach you can.
 
 ## Explanations
 
