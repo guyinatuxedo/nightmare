@@ -6,9 +6,9 @@ So I just want to say a few things for the people who are super new to binary ex
 
 First off what's a binary?
 
-A binary is compiled code. When a programmer writes code in a language like C, the C code isn't what gets actually ran. It is compiled into a binary file and the binary is run. Binary exploitation is the process of actually exploiting a binary, but what does that mean?
+A binary is compiled code. When a programmer writes code in a language like C, the C code isn't what is actually ran. It is compiled into a binary file and the binary is run. Binary exploitation is the process of actually exploiting a binary, but what does that mean?
 
-In a lot of code, you will find bugs. Think of a bug as a mistake in code that will allow for unintended functionality. As an attacker we can leverage this bug to attack the binary, and actually force it to do what we want by getting code execution. That means we actually have the binary execute whatever code that we want, and can essentially hack the code.
+In a lot of code, you will find bugs. Think of a bug as a mistake in code that will allow for unintended functionality. As an attacker we can leverage certain types of bugs to attack the binary, and actually force it to do what we want by getting code execution. That means we actually have the binary execute whatever code that we want, and can essentially hack the code.
 
 ## Reverse Engineering
 
