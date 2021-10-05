@@ -1,6 +1,6 @@
 # Relro
 
-Relro (Read only Relocation) affects the memory permissions similar to NX. The difference is whereas with NX it makes the stack executable, RELRO makes certain things read only so we can't write to them. The most common way I've seen this be an obstacle is preventing us from doing a `got` table overwrite, which will be covered later. The `got` table holds addresses for libc functions so that the binary knows what the addresses are and can call them. Let's see what the memory permissions look like for a `got` table entry for a binary with and without relro.
+Relro (Read only Relocation) affects the memory permissions similar to NX. The difference is whereas with NX it makes the stack non-executable, RELRO makes certain things read only so we can't write to them. The most common way I've seen this be an obstacle is preventing us from doing a `got` table overwrite, which will be covered later. The `got` table holds addresses for libc functions so that the binary knows what the addresses are and can call them. Let's see what the memory permissions look like for a `got` table entry for a binary with and without relro.
 
 With relro:
 
