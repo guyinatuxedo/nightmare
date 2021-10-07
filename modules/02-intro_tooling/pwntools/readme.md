@@ -2,14 +2,14 @@
 
 Pwntools is a python ctf library designed for rapid exploit development. It essentially help us write exploits quickly, and has a lot of useful functionality behind it.
 
-Also one thing to note, pwntools has Python2 and Python3 versions. Atm this course uses the Python2, but I have plans to switch it all over to Python3. Just keep in mind that some things change between Python2 to the Python3 versions, however the changes are relatively small.
+Also one thing to note, pwntools has Python2 and Python3 versions. Atm this course uses the Python3, but I have plans to switch it all over to Python3. Just keep in mind that some things change between Python2 to the Python3 versions, however the changes are relatively small.
 
 ## Installation
 
 It's fairly simple process. The installation process is pretty much just using pip:
 
 ```
-$    sudo pip install pwn
+$    sudo pip3 install pwn
 ```
 
 If you have any problems, google will help a lot.

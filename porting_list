@@ -7,8 +7,8 @@ T
 #### 0.) Intro to the Project (ported)
 
 #### 1.) Intro to Assembly     
--    Intro to assembly
--    Sample assembly reverse challs
+-    Intro to assembly (ported)
+-    Sample assembly reverse challs (ported)
 
 #### 2.) Intro to Tooling     
 -    gdb-gef     
@@ -25,7 +25,7 @@ T
 
 #### 4.) Buffer Overflow of Variables
 
--    Csaw18/boi
+-    Csaw18/boi (ported)
 -    TokyoWesterns17/just_do_it
 -    Tamu19_pwn1
 

