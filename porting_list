@@ -23,11 +23,11 @@ T
 
 ## Stack pt 0 Stack Tendencies
 
-#### 4.) Buffer Overflow of Variables
+#### 4.) Buffer Overflow of Variables (ported)
 
 -    Csaw18/boi (ported)
--    TokyoWesterns17/just_do_it
--    Tamu19_pwn1
+-    TokyoWesterns17/just_do_it (ported)_
+-    Tamu19_pwn1 (ported)
 
 #### 5.) Buffer Overflow Call Function
 -    Csaw18_getit     

