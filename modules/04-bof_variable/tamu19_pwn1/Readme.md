@@ -128,7 +128,7 @@ So we can see that `input` starts at offset `-0x43`. We see that `local_18` star
 
 ```
 # Import pwntools
-from pwn import process, p32
+from pwn import *
 
 # Establish the target process
 target = process('./pwn1')
