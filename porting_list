@@ -45,10 +45,10 @@ T
 #### 6.1) nx intro     
 -    nx explanation
 
-#### 7.) ROP Chain Statically compiled
--    dcquals19_speedrun1
--    bkp16_simplecalc
--    dcquals16_feedme
+#### 7.) ROP Chain Statically compiled (port)
+-    dcquals19_speedrun1 (ported)
+-    bkp16_simplecalc  (ported)
+-    dcquals16_feedme (ported)
 
 #### 7.1) stack canary intro     
 -    stack canary introduction
@@ -130,7 +130,6 @@ T
 -    dcquals18_elfcrumble                
 -    plaid19_plaid_part_planning_III        
 -    csaw16_gametime    
-
 
 #### 21.) .NET Reversing    
 -    csaw13_dotnet        
