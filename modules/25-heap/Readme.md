@@ -520,7 +520,7 @@ gef➤  x/6g 0x602210
 
 We can see that each of the chunks have the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
 
-These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nexsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
+These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nextsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
 
 ## Consolidation
 
