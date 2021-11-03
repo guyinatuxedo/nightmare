@@ -136,12 +136,12 @@ Breakpoint 1, 0x08048409 in main ()
 ```
 
 
-Now you can step through the function by typing 'nexti' until the program ends. 'nexti' will have you go instruction by intruction through the program, but will not step into function calls such as puts. 
+Now you can step through the function by typing 'nexti' until the program ends. 'nexti' will have you go instruction by instruction through the program, but will not step into function calls such as puts. 
 
 Other ways to navigate a program are:
 * 'next' - which will take you through one line of code, but will step over function calls such as puts. 
 * 'step' - which will take you through one line of code, but will step into function calls
-* 'stepi' - whch will take you through one instruction at a time, stepping into function calls
+* 'stepi' - which will take you through one instruction at a time, stepping into function calls
 
 For each of these methods, work through the program after setting a breakpoint in main. Take specific care to see what step and stepi see after entering puts. Most of the time, because those are part of standard libraries, we don't need to step into anything.
 

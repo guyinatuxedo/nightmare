@@ -54,7 +54,7 @@ undefined8 main(void)
 }
 ```
 
-So we can see it calls three functions, `dojo`, `hatchery`, and `invasion`. After it calls `dojo`, it saves the hooks for malloc and free (which will cause us problems later). Looking at `dojo`, we see that it is a menue with three options.
+So we can see it calls three functions, `dojo`, `hatchery`, and `invasion`. After it calls `dojo`, it saves the hooks for malloc and free (which will cause us problems later). Looking at `dojo`, we see that it is a menu with three options.
 
 ```
 void dojo(void)
@@ -395,7 +395,7 @@ then we free chunks `4` and `5`:
 0x10: 7
 ```
 
-Then we allocate an `0x68` byte chunk, which will go where the old chunk `5` used to. We will overflow the size for chunk `6` with a null byte, which will set the previous in use bit to zero, so malloc thinks the previous chunk ahs been freed (which it hasn't). We will also set the previous size equal to `0x170` so it thinks the previous chunk started where the old chunk `4` was:
+Then we allocate an `0x68` byte chunk, which will go where the old chunk `5` used to. We will overflow the size for chunk `6` with a null byte, which will set the previous in use bit to zero, so malloc thinks the previous chunk has been freed (which it hasn't). We will also set the previous size equal to `0x170` so it thinks the previous chunk started where the old chunk `4` was:
 
 ```
 0xf0: 4 (freed)

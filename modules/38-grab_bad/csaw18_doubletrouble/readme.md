@@ -152,7 +152,7 @@ void game(void)
 
 So we can see how this game goes down. It first starts by printing the address of `ptrArray` for the infoleak, which we later see is where our input is stored as a double. Then it scans in an integer into `heapQt`. Proceeding that it checks to make sure it isn't greater than `64` (this is because `ptrArray` is only big enough to hold `64` doubles). If it is, the program exits and prints the address of system to taunt us for being bad. Proceeding that it enters into a for loop which runs `heapQt` times, which each time it scans in `100` bytes of data into the heap, then converts it into a double, and stores it in the array `ptrArray`.  Proceeding that, it runs a number of sub functions with `heapQt` and `ptrArray` as arguments.
 
-Looking at the `sumArray`, `maxArray`, and `minArray` functions, they do pretty much what we would expect them to do. However when we get to `findArray`, that's when we see something intersting:
+Looking at the `sumArray`, `maxArray`, and `minArray` functions, they do pretty much what we would expect them to do. However when we get to `findArray`, that's when we see something interesting:
 
 ```
 
@@ -294,7 +294,7 @@ The value that we will have before the `0x804900a` double will be `0x80000000000
 
 The last thing we need to worry about is our shellcode, since we will need to know where it is on the stack to execute it, and we also need to make sure it stays intact and in the correct order after it is sorted. The way I accomplish this is by appending the `0x90` byte a certain amount of time to the front of certain parts of shellcode. This is because when executed `0x90` is the opcode for `NOP` which continues execution and doesn't affect our shellcode in any important way, and it will be evaluated as less than values starting with `0x804` so it won't affect the stack canary or what we did to write over the return address.
 
-However when we insert the NOPs into our shellcode, we will have to rewite/recompile the shellcode. The reason for this, is because if we just insert NOPs into random places, there is a good chance we will insert a NOP in the middle of an instruction, which will change what the instruction does. Also note, the base shellcode I did not write. I grabbed it from `http://shell-storm.org/shellcode/files/shellcode-599.php` and modified it. Also I found that this website which is an online x86/x64 decompiler/compiler helped `https://defuse.ca/online-x86-assembler.htm`:
+However when we insert the NOPs into our shellcode, we will have to rewrite/recompile the shellcode. The reason for this, is because if we just insert NOPs into random places, there is a good chance we will insert a NOP in the middle of an instruction, which will change what the instruction does. Also note, the base shellcode I did not write. I grabbed it from `http://shell-storm.org/shellcode/files/shellcode-599.php` and modified it. Also I found that this website which is an online x86/x64 decompiler/compiler helped `https://defuse.ca/online-x86-assembler.htm`:
 
 here is the shellcode before we modified it:
 ```

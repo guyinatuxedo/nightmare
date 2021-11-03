@@ -149,7 +149,7 @@ int game()
 
 So we can see how this game goes down. It first starts by printing the address of `ptrArray` for the infoleak, which we later see is where our input is stored as a double. scanning in an integer into `heapQt`. Proceeding that it checks to make sure it isn't greater than `64` (this is because `ptrArray` is only big enough to hold `64` doubles). If it is, the program exits and prints the address of system to taunt us for being bad. Proceeding that it enters into a for loop which runs `heapQt` times, which each time it scans in `100` bytes of data into the heap, then converts it into a double, and stores it in the array `ptrArray`.  Proceeding that, it runs a number of sub functions with `heapQt` and `ptrArray` as arguments.
 
-Looking at the `sumArray`, `maxArray`, and `minArray` functions, they do pretty much what we would expect them to do. However when we get to `findArray`, that's when we see something intersting:
+Looking at the `sumArray`, `maxArray`, and `minArray` functions, they do pretty much what we would expect them to do. However when we get to `findArray`, that's when we see something interesting:
 
 ```
 int __cdecl findArray(int *heapQt, int ptrArray, double a3, double a4)
@@ -172,7 +172,7 @@ int __cdecl findArray(int *heapQt, int ptrArray, double a3, double a4)
 }
 ```
 
-Particularyly this line is interesting:
+Particularly this line is interesting:
 
 ```
   *heapQt = v5;
@@ -208,7 +208,7 @@ So looking at this function, we can see that it essentially will loop through th
 
 ## Exploitation
 
-So we have a bug, where we can overwrite the number of doubles which is sorted in `sortArray`. We also have a stack infoleak, an executable stack, and the abillity to write data to the stack. And looking at the stack layout in IDA, we see that `16` bytes after our double array is the return address:
+So we have a bug, where we can overwrite the number of doubles which is sorted in `sortArray`. We also have a stack infoleak, an executable stack, and the ability to write data to the stack. And looking at the stack layout in IDA, we see that `16` bytes after our double array is the return address:
 
 ```
 -00000210 ptrArray        dq 64 dup(?)
@@ -283,7 +283,7 @@ gdb-peda$ x/x $ebp-0xc
 0xff896bbc: 0x1d781100
 ```
 
-So we can see here, an example memory layout of the stack prior to the sorting. We can see that the return adress is at `0xff896bcc` (which is `0x8049841`) and the stack canary is at `0xff896bbc` (which is `0x1d781100`). In this instance, my input ends at `0xff896bb4` with `0x0804900a00000000`. Keep in mind, that when evaluating the doubles (which are `8` bytes in memory) the last `4` bytes are stored first, which are followed by the first `4` bytes. For instance. 
+So we can see here, an example memory layout of the stack prior to the sorting. We can see that the return address is at `0xff896bcc` (which is `0x8049841`) and the stack canary is at `0xff896bbc` (which is `0x1d781100`). In this instance, my input ends at `0xff896bb4` with `0x0804900a00000000`. Keep in mind, that when evaluating the doubles (which are `8` bytes in memory) the last `4` bytes are stored first, which are followed by the first `4` bytes. For instance. 
  
 ```
  gdb-peda$ p/f 0x0804900a00000000
@@ -296,22 +296,22 @@ We can see that our input largely consists of the values `4.8653382194983783e-27
 
 We can see that values that start with `0xf` are really small when interpreted as a float. Thus they will float up the stack, while larger float values like `0x8049841` (which is the return address) would get moved to the bottom.
 
-Now to get the return address overwritten, what we can do is we can make the value of `heapQt` that which it extense to two doubles past the return address, which will be the value `69` (hex `0x45`). To get it to this value, I didn't reverse the algroithm to figure out what value get's written. I just noticed that the number of inputs I send before/after `-23` (which triggers the write) influences it, so I just played with it untill I got it right.
+Now to get the return address overwritten, what we can do is we can make the value of `heapQt` that which it extends to two doubles past the return address, which will be the value `69` (hex `0x45`). To get it to this value, I didn't reverse the algorithm to figure out what value gets written. I just noticed that the number of inputs I send before/after `-23` (which triggers the write) influences it, so I just played with it until I got it right.
 
-Proceeding that, we will include three floats which their hex value begins with `0x804`. They will all be less than the value `0x8049841` when converted to a float. The reason for this being, that they should be greater than all values other than the return address (`0x8049841`) which is the same everyt time, so it will occupy the value before, after, and the same as the return address. Now because the value we have in the return address has to start with `0x804` and be less than `0x8049841`, this limits us to what we can call to certain sections of the code, such as certain ROP gadgets. However we find one that meets our needs:
+Proceeding that, we will include three floats which their hex value begins with `0x804`. They will all be less than the value `0x8049841` when converted to a float. The reason for this being, that they should be greater than all values other than the return address (`0x8049841`) which is the same every time, so it will occupy the value before, after, and the same as the return address. Now because the value we have in the return address has to start with `0x804` and be less than `0x8049841`, this limits us to what we can call to certain sections of the code, such as certain ROP gadgets. However we find one that meets our needs:
 
 ```
 ROPgadget --binary doubletrouble | grep 804900a
 0x0804900a : ret
 ```
 
-This particular rop gadget fits our needs for two reasons. The first is that when converted to a float, it is less than `0x8049841` so it will be before it after the sorting. The second reason is that all it does is just returns. This is beneftitial to us, since all it will do is just continue to the next address and execute it, which will be the last `4` bytes of the next double. We can place the stack address of our shellcode (we know it from the stack infoleak, and the stack is executable). With the first four bytes of the double, we can put a value between `0x804900a` and `0x8049841`. That way this double will always come between the actual return address, and `0x804900a`. This will allow us to execute our shellcode on the stack, which we can't simply just push it into the return address spot, since it starts with `0xff` and will just float to the top.
+This particular rop gadget fits our needs for two reasons. The first is that when converted to a float, it is less than `0x8049841` so it will be before it after the sorting. The second reason is that all it does is just returns. This is beneficial to us, since all it will do is just continue to the next address and execute it, which will be the last `4` bytes of the next double. We can place the stack address of our shellcode (we know it from the stack infoleak, and the stack is executable). With the first four bytes of the double, we can put a value between `0x804900a` and `0x8049841`. That way this double will always come between the actual return address, and `0x804900a`. This will allow us to execute our shellcode on the stack, which we can't simply just push it into the return address spot, since it starts with `0xff` and will just float to the top.
 
-The value that we will have before the `0x804900a` double will be `0x800000000000000`. The reason for this, is it will occupy the spot between the stack canary and the `0x804900a` double. This way, after the sorting, the stack canary will remain in the same spot. Of course, this will only work if the stack canary's value is less tgab `0x8000000`, but bigger than the previous double. This gives us a range of about 8 different bytes which the stack canary could be which our exploit would work. The thing is since the stack canary is a random value (will the first three bytes for `x86` are, the fourth is always a null byte), and since the position of everything depends on it's value with respect to other floats, we will have to assume that the stack canary is within a certain value in order for our exploit to work. For testing purposes we can just set the stack canary to the value within the range. When we go ahead and run the exploit for real, we can just brute force the canary value we need by running the exploit again and again untill we get a stack canary value within the range we need.
+The value that we will have before the `0x804900a` double will be `0x800000000000000`. The reason for this, is it will occupy the spot between the stack canary and the `0x804900a` double. This way, after the sorting, the stack canary will remain in the same spot. Of course, this will only work if the stack canary's value is less than `0x8000000`, but bigger than the previous double. This gives us a range of about 8 different bytes which the stack canary could be which our exploit would work. The thing is since the stack canary is a random value (will the first three bytes for `x86` are, the fourth is always a null byte), and since the position of everything depends on it's value with respect to other floats, we will have to assume that the stack canary is within a certain value in order for our exploit to work. For testing purposes we can just set the stack canary to the value within the range. When we go ahead and run the exploit for real, we can just brute force the canary value we need by running the exploit again and again until we get a stack canary value within the range we need.
 
-The last thing we need to worry about is our shellcode, since we will need to know where it is on the stack to execute it, and we also need to make sure it stays intact and in the correct order after it is sorted. The way I accomplished this is by appending the `0x90` byte a certain amount of times tot he front of ceratin parts of shellcode. This is because when executed `0x90` is the opcode for `NOP` which continues execution and doesn't effect our shellcode in any important way, and it will be evaluated as less than values starting with `0x804` so it won't affect the stack canary or what we did to write over the return address.
+The last thing we need to worry about is our shellcode, since we will need to know where it is on the stack to execute it, and we also need to make sure it stays intact and in the correct order after it is sorted. The way I accomplished this is by appending the `0x90` byte a certain amount of times tot he front of certain parts of shellcode. This is because when executed `0x90` is the opcode for `NOP` which continues execution and doesn't effect our shellcode in any important way, and it will be evaluated as less than values starting with `0x804` so it won't affect the stack canary or what we did to write over the return address.
 
-However when we insert the NOPs into our shellcode, we will have to rewite/recompile the shellcode. The reason for this, is because if we just insert NOPs into random places, there is a good chance we will insert a NOP in the middle of an instruction, which will change what the instruction does. Also note, the base shellcode I did not write. I grabbed it from `http://shell-storm.org/shellcode/files/shellcode-599.php` and modified it. Also I found that this website which is an online x86/x64 decompiler/compiler helped `https://defuse.ca/online-x86-assembler.htm`:
+However when we insert the NOPs into our shellcode, we will have to rewrite/recompile the shellcode. The reason for this, is because if we just insert NOPs into random places, there is a good chance we will insert a NOP in the middle of an instruction, which will change what the instruction does. Also note, the base shellcode I did not write. I grabbed it from `http://shell-storm.org/shellcode/files/shellcode-599.php` and modified it. Also I found that this website which is an online x86/x64 decompiler/compiler helped `https://defuse.ca/online-x86-assembler.htm`:
 
 here is the shellcode before we modified it:
 ```

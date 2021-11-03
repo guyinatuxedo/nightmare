@@ -45,7 +45,7 @@ We can see here that it is scanning in `0x40` (`64`) bytes worth of data in a `4
 
 ## Exploitation
 
-So we have an obvious stack overflow bug. However how will we land it? Infoleaks are out of the question, so we can't do a ret2libc attack (returning to gadgets/functions/code in the libc). Also we don't have a libc file provided, so one more reason why ret2lic isn't feasible. It is a dynamically linked binary with a small code base, so we don't have many gadgets to work with. The only imported functions are `alarm` and `read`, and since our input has to be given as a single chunk, that doesn't help us too much. The answer to this is we will be performing a `ret2dlresolve` attack.
+So we have an obvious stack overflow bug. However how will we land it? Infoleaks are out of the question, so we can't do a ret2libc attack (returning to gadgets/functions/code in the libc). Also we don't have a libc file provided, so one more reason why ret2libc isn't feasible. It is a dynamically linked binary with a small code base, so we don't have many gadgets to work with. The only imported functions are `alarm` and `read`, and since our input has to be given as a single chunk, that doesn't help us too much. The answer to this is we will be performing a `ret2dlresolve` attack.
 
 #### ret2dlresolve
 

@@ -145,4 +145,4 @@ We can see that our `libc` sits in `/lib/libc.so.6`
 $ one_gadget /lib/libc.so.6
 ```
 
-3. Finally replace the exploit with your `libc` path and the new adress found through the `one_gadget`.
+3. Finally replace the exploit with your `libc` path and the new address found through the `one_gadget`.

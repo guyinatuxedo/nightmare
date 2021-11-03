@@ -257,7 +257,7 @@ Please tell me your name... xx0000111122223333.%12$x.%13$x.%14$x.%15$x
 Nice to meet you, xx0000111122223333.30303030.31313131.32323232.33333333 :)
 ```
 
-Now when printf writes a value, it will write the amount of bytes it has printed. So if we need to write the value `0x804`, we need to print that many bytes. Since we are writing values like `0x8048614` I choose to split it up, that way we don't need to wait several minutes for the printf call to finish. I split up each write into two seperate writes, and that is why we needed four four byte spaces, each one for a different address. For the split writes, we will first write to the lower two bytes of each address. Since the top two bytes for each of the values we are writing is the same (`0x804`) I choose to write those last.
+Now when printf writes a value, it will write the amount of bytes it has printed. So if we need to write the value `0x804`, we need to print that many bytes. Since we are writing values like `0x8048614` I choose to split it up, that way we don't need to wait several minutes for the printf call to finish. I split up each write into two separate writes, and that is why we needed four four byte spaces, each one for a different address. For the split writes, we will first write to the lower two bytes of each address. Since the top two bytes for each of the values we are writing is the same (`0x804`) I choose to write those last.
 
 Now when I ran the exploit below hand, these are the values that are written by default. At this point I know everything I need to write the exploit, except the extra number of bytes I need to print to write the correct values (to print `13` bytes we can just specify the format string `%13x`):
 

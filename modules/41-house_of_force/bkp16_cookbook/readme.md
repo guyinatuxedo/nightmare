@@ -833,7 +833,7 @@ So we can see that the data has been replaced with heap metadata, which is a hea
 
 #### Libc Infoleak
 
-The next infoleak we will need will be a libc infoleak. Next up, let's see what happens when we allocate space to a recipe, free it, then make a new ingredient. Let's see exactly how the data is layed out when this happens:
+The next infoleak we will need will be a libc infoleak. Next up, let's see what happens when we allocate space to a recipe, free it, then make a new ingredient. Let's see exactly how the data is laid out when this happens:
 
 ```
 gef➤  r
@@ -1317,7 +1317,7 @@ $ $ readelf --relocs ./cookbook | grep free
 
 So if we overwrite the address of our new ingredient with `0x804d018` it should print out the address of free, and with that we can break ASLR in libc.
 
-Now one thing to remember about doing this write, since we are dealing with a linked list, it will expect a pointer to the next item right after the current pointer (unless if there are no more, which is signified by 0x00000000). SInce our input is scanned in using `fgets()`, there will be a trailing newline character which will get written to the location that it will expect the next pointer, so we will need to add four null bytes, otherwise it will try to interpret 0xa as a pointer and crash.
+Now one thing to remember about doing this write, since we are dealing with a linked list, it will expect a pointer to the next item right after the current pointer (unless if there are no more, which is signified by 0x00000000). Since our input is scanned in using `fgets()`, there will be a trailing newline character which will get written to the location that it will expect the next pointer, so we will need to add four null bytes, otherwise it will try to interpret 0xa as a pointer and crash.
 
 Also the whole reason we are able to do this, is because `currentRecipe` is not reset to 0 after the pointer it contains is freed (so we have that UAF).
 
@@ -1487,7 +1487,7 @@ Breakpoint 1, 0xf7e6fdc0 in free () from /lib/i386-linux-gnu/libc.so.6
 gef➤  s
 ```
 
-step through the instructions untill you hit `free+25`:
+step through the instructions until you hit `free+25`:
 
 ```
 [----------------------------------registers-----------------------------------]

@@ -139,7 +139,7 @@ So looking here, we can essentially see that it is subtracting the result of the
 '0x82'
 ```
 
-and when we put it all toghether:
+and when we put it all together:
 
 ```
 $	./h3emu --trace challenge3.h3i 82ac91a0

@@ -258,7 +258,7 @@ So we can see that the saved base pointer has been overwritten to `0x7fff383d4c0
 ──────────────────────────────────────────────────────────────────────────────────────── threads ────
 ```
 
-Procceding that we can see that the ret instructions that are part of our retslide that are executed:
+Proceeding that we can see that the ret instructions that are part of our retslide that are executed:
 
 ```
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
