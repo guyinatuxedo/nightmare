@@ -134,19 +134,18 @@ void main(void)
 Now we can see it is stored on the stack at `rbp-0x4`.
 
 ```
-0000000000001135 <main>:
-    1135:       55                      push   rbp
-    1136:       48 89 e5                mov    rbp,rsp
-    1139:       48 83 ec 10             sub    rsp,0x10
-    113d:       c7 45 fc 05 00 00 00    mov    DWORD PTR [rbp-0x4],0x5
-    1144:       48 8d 3d b9 0e 00 00    lea    rdi,[rip+0xeb9]        # 2004 <_IO_stdin_used+0x4>
-    114b:       e8 e0 fe ff ff          call   1030 <puts@plt>
-    1150:       90                      nop
-    1151:       c9                      leave
-    1152:       c3                      ret
-    1153:       66 2e 0f 1f 84 00 00    nop    WORD PTR cs:[rax+rax*1+0x0]
-    115a:       00 00 00
-    115d:       0f 1f 00                nop    DWORD PTR [rax]
+0000000000001139 <main>:
+    1139:       55                      push   rbp
+    113a:       48 89 e5                mov    rbp,rsp
+    113d:       48 83 ec 10             sub    rsp,0x10
+    1141:       c7 45 fc 05 00 00 00    mov    DWORD PTR [rbp-0x4],0x5
+    1148:       48 8d 05 b5 0e 00 00    lea    rax,[rip+0xeb5]        # 2004 <_IO_stdin_used+0x4>
+    114f:       48 89 c7                mov    rdi,rax
+    1152:       e8 d9 fe ff ff          call   1030 <puts@plt>
+    1157:       90                      nop
+    1158:       c9                      leave  
+    1159:       c3                      ret    
+    115a:       66 0f 1f 44 00 00       nop    WORD PTR [rax+rax*1+0x0]
 ```
 
 Now values on the stack are moved on by either pushing them onto the stack, or popping them off. That is the only way to add or remove values from the stack, as it is a FILO(First In, Last Out) data structure. However, we can read and reference values on the stack at any time.
