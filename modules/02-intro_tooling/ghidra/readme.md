@@ -12,7 +12,6 @@ Since we are primarily using Ghidra's GUI, I feel that the best way to learn how
 
 ```
 https://www.youtube.com/watch?v=fTGTnrgjuGA
-https://www.youtube.com/watch?v=OJlKtRgC68U
 https://threatvector.cylance.com/en_us/home/an-introduction-to-code-analysis-with-ghidra.html
 https://ghidra-sre.org/InstallationGuide.html
 ```
