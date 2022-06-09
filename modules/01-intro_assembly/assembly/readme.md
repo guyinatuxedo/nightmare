@@ -171,7 +171,7 @@ There is one register that contains flags. A flag is a particular bit of this re
 12:     I/O Privilege Field lower bit
 13:     I/O Privilege Field higher bit
 14:     Nested Task Flag
-15:     Resume Flag
+16:     Resume Flag
 ```
 
 There are other flags then the one listed, however we really don't deal with them too much (and out of these, there are only a few we actively deal with).
