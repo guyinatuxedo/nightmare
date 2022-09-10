@@ -39,3 +39,10 @@ First off, I find it fun (if you don't find this fun, I wouldn't recommend doing
 ## Difficulty curve
 
 One more thing I want to say is the difficulty curve, in my opinion, is like that of a roller coaster. There are certain parts that are easier, and certain parts that are harder. Granted, difficulty is relative to the person.
+
+## Update
+
+So, I just tried to update nightmare. It is a bit old, and it's all in python2 which has been deprecated. While trying to update it, it become clear that there are some problems with Nightmare, that it seems that it would be better to just remake the entire thing from scratch. One of the primary problems being, a lot of these challenges require different enviornments to run in. You might have a heap challenge that can only run correctly on Ubuntu 18, while another might only be able to be correctly ran on Ubuntu 16. Having the need to be able to run challenges on so many different (and outdated) enviornment causes a lot of problems. So I will probably be "remaking" this to hopefully solve that, and similar problems.
+
+However, if you are at all interested in the work I did do for the update, you can find that here: https://github.com/guyinatuxedo/new_nightmare/
+ 
