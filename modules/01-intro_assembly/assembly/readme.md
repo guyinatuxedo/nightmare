@@ -1,10 +1,10 @@
 # Introduction to Assembly
 
-So the first big wall you will need to tackle is starting to learn assembly. It may be a little bit tough, but it is perfectly doable and a critical step for what comes after. To start this off, I would recommend watching this video. It was made by the guy who actually got me interested in this line of work. I started off learning assembly by watching this video several times. It's really well put together:
+So the first big wall you will need to tackle is starting to learn assembly. It may be a little bit tough, but it is perfectly doable and a critical step for what comes after. To start this off, I would recommend watching this video. It was made by the guy who actually got me interested in this line of work. I started off learning assembly by watching this video several times. 
 
-```
-[x86 Assembly Crash Course](https://www.youtube.com/watch?v=75gBFiFtAb8)
-```
+It's really well put together :    [x86 Assembly Crash Course](https://www.youtube.com/watch?v=75gBFiFtAb8)
+
+
 
 Now that you have watched the video, we will go through some documentation explaining some of the concepts around assembly code. A lot of this will be a repeat of that video, some of it won't be. Also all of this documentation will be for the Intel syntax. And one more thing; you don't need to have everything here memorized before moving on, and parts of it will make more sense when you actually see it in action.
 
