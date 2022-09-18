@@ -309,7 +309,7 @@ after a bit of searching, we find this gadget:
 0x000000000044526e : mov qword ptr [rax], rdx ; ret
 ```
 
-This gadget will move the four byte value from `rdx` to whatever memory is pointed to by `rax`. This is exactly what we need, and a bit convenient since we already have the gadgets for those two registers and this gadget doesn't do anything else that we need to worry about. The last gadget we need will be a `syscall` gadget:
+This gadget will move the eight byte value from `rdx` to whatever memory is pointed to by `rax`. This is exactly what we need, and a bit convenient since we already have the gadgets for those two registers and this gadget doesn't do anything else that we need to worry about. The last gadget we need will be a `syscall` gadget:
 
 ```
 $ python ROPgadget.py --binary simplecalc | grep ": syscall"
