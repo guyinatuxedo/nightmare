@@ -29,7 +29,7 @@ With this instruction the contents of the `dx` register get moved into the `gs` 
   not dx
 ```
 
-Here we see that the value `0xffff` is moved into the `dx` register, then noted. When a value is notted, the bits are flopped. And since with the value `0xffff`, all of the bits are `1s` (for 16 bit values), the result of `dx` will be zero. Also we see that between lines `132` and `145`, there is nothing that would change the value of `dx` to something other than `0x0`. So when the contents of `dx` gets moved into `gs`, the value of `gs` has to be `0x0`.
+Here we see that the value `0xffff` is moved into the `dx` register, then notted. When a value is notted, the bits are flopped. And since with the value `0xffff`, all of the bits are `1s` (for 16 bit values), the result of `dx` will be zero. Also we see that between lines `132` and `145`, there is nothing that would change the value of `dx` to something other than `0x0`. So when the contents of `dx` gets moved into `gs`, the value of `gs` has to be `0x0`.
 
 #### What is the value of si after line 151 executes?
 
