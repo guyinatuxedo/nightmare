@@ -695,7 +695,7 @@ First off we have an actual bug. This can be something like a Heap overflow, Use
 
 The Houses are essentially different types of Heap Attacks that we can do in different situations, that do different things. A lot of them are built off of the bin attacks, and they can get more complicated than some of the typical bin attacks.
 
-Also this goes without saying, but there are a lot more heap attacks then the ones listed. These are just the ones that I cover in this project at the moment.
+Also this goes without saying, but there are a lot more heap attacks than the ones listed. These are just the ones that I cover in this project at the moment.
 
 ## Debugging Heap
 
