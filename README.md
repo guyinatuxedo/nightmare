@@ -1,6 +1,6 @@
 # UPDATED
 
-So, I've begun to make some update ctf stuff. The first big part, deals with heap ctf challs, and can be found here:
+So, I've begun to make some updated ctf stuff. The first big part, deals with heap ctf challs, and can be found here:
 
 https://github.com/guyinatuxedo/Shogun
 
