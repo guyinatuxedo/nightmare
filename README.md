@@ -13,15 +13,15 @@ Nightmare is an intro to binary exploitation / reverse engineering course based 
 It's true there are a lot of resources out there to learn binary exploitation / reverse engineering skills, so what makes this different?
 
 ```
-*    Amount of Content             -    There is a large amount of content in this course (currently over 90 challenges), laid out in a linear fashion.
+*    Amount of Content               -    There is a large amount of content in this course (currently over 90 challenges), laid out in a linear fashion.
 
-*    Well Documented Write Ups         -    Each challenge comes with a well documented writeup explaining how to go from being handed the binary to doing the exploit dev.
+*    Well Documented Write Ups       -    Each challenge comes with a well documented writeup explaining how to go from being handed the binary to doing the exploit dev.
 
 *    Multiple Problems per Topic     -    Most modules have multiple different challenges. This way you can use one to learn how the attack works, and then apply it to the others. Also different iterations of the problem will have knowledge needed to solve it.
 
 *    Using all open source tools     -    All the tools used here are free and open sourced. No IDA torrent needed.
 
-*    A Place to Ask Questions         -    So if you have a problem that you've been working for days and can't get anywhere (and google isn't helping).
+*    A Place to Ask Questions        -    So if you have a problem that you've been working for days and can't get anywhere (and google isn't helping).
 ```
 
 I have found that resources that have many of these things to be few and far between. As a result it can make learning these skills difficult since you don't really know what to learn, or how to learn it. This is essentially my attempt to help fix some of those problems.
@@ -40,7 +40,7 @@ Special thanks to these people:
 ```
 noopnoop     -    For dealing with me
 digitalcold  -    For showing me how good nightmare could look with mdbook
-you nerds     -    For looking at this
+you nerds    -    For looking at this
 ```
 
 ## Discord
