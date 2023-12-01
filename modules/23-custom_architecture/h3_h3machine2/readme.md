@@ -142,7 +142,7 @@ At the start of the program, we can see that it calls the address 14. Let's see 
 001a: 41041c00 jz 001c
 ```
 
-So we can see that it pushes the hex value `0x100c`, shifts it over to the right by two bytes (so it is now 0x100c0000), then pushes `0x2b85` onto the stack. Proceeding that it ors the two hex strings together, leaving us with `0x100c2b85`, then runs the sub instruction with our input and that hex string. If the output is zero, it will jump to the address `001c`, so we probably need to give it the input `100c2b85` (with our input being a hex string) in order to pass this check (btw the program interprets our input as hex characters, not asci):
+So we can see that it pushes the hex value `0x100c`, shifts it over to the right by two bytes (so it is now 0x100c0000), then pushes `0x2b85` onto the stack. Proceeding that it ors the two hex strings together, leaving us with `0x100c2b85`, then runs the sub instruction with our input and that hex string. If the output is zero, it will jump to the address `001c`, so we probably need to give it the input `100c2b85` (with our input being a hex string) in order to pass this check (btw the program interprets our input as hex characters, not ASCII):
 
 ```
 $    ./h3emu --trace challenge2.h3i 100c2b85

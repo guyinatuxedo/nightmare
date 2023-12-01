@@ -1,6 +1,6 @@
 # Facebook CTF 2019 Overfloat
 
-This challenge was a team effort, my fellow Nasa Rejects team mate qw3rty01 helped me out with tthis one.
+This challenge was a team effort, my fellow Nasa Rejects team mate qw3rty01 helped me out with this one.
 
 One thing about this challenge, it is supposed to be done with the `libc-2.27.so`, which is the default libc version for Ubuntu `18.04`. You can check what libc version is loaded in by checking the memory mappings with in gdb with the `vmmap` command. If it isn't the default, you will need to so something like using ptrace to switch the libc version, or adjust the offsets to match your own libc file.
 
@@ -18,7 +18,7 @@ $	pwn checksec overfloat
     PIE:      No PIE (0x400000)
 ```
 
-So we can see that it we are given a `64` bit dynamically linked binary, with a non-executable stack. In addition to that we are give the libc file `libc-2.27.so`. Running the program we see that it prompts us for latitude / longtitude pairs:
+So we can see that it we are given a `64` bit dynamically linked binary, with a non-executable stack. In addition to that we are give the libc file `libc-2.27.so`. Running the program we see that it prompts us for latitude / longitude pairs:
 
 ```
 $	./overfloat 
@@ -116,11 +116,11 @@ void chart_course(long ptr)
 
 Looking at this function, we can see that it essentially scans in data as four byte floats into the char ptr that is passed to the function as an argument. It does this by scanning in `100` bytes of data into `input`, converting it to a float stored in `float`, and then setting `ptr + (x * 4)` equal to `float` (where `x` is equal to the amount of floats scanned in already). There is no checking to see if it overflows the buffer, and with that we have a buffer overflow.
 
-That is ran within a do while loop, that on paper can run forever (since the condition is while(true)). However there the termination condition is if the first four bytes of our input is `done`. Keep in mind that the buffer that we are overflowing is from the stack in `main`, so we need to return from the main function before getting code exeuction.
+That is ran within a do while loop, that on paper can run forever (since the condition is while(true)). However there the termination condition is if the first four bytes of our input is `done`. Keep in mind that the buffer that we are overflowing is from the stack in `main`, so we need to return from the main function before getting code execution.
 
-Also there is functionallity which will swap between prompting us for either `LAT` or `LON`, and which one in the sequence there is. However this doesn't affect us too much.
+Also there is functionality which will swap between prompting us for either `LAT` or `LON`, and which one in the sequence there is. However this doesn't affect us too much.
 
-Now we need to exploit the bug. In the main function since `charBuf` is the only thing on the stack, there is nothing between it and the saved base pointer. Add on an extra `8` bytes for the saved base pointer to the `48` bytes for the space `charBuf` takes up and we get `56` bytes to reach the return address. Now the question is what code do we execute? I decided to go with a ROP Chain using gagdets and imported functions from the binary, since PIE isn't enabled so we don't need an infoleak to do this. However the binary isn't too big so we don't have the gadgets we would need to pop a shell.
+Now we need to exploit the bug. In the main function since `charBuf` is the only thing on the stack, there is nothing between it and the saved base pointer. Add on an extra `8` bytes for the saved base pointer to the `48` bytes for the space `charBuf` takes up and we get `56` bytes to reach the return address. Now the question is what code do we execute? I decided to go with a ROP Chain using gadgets and imported functions from the binary, since PIE isn't enabled so we don't need an infoleak to do this. However the binary isn't too big so we don't have the gadgets we would need to pop a shell.
 
 To counter this, I would just setup a `puts` call(since `puts` is an imported function, we can call it) with the got address of `puts` to give us a libc infoleak, then loop back around by calling the start of `main` which would allow us to exploit the same bug again with a libc infoleak. Then we can just write a onegadget to the return address to pop a shell.
 

@@ -77,7 +77,7 @@ We can see, it starts off by moving the stack down by `0x200` bytes. Then it set
 
 ## Exploitation
 
-So for the exploit, we will have to do several things. We will use the `syscall` that is preceeded by a bunch of `pop` instructions to execute a sigreturn, which will give us code execution. However there is one problem with that.
+So for the exploit, we will have to do several things. We will use the `syscall` that is preceded by a bunch of `pop` instructions to execute a sigreturn, which will give us code execution. However there is one problem with that.
 
 #### Remapping Memory Regions
 
@@ -94,7 +94,7 @@ Start              End                Offset             Perm Path
 gef➤  
 ```
 
-So we can see that the only writable memory region by default is the stack. Thing is, we need to write the string `/bin/sh` somewhere in memory at an address we know in order to call it. So starting off the only region we can write to is the stack. However when the syscall is executed, the only real stack addresses we have are stored in the `rbp` and `rsp` registers, which are overwritten by the sigreturn. We can't use the syscall to give us an inofleak, because if it does it will continue on to the exit syscall before we actually get code execution. So by using the sigreturn, we effectively lose our only really stack addresses (stored in `rbp` and `rsp`). Also when we check the stack to see what's in range of our input for a potential leak, we come up with nothing:
+So we can see that the only writable memory region by default is the stack. Thing is, we need to write the string `/bin/sh` somewhere in memory at an address we know in order to call it. So starting off the only region we can write to is the stack. However when the syscall is executed, the only real stack addresses we have are stored in the `rbp` and `rsp` registers, which are overwritten by the sigreturn. We can't use the syscall to give us an infoleak, because if it does it will continue on to the exit syscall before we actually get code execution. So by using the sigreturn, we effectively lose our only really stack addresses (stored in `rbp` and `rsp`). Also when we check the stack to see what's in range of our input for a potential leak, we come up with nothing:
 
 ```
 gef➤  x/65g 0x7fffffffde68

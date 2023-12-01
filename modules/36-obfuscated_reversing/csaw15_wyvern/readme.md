@@ -323,7 +323,7 @@ LAB_0040489f:
 }
 ```
 
-So looking at this code, it becomes apparant that it has been obfuscated. Obfuscating code means that it has essentially been made harder to reverse and understand what it does. Throughout this code, we see a lot of code segments like this:
+So looking at this code, it becomes apparent that it has been obfuscated. Obfuscating code means that it has essentially been made harder to reverse and understand what it does. Throughout this code, we see a lot of code segments like this:
 
 ```
 ((x25 * (x25 + -1) & 1U) == 0 || y26 < 10)

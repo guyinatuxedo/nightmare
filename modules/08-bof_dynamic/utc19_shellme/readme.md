@@ -151,7 +151,7 @@ So we can see that the offset to the return address from the start of our input 
 
 ### Exploitation
 
-So we can call an instruction pointer, however the difficulty is what to call. When I solved this challenge durring the ctf, I decided to go with leaking a libc address, and using things from libc. However there was one problem with that. We aren't given the libc version. Luckily I had just finished a new tool which is for identifying remote libc versions. All we need is just two libc infoleaks, and it can identify possible remote libc versions.
+So we can call an instruction pointer, however the difficulty is what to call. When I solved this challenge during the ctf, I decided to go with leaking a libc address, and using things from libc. However there was one problem with that. We aren't given the libc version. Luckily I had just finished a new tool which is for identifying remote libc versions. All we need is just two libc infoleaks, and it can identify possible remote libc versions.
 
 First off, since PIE isn't enabled we can call imported functions. We also see that `puts` is enabled:
 

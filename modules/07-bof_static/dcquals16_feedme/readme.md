@@ -939,7 +939,7 @@ This gadget is so we can control the value of the ecx register. Unfortunately th
 0x08049761 : int 0x80
 ```
 
-This gadget is a syscall, which will allow us to make a syscall to the kernell to get a shell (to get a syscall in x86, you can call int 0x80). Syscall will expect three arguments, the interger 11 in eax for the syscall number, the bss address 0x80eb928 in the ebx register for the address of the command, and the value 0x0 in ecx and edx registers (syscall will look for arguments in those registers, however we don't need them so we should just set them to null). For more info on syscalls check out https://en.wikibooks.org/wiki/X86_Assembly/Interfacing_with_Linux
+This gadget is a syscall, which will allow us to make a syscall to the kernel to get a shell (to get a syscall in x86, you can call int 0x80). Syscall will expect three arguments, the integer 11 in eax for the syscall number, the bss address 0x80eb928 in the ebx register for the address of the command, and the value 0x0 in ecx and edx registers (syscall will look for arguments in those registers, however we don't need them so we should just set them to null). For more info on syscalls check out https://en.wikibooks.org/wiki/X86_Assembly/Interfacing_with_Linux
 
 Now we are going to have to write the string /bin/sh somewhere in memory, at an address that we know in order to pass it as an argument it the syscall. What we can do for this, is to write it to the bss address `0x80eb928`. Since it is in the bss, it will have a static address, so we don't need an infoleak to write to and call it.
 

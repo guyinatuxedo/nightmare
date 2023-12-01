@@ -529,7 +529,7 @@ undefined8 FUN_00101d98(void)
 }
 ```
 
-So we can see here, it is essentially calling `checkFunction` several times in a loop, and suming up all of it's outputs. If the sum is equal to `0x1f9`, we solve the challenge.
+So we can see here, it is essentially calling `checkFunction` several times in a loop, and summing up all of it's outputs. If the sum is equal to `0x1f9`, we solve the challenge.
 
 Which the `checkFunction` function looks like this:
 ```

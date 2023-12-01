@@ -118,4 +118,4 @@ gef➤
 
 We see here that as soon as we tried to execute code in the stack with `NX` enabled, we got a `SIGSEV`. This is because we tried to execute memory that was not executable.
 
-So what's the bypass? THe typical bypass I use is to not execute code from the stack. Looking at the memory regions with `NX` enabled, we see that the `pie` and `libc` memory regions have some executable memory spaces where instructions are stored. We can leverage those to actually execute code through things like rop, even though in a lot of instances we can't write to those memory regions since the memory permissions are `rx`.
+So what's the bypass? The typical bypass I use is to not execute code from the stack. Looking at the memory regions with `NX` enabled, we see that the `pie` and `libc` memory regions have some executable memory spaces where instructions are stored. We can leverage those to actually execute code through things like rop, even though in a lot of instances we can't write to those memory regions since the memory permissions are `rx`.

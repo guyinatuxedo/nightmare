@@ -16,7 +16,7 @@ djinn: I have the information. But how do I know I can trust you?
 djinn: Sorry. That's not good enough
 ```
 
-So we can see that we are dealing with a 32 bit elf binary. When we run it, it prompts us for two seperate inputs. The first is a username, and the second is a string that is supposed to make it trust us. Taking a look at the main function in Ghidra we see this:
+So we can see that we are dealing with a 32 bit elf binary. When we run it, it prompts us for two separate inputs. The first is a username, and the second is a string that is supposed to make it trust us. Taking a look at the main function in Ghidra we see this:
 
 ```
 undefined4 main(void)

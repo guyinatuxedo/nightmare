@@ -1,8 +1,8 @@
-# Large Bin Attack Explannation pt 1
+# Large Bin Attack Explanation pt 1
 
 This section is based off of: https://github.com/shellphish/how2heap/blob/master/glibc_2.26/large_bin_attack.c
 
-This like all of the other explanations is a well documented C source file explanning how this attack works. This was ran on `Ubuntu 16.04` with `libc-2.23.so`. Here is the source code:
+This like all of the other explanations is a well documented C source file explaining how this attack works. This was ran on `Ubuntu 16.04` with `libc-2.23.so`. Here is the source code:
 
 ```
 // This is based off of Shellphish's how2heap: https://github.com/shellphish/how2heap/blob/master/glibc_2.26/large_bin_attack.c

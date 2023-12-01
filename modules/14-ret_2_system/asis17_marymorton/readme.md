@@ -262,7 +262,7 @@ gef➤  search-pattern /bin/sh
 =
 ```
 
-We can see here that the binary has the string `"/bin/sh"` is hardcoded at `0x400b2b`. This is the part of the binary that I modified. Originally it held the string `"/bin/cat ./flag"` which would print out the contents of the flag, so we would solve the challenge. However I decided to chaneg the string to give us a shell instead of just simply printing the flag. We should be able to use that as the argument for system. 
+We can see here that the binary has the string `"/bin/sh"` is hardcoded at `0x400b2b`. This is the part of the binary that I modified. Originally it held the string `"/bin/cat ./flag"` which would print out the contents of the flag, so we would solve the challenge. However I decided to change the string to give us a shell instead of just simply printing the flag. We should be able to use that as the argument for system. 
 
 ## Exploit
 

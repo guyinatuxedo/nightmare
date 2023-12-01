@@ -11,7 +11,7 @@ Your input: gimme that flag
 Invalid!
 ```
 
-So we are dealing with a `32` bit program that when we run it, it asks for input (and told us it was invalud). My guess is that this program takes input, alters it, and compares it against a string. Looking through the list of functions (or checking the X-References to strings) we find the `FUN_080485ab` function which looks like where the code we are interested in is:
+So we are dealing with a `32` bit program that when we run it, it asks for input (and told us it was invalid). My guess is that this program takes input, alters it, and compares it against a string. Looking through the list of functions (or checking the X-References to strings) we find the `FUN_080485ab` function which looks like where the code we are interested in is:
 
 ```
 undefined4 FUN_080485ab(void)
@@ -51,7 +51,7 @@ undefined4 FUN_080485ab(void)
 }
 ```
 
-So we can see this function starts off bys scanning in `0x21` bytes into `input`. If the `fgets` call scans in no bytes, it exits with an error message. Then it runs `input` through 4 different functions (`op0-op3`). Then it compares our data against `PTR_DAT_0804a038` using `strcmp`, and if it is equivalent then we pass the challenge. We can check what the value of `PTR_DAT_0804a038` via clicking on it and checking it's value. What is happening here is it is scanning in input, altering it with the ops functions, then checking it against `PTR_DAT_0804a038`:
+So we can see this function starts off by scanning in `0x21` bytes into `input`. If the `fgets` call scans in no bytes, it exits with an error message. Then it runs `input` through 4 different functions (`op0-op3`). Then it compares our data against `PTR_DAT_0804a038` using `strcmp`, and if it is equivalent then we pass the challenge. We can check what the value of `PTR_DAT_0804a038` via clicking on it and checking it's value. What is happening here is it is scanning in input, altering it with the ops functions, then checking it against `PTR_DAT_0804a038`:
 
 ```
                              DAT_08048870                                    XREF[2]:     FUN_080485ab:08048668(*),

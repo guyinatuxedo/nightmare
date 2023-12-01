@@ -36,7 +36,7 @@ undefined8 main(void)
 
 So we can see that it starts out by printing some data with the `write` function. Proceeding that it will scan in `400` bytes of data into `input` (which can only hold `48` bytes), and give us a buffer overflow. There is no stack canary, so there isn't anything stopping us from executing code. The question is, what will we execute?
 
-Looking under the imports in Ghidra, we can see that our imported functions are `read`, `write`, and `setvbuf`. Since PIE is not enabled, we can call any of these functions. Also since the elf is dynamically linked (and a pretty small binary), we don't have a lot of gadgets. My plan to go about getting a shell has two parts. The first part is getting a libc infoleak with a `write` function that writes to `stdout` (`1`), then loop back again to a vulnerable read call and overwrite the return address with a onedgadget. A onegadget is essentially a single ROP gadget that can be found in the libc, that if the right conditions are meant when it is ran, it will give you a shell (the project for the onegadget finder can be found at: https://github.com/david942j/one_gadget).
+Looking under the imports in Ghidra, we can see that our imported functions are `read`, `write`, and `setvbuf`. Since PIE is not enabled, we can call any of these functions. Also since the elf is dynamically linked (and a pretty small binary), we don't have a lot of gadgets. My plan to go about getting a shell has two parts. The first part is getting a libc infoleak with a `write` function that writes to `stdout` (`1`), then loop back again to a vulnerable read call and overwrite the return address with a onegadget. A onegadget is essentially a single ROP gadget that can be found in the libc, that if the right conditions are meant when it is ran, it will give you a shell (the project for the onegadget finder can be found at: https://github.com/david942j/one_gadget).
 
 The issue with this is we don't know what version of libc is running on a server. For this I looked at what libc version they gave out for other challenges and guessed and checked. After a bit I found that it was libc version `libc.so.6`. However before I did that I got it working locally with my own libc. To see what libc file your binary is loaded with, and where the file is stored, you can just run the `vmmap` command in gdb while the binary is running:
 
@@ -120,7 +120,7 @@ void climax(void)
 }
 ```
 
-Also to find the onegadget, we can just use the onegaget finder like this to find the offset from the base of libc. To choose which one to use, I normally just guess and check instead of checking the conditions at runtime (I find it a bit faster):
+Also to find the onegadget, we can just use the onegadget finder like this to find the offset from the base of libc. To choose which one to use, I normally just guess and check instead of checking the conditions at runtime (I find it a bit faster):
 
 ```
 $    one_gadget libc.so.6
