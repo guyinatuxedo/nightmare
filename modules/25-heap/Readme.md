@@ -1,10 +1,10 @@
 # Heap Exploitation
 
-This module is literally just an explanation as to how various parts of the heap works. The heap is an area of memory used for dynamic allocation (meaning that it can allocate an amount of space that isn't known at compile time), usually through the use of things like malloc. The thing is malloc has a lot of functionality behind how it operates in order to efficiently do its job (both in terms of space and run time complexity). This gives us a large attack surface on malloc, how in certain situations we can leverage something such as a single null byte overflow into full blown remote code execution. However in order to carry out these attacks effectively, you will need to understand how certain parts of the heap work (it can get a bit more complicated than overwriting a saved return address of a stack). The purpose of this module is to explain some of those parts. Let's get to work. Let's get to work.
+This module is literally just an explanation about how various parts of the heap work. The heap is an area of memory used for dynamic allocation (that is, it can allocate an amount of space that isn't known at compile time), usually through the use of things like [malloc()](https://man7.org/linux/man-pages/man3/malloc.3.html). The thing is malloc has a lot of functionality behind how it operates in order to efficiently do its job (both in terms of space and run time complexity). This gives us a large attack surface on malloc, like in certain situations in which we can leverage something such as a single null byte overflow into full blown remote code execution. However in order to carry out these attacks effectively, you will need to understand how certain parts of the heap work (it can get a bit more complicated than overwriting a saved return address of a function in the stack). The purpose of this module is to explain some of those parts. Let's get to work. Let's get to work.
 
 ## Libc
 
-The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions change, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependent). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in exploit).
+The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions changes, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance, the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependent). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in the upcoming sections).
 
 ## Malloc Chunk
 
@@ -57,10 +57,10 @@ So we can see here is our heap chunk. Every heap chunk has something called a he
 ```
 0x0:    0x00     - Previous Chunk Size
 0x8:    0x21     - Chunk Size
-0x10:     "pada"     - Content of chunk
+0x10:     "panda"     - Content of chunk
 ```
 
-The previous chunk size (if it is set, which it isn't in this case) designates the size of a previous chunk in the heap layout that has been freed. The heap size in this case is `0x21`, which differs from the size we requested. That's because the size we pass to malloc, is just the minimum amount of space we want to be able to store data in. Because of the heap header, `0x10` extra bytes is added on `x64` systems (extra `0x8` bytes is added on `x86`) systems. Also in some instances it will round a number up, so it can deal with it better with things like binning. For instance if you hand malloc a size of `0x7f`, it will return a size of `0x91`. It will round up the size `0x7f` to `0x80` so it can deal with it better. There is an extra `0x10` bytes for the heap header. Also the `0x1` from both the `0x91` and `0x21` come from the previous in use bit, which just signifies if the previous chunk is in use, and not freed.
+The previous chunk size (if it is set, which it isn't in this case) designates the size of a previous chunk in the heap layout that has been freed. The heap size in this case is `0x21`, which differs from the size we requested. That's because the size we pass to malloc, is just the minimum amount of space we want to be able to store data in. Because of the heap header, `0x10` extra bytes are added on `x64` systems (extra `0x8` bytes are added on `x86`) systems. Also in some instances it will round a number up, so it can deal with it better with things like binning. For instance if you hand malloc a size of `0x7f`, it will return a size of `0x91`. It will round up the size `0x7f` to `0x80` so it can deal with it better. There is an extra `0x10` bytes for the heap header. Also the `0x1` from both the `0x91` and `0x21` come from the previous in use bit, which just signifies if the previous chunk is in use, and not freed.
 
 Also the first three bits of the malloc size are flags which specify different things (part of the reason for rounding). If the bit is set, it means that whatever the flag specifies is true (and vice versa):
 
@@ -78,7 +78,7 @@ So when malloc frees a chunk, it will typically insert it into one of the bin li
 
 #### Fast Bins
 
-The fast bin consists of 7 linked lists, which are typically referred to by their `idx`. On `x64` the sizes range from `0x20` - `0x80` by default. Each idx (which is an index to the fastbins specifying a linked list of the fast bin) is separated by size. So a chunk of size `0x20-0x2f` would fit into `idx` `0`, a chunk of size `0x30-0x3f` would fit into `idx` `1`, and so on and so forth.
+The fast bin consists of 7 singly-linked lists, which are typically referred to by their `idx`. On `x64` the sizes range from `0x20` - `0x80` by default. Each idx (which is an index to the fastbins specifying a linked list of the fast bin) is separated by size. So a chunk of size `0x20` would fit into `idx` `0`, a chunk of size `0x30` would fit into `idx` `1`, and so on and so forth.
 
 ```
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -91,7 +91,7 @@ Fastbins[idx=5, size=0x60]  ←  Chunk(addr=0x602170, size=0x70, flags=PREV_INUS
 Fastbins[idx=6, size=0x70]  ←  Chunk(addr=0x6021e0, size=0x80, flags=PREV_INUSE)
 ```
 
-Not the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (granted it points to the heap header of the next chunk):
+Note the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (assuming it points to the heap header/metadata of the next chunk):
 
 ```
 gef➤  x/g 0x602010
@@ -101,15 +101,15 @@ gef➤  x/4g 0x602020
 0x602030: 0x0 0x0
 ```
 
-Now the fast bin is called that, because allocating from the fast bin is typically one of the faster memory allocation methods malloc uses. Also chunks are inserted into the fast bin head first. This means that the fast bin is LIFO, meaning that the last chunk to go into a fast bin list is the first one out.
+This list of freed chunks is called the "fast bin" because allocating from the fast bin is typically one of the faster memory allocation methods malloc uses. Also chunks are inserted into the fast bin head first. This means that the fast bin is LIFO, meaning that the last chunk to go into a fast bin list is the first one out.
 
-#### tcache
+#### tcache (Thread Local Cache)
 
 The tcache is sort of like the Fast Bins, however it has it's differences.
 
-The tcache is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcache). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Also in versions of libc that have a tcache, the tcache is the first place that it will look to either allocate chunks from or place freed chunks (since it's faster).
+The tcache is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcache). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Additionally, the tcache is the first place that malloc will check to either allocate from or place chunks into, since it's faster.
 
-An actual tcache list is stored like a Fast Bin where it is a linked list. Also like the Fast Bin, it is LIFO. However a tcache list can only hold `7` chunks at a time. If a chunk is freed that meets the size requirement of a tcache however it's list is full, then it is inserted into the next bin that meets its size requirements. Let's see this in action.
+Just like the Fastbins, tcache is a LIFO singly-linked list. However a tcache list can only hold `7` chunks of the same sine at a time. If a chunk that meets the size requirement of the tcache is freed and the tcache is full, the chunk is inserted into the next bin that meets its size requirements. Let's see this in action.
 
 Here is our source code:
 ```
