@@ -162,7 +162,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-So we can see that we allocated and freed 8 chunks of size `0x20` (`0x10` from size requested, and `0x10` from heap metadata). The first seven of these chunks ended up in the tcache, since the tcache has a list for those size. After that list was filled up with seven chunks, the eight chunk we tried to free ended up in the fast bin, since there is a list for its size.
+So we can see that we allocated and freed 8 chunks of size `0x20` (`0x10` from size requested, and `0x10` from heap metadata). The first seven of these chunks ended up in the tcache, since the tcache has a list for that particular size (`0x10`). After that list was filled up with seven chunks, the eighth chunk we tried to free ended up in the fast bin, since there is a list for its size.
 
 Also just to emphasize that the `0x7` chunk limit is just per list of the tcache, not total chunks in the entire tcache bin, we can see here that the tcache holds `14` chunks across two separate bins:
 
@@ -277,7 +277,7 @@ If it clears anything up, I feel like the best simple analogy I've heard for the
 
 #### Unsorted, Large and Small Bins
 
-The Small Bin, Large Bin, and Unsorted Bin are tied more closely together in how they work than the other bins. The Unsorted, Large, and Small Bins all live together in the same array. Each of the bins has different indexes to this array:
+The Small, Large and Unsorted garbage cans are much more similar to each other, given how they work, than to other garbage cans. The Unsorted, Large, and Small Bins all live together in the same array. Each of the bins has different indexes to this array:
 
 ```
 0x00:         Not Used
@@ -289,9 +289,9 @@ The Small Bin, Large Bin, and Unsorted Bin are tied more closely together in how
 There is one list for the Unsorted Bin, 62 for the Small Bin, and 63 for the Large Bin. let's talk about the unsorted bin first.
 
 
-For chunks that are inserted into one of the bins, however isn't inserted into the fast bin or tcache, it will first be inserted into the Unsorted Bin. Chunks will remain there until they are sorted. This happens when another call is made to malloc. It will then check through the Unsorted Bin for any possible chunks that can meet the allocation. Also one thing that you will see in the unsorted bin, is it is capable of taking off a piece of a chunk to serve a request (it can also consolidate chunks together). Also when it checks the unsorted bin, it will check if there are chunks that belong in one of the small / large bin lists. If there are it will move those chunks to the appropriate bins.
+Whenever a chunk is freed it has to be placed into one of the bins. When the chunk doesn't fit into the Fast Bin or the tcache, it will placed into the Unsorted Bin and will remain there until it's sorted. This happens when another call is made to malloc. It will then check through the Unsorted Bin for any possible chunks that can meet the allocation. One thing that you will notice is that unsorted bin not only serves allocation requests, it also divides chunk into smaller pieces and consolidates them together. When malloc traverses the unsorted bin, it will check whether there are chunks that fit into one of the small or large bin lists. If that's the case, malloc will move those chunks to their corresponding bins.
 
-Like the fast bin, the 62 lists of the Small Bin and 63 lists of the Large Bin are divided by size. The small bins on `x64` consists of chunk sizes under `0x400` (`1024` bytes), and on `x86` consists of chunk sizes under `0x200` (`512` bytes), and the large bin consists of values above those.
+The small bins on `x64` consist of chunk sizes under `0x400` (`102` bytes), while on `x86` they consist of chunk sizes under `0x200` (`512` bytes). The large bins consist of values above those.
 
 Let's take at this C code:
 ```
@@ -311,7 +311,7 @@ void main(void)
 }
 ```
 
-Let's see how the start of the heap before the `malloc(0x1000)`:
+Let's see what the heap looks like before the  `malloc(0x1000)`:
 
 ```
 gef➤  heap bins
