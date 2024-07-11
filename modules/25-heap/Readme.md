@@ -677,7 +677,7 @@ gef➤  x/20g 0x7ffff7dd1b20
 
 ## Exploitation
 
-As you can see, there is a good bit of functionality with the heap (although we haven't covered it all). A lot of this functionality is beneficial to attacking the code. Here is kind of an outlay of how these attacks can work from super high level. Also the man, the myth, the legend himself `noopnoop` was the one to show me this, and I think it's a pretty good way for explaining heap exploitation:
+As you can see, there is a good bit of functionality with the heap (although we haven't covered it all). A lot of this functionality is beneficial to attacking the code. Here is kind of an outline of how these attacks can work from super high level. Also the man, the myth, the legend himself `noopnoop` was the one to show me this, and I think it's a pretty good way for explaining heap exploitation:
 
 ```
 +--------------------+----------------------------+-----------------------+
@@ -691,7 +691,7 @@ As you can see, there is a good bit of functionality with the heap (although we 
 +--------------------+----------------------------+-----------------------+
 ```
 
-First off we have an actual bug. This can be something like a Heap overflow, Use After Free (UAF), a double free, or other things. We leverage the bugs and a bit of heap grooming to edit a freed chunk in one of the bin lists. Then from being able to edit a freed chunk in one of the bin lists we can launch a bin attack (also I'm not 100% sure if Unsafe Unlink counts as a Bin Attack, but that's where I'm putting it).
+First off, we have an actual bug. This can be something like a Heap overflow, Use After Free (UAF), a double free, or other things. We leverage the bugs and a bit of heap grooming to edit a freed chunk in one of the bin lists. Then, from being able to edit a freed chunk in one of the bin lists we can launch a bin attack (also I'm not 100% sure if Unsafe Unlink counts as a Bin Attack, but that's where I'm putting it).
 
 The Houses are essentially different types of Heap Attacks that we can do in different situations, that do different things. A lot of them are built off of the bin attacks, and they can get more complicated than some of the typical bin attacks.
 
