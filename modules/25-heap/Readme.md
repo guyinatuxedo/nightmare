@@ -520,7 +520,7 @@ gef➤  x/6g 0x602210
 
 We can see that each of the chunks has the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
 
-These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nexsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
+These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nextsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
 
 ## Consolidation
 
@@ -532,7 +532,7 @@ Consolidation tries to fix this by merging adjacent freed chunks together into l
 
 The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as the place where the freed data that isn't in one of the bin lists goes.
 
-Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called the remainder chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
+Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called the remainder chunk or the wilderness chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
 
 Malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However, if there is no chunk in any of the bin lists that could satisfy the request, malloc will pull memory from the top chunk. Let's see that in action with this C Code:
 
