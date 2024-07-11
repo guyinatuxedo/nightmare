@@ -356,7 +356,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-We can see since the unsorted bin chunk could not serve the requested size of `0x1000`, it was sorted to its corresponding list of in the small bin at idx `4`. Let's see what happens when we change the value to a large bin size:
+We can see since the unsorted bin chunk could not serve the requested size of `0x1000`, it was sorted to its corresponding list of in the small bin at idx `32`. Let's see what happens when we change the value to a large bin size:
 
 The new C code:
 ```
@@ -420,7 +420,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 1 chunks in 1 large non-empty bins.
 ```
 
-As we can see, the heap chunk was moved into its corresponding bin the large bin at idx `63`. Now what if an unsorted bin chunk can serve a malloc request?
+As we can see, the heap chunk was moved into its corresponding bin (the large bin) at idx `63`. Now what if an unsorted bin chunk can serve a malloc request?
 
 Let's change the C code to this:
 
@@ -487,9 +487,9 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-We can see here that the `0x210` bytes for the chunk was taken off of the chunk in the unsorted bin, and that the chunk remained in the unsorted bin.
+We can see here that the original chunk (`0x410` bytes long) was split and `0x210` are now allocated, serving the malloc(0x200) request. The remaining bytes bytes (`0x200`) are left in the unsorted bin.
 
-Now let's look at chunk itself of a chunk in either the Unsorted, Small, or Large Bins.
+Now let's look at the chunks themselves, either from the Unsorted, Small, or Large Bins.
 
 Small Bin Chunk:
 
@@ -518,23 +518,23 @@ gef➤  x/6g 0x602210
 0x602230: 0x0 0x0
 ```
 
-We can see that each of the chunks have the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
+We can see that each of the chunks has the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
 
 These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nexsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
 
 ## Consolidation
 
-Now one issue the heap may run into is fragmentation. This is when the heap has a lot of free space, however it is in tiny chunks all over the place. This can become a problem when malloc tries to allocate a large chunk of space since it could have the space, but since it is broken up into a lot of smaller pieces and not continuous it will have to use different memory for it, and effectively waste space.
+Now, one issue the heap may run into is fragmentation. This happens when the heap has a lot of free space but it is spread among small chunks all over the place. This scenario is problematic when malloc tries to allocate a large chunk of space and while there is enough free space to serve the request, it is fragmented. Since there is no contiguous memory to serve the request, malloc will have to use different memory areas to serve it, wasting memory.
 
-Consolidation tries to fix this by merging adjacent freed chunks together, into larger freed chunks. That way it will have larger freed chunks which can support larger allocations, and hopefully combat fragmentation.
+Consolidation tries to fix this by merging adjacent freed chunks together into larger freed ones. This way, larger freed chunks will be available and can support larger allocations, and hopefully combat fragmentation.
 
 ## Top Chunk
 
-The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as where freed data that isn't in one of the bin lists goes.
+The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as the place where the freed data that isn't in one of the bin lists goes.
 
-Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
+Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called the remainder chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
 
-Now malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However if there isn't a chunk in any of the bin lists that will satisfy it, it will pull from the Top Chunk. Let's see that in action with this C Code:
+Malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However, if there is no chunk in any of the bin lists that could satisfy the request, malloc will pull memory from the top chunk. Let's see that in action with this C Code:
 
 ```
 #include <stdlib.h>
@@ -591,7 +591,7 @@ gef➤  x/40g 0x602020
 0x602150: 0x0 0x0
 ```
 
-We can see that two things have happened to the top chunk. Firstly that it moved down to `0x602120` from `0x602020` to make room for the new allocation from itself. Secondly, we see that it's size was shrunk by `0x100`, because of the `0x100` byte allocation from it. Now let's see what happens to the top chunk after the `free(p1)` call:
+We can see two things happened to the top chunk: (1) it moved down (notice it moved to a higher memory address, but we say 'down' to respect how it is depicted) to `0x602120` from `0x602020` to make room for the new allocated chunk, and (2) it's size was shrunk by `0x100`, because of the `0x100` byte allocation to serve the malloc request. Now let's see what happens to the top chunk after the `free(p1)` call:
 
 ```
 gef➤  heap bins
@@ -633,13 +633,13 @@ gef➤  x/40g 0x602020
 0x602150: 0x0 0x0
 ```
 
-We can see that the chunk did not end up in the unsorted bin. Instead in consolidated with the top chunk. This is because it was a freed chunk right next to the top chunk, with no allocated space in between. So it just merged it with the top chunk (granted it left it's old size value behind).
+We can see that the chunk did not end up in the unsorted bin. Instead, it consolidated with the top chunk. This is because it was a freed chunk right next to the top chunk, with no allocated space in between. So it just merged it with the top chunk (granted it left it's old size value behind).
 
 Keep in mind, depending on the version of malloc and if the chunk size is fast bin or tcache, this behavior doesn't always show itself.
 
 #### Top Chunk Consolidation
 
-Now a lot of heap attacks we will go through target a bin list. For that we need freed chunks in the bins lists. Consolidation with the top chunk can prevent that, so one thing you will see us do a lot of is allocated a small chunk in between our freed chunks and the top chunk, just to prevent that consolidation.
+A lot of heap attacks we will see target a bin list. For that we need chunks in the bin lists. Consolidation with the top chunk is a problem, so one thing you will see us do a lot is allocate a small chunk in between our freed chunks and the top chunk, just to prevent the consolidation
 
 ## Main Arena
 
