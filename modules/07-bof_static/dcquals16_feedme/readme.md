@@ -217,7 +217,7 @@ gef➤  p $al
 $1 = 0x37
 ```
 
-For the `getInt` function, we see that we passed it the string `75395128`, and it returned to us `0x39` (which corresponds to the ascii character `7`):
+For the `getInt` function, we see that we passed it the string `75395128`, and it returned to us `0x37` (which corresponds to the ascii character `7`):
 
 ```
 gef➤  c
