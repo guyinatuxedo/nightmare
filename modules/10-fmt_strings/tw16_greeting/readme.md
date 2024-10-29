@@ -72,7 +72,7 @@ void getnline(char *ptr,int bytesRead)
 }
 ```
 
-It just scans in `bytesRead` amount of data (in our case `0x40` or `60` so no overflow) into the space pointed to by `ptr`. Proceeding that, it will replace the newline character with a null byte. It will then return the output of `strlen` on our input.
+It just scans in `bytesRead` amount of data (in our case `0x40` or `64` so no overflow) into the space pointed to by `ptr`. Proceeding that, it will replace the newline character with a null byte. It will then return the output of `strlen` on our input.
 
 Now the next thing we need will be a function to overwrite a got entry with. Looking through the list of imports in ghidra (imported functions are included in the compiled binary code, and since pie isn't enabled we know the addresses of those functions) we can see that `system` is imported, and is at the address `0x8048490` in the plt table:
 
@@ -257,7 +257,7 @@ Please tell me your name... xx0000111122223333.%12$x.%13$x.%14$x.%15$x
 Nice to meet you, xx0000111122223333.30303030.31313131.32323232.33333333 :)
 ```
 
-Now when printf writes a value, it will write the amount of bytes it has printed. So if we need to write the value `0x804`, we need to print that many bytes. Since we are writing values like `0x8048614` I choose to split it up, that way we don't need to wait several minutes for the printf call to finish. I split up each write into two seperate writes, and that is why we needed four four byte spaces, each one for a different address. For the split writes, we will first write to the lower two bytes of each address. Since the top two bytes for each of the values we are writing is the same (`0x804`) I choose to write those last.
+Now when printf writes a value, it will write the amount of bytes it has printed. So if we need to write the value `0x804`, we need to print that many bytes. Since we are writing values like `0x8048614` I choose to split it up, that way we don't need to wait several minutes for the printf call to finish. I split up each write into two separate writes, and that is why we needed four four byte spaces, each one for a different address. For the split writes, we will first write to the lower two bytes of each address. Since the top two bytes for each of the values we are writing is the same (`0x804`) I choose to write those last.
 
 Now when I ran the exploit below hand, these are the values that are written by default. At this point I know everything I need to write the exploit, except the extra number of bytes I need to print to write the correct values (to print `13` bytes we can just specify the format string `%13x`):
 
