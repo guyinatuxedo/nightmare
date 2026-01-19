@@ -11,7 +11,7 @@ Your input: gimme that flag
 Invalid!
 ```
 
-So we are dealing with a `32` bit program that when we run it, it asks for input (and told us it was invalud). My guess is that this program takes input, alters it, and compares it against a string. Looking through the list of functions (or checking the X-References to strings) we find the `FUN_080485ab` function which looks like where the code we are interested in is:
+So we are dealing with a `32` bit program that when we run it, it asks for input (and told us it was invalid). My guess is that this program takes input, alters it, and compares it against a string. Looking through the list of functions (or checking the X-References to strings) we find the `FUN_080485ab` function which looks like where the code we are interested in is:
 
 ```
 undefined4 FUN_080485ab(void)
@@ -51,7 +51,7 @@ undefined4 FUN_080485ab(void)
 }
 ```
 
-So we can see this function starts off bys scanning in `0x21` bytes into `input`. If the `fgets` call scans in no bytes, it exits with an error message. Then it runs `input` through 4 different functions (`op0-op3`). Then it compares our data against `PTR_DAT_0804a038` using `strcmp`, and if it is equivalent then we pass the challenge. We can check what the value of `PTR_DAT_0804a038` via clicking on it and checking it's value. What is happening here is it is scanning in input, altering it with the ops functions, then checking it against `PTR_DAT_0804a038`:
+So we can see this function starts off by scanning in `0x21` bytes into `input`. If the `fgets` call scans in no bytes, it exits with an error message. Then it runs `input` through 4 different functions (`op0-op3`). Then it compares our data against `PTR_DAT_0804a038` using `strcmp`, and if it is equivalent then we pass the challenge. We can check what the value of `PTR_DAT_0804a038` via clicking on it and checking it's value. What is happening here is it is scanning in input, altering it with the ops functions, then checking it against `PTR_DAT_0804a038`:
 
 ```
                              DAT_08048870                                    XREF[2]:     FUN_080485ab:08048668(*),
@@ -104,7 +104,7 @@ void op0(char *input)
 }
 ```
 
-Looking at this function, we can see that it first looks for the character `0xa`, which is a newline character. Then it set's that equal to `0x0`. So essentially it replaces the newline character with a null byte. Let's take a look at `op1`:
+Looking at this function, we can see that it first looks for the character `0xa`, which is a newline character. Then it sets that equal to `0x0`. So essentially it replaces the newline character with a null byte. Let's take a look at `op1`:
 
 ```
 void op1(char *input)
@@ -150,7 +150,7 @@ void op2(byte *input)
 }
 ```
 
-This function alters the input, by performing various binary operations on our input (and in one case, multiplying it). We can see that it is a for loop that will run once per each character of our input. It will take the hex value of each character of our input and alter it, however it will only take the first 8 bits worth of data (so the least significant bit). This code effectively translates to the following python since this might be a bit easier to understand. Also shifting a value to the right by `2` is the same as multiplying it by `4`:
+This function alters the input, by performing various binary operations on our input (and in one case, multiplying it). We can see that it is a for loop that will run once per each character of our input. It will take the hex value of each character of our input and alter it, however it will only take the first 8 bits worth of data (so the least significant byte). This code effectively translates to the following python since this might be a bit easier to understand. Also shifting a value to the right by `2` is the same as multiplying it by `4`:
 
 ```
 def enc(input):
