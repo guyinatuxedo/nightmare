@@ -70,7 +70,7 @@ RAX:    0xf
 RDI:    0x0
 ```
 
-So here it is performing a Sigreturn syscall. When the kernel delivers a signal from a program, it creates a frame on the stack before it is passed to the signal handler. Then after that is done that frame is used as context for a sigreturn syscall to return code execution to where it was interrupted. It does this by popping values off of the top of the stack into registers, which were stored there so execution could continue after the signal is dealt with. The syscall itself takes a single argument in the rdi register (however for our use, it's not important in this context). We can tell that a sigreturn syscall is being made since it pops the value 0xf into the rax register before making the syscall to speecify a sigreturn syscall. Checkout https://lwn.net/Articles/676803/ and https://thisissecurity.stormshield.com/2015/01/03/playing-with-signals-an-overview-on-sigreturn-oriented-programming/ for more.
+So here it is performing a Sigreturn syscall. When the kernel delivers a signal from a program, it creates a frame on the stack before it is passed to the signal handler. Then after that is done that frame is used as context for a sigreturn syscall to return code execution to where it was interrupted. It does this by popping values off of the top of the stack into registers, which were stored there so execution could continue after the signal is dealt with. The syscall itself takes a single argument in the rdi register (however for our use, it's not important in this context). We can tell that a sigreturn syscall is being made since it pops the value 0xf into the rax register before making the syscall to specify a sigreturn syscall. Checkout https://lwn.net/Articles/676803/ and https://thisissecurity.stormshield.com/2015/01/03/playing-with-signals-an-overview-on-sigreturn-oriented-programming/ for more.
 
 Also another important thing to note, we can see that the flag is stored in the binary at the address `0x10000023`:
 
@@ -87,7 +87,7 @@ So for our exploitation, we will be doing a Sigreturn Oriented Programming attac
 
 SROP is really useful in a lot of cases where traditional ROP won't work. It gives us control of the instruction pointer which is executed, and all other registers.
 
-Just if you're curiosus, this is the sigcontext structure that is stored on the stack, which is used by the `sigreturn` to pop values into the register (for `x64`). This diagram is originally from https://amriunix.com/post/sigreturn-oriented-programming-srop/:
+Just if you're curious, this is the sigcontext structure that is stored on the stack, which is used by the `sigreturn` to pop values into the register (for `x64`). This diagram is originally from https://amriunix.com/post/sigreturn-oriented-programming-srop/:
 
 ```
 +--------------------+--------------------+

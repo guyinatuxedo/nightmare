@@ -235,7 +235,7 @@ This value will subtract the second operand from the first one, and store the di
 sub rsp, 0x10
 ```
 
-This will subract 10 from `rsp`, setting the `rsp` register equal to `rsp - 0x10`
+This will subtract 10 from `rsp`, setting the `rsp` register equal to `rsp - 0x10`
 
 #### xor
 

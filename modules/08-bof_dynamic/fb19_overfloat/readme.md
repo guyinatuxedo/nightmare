@@ -118,7 +118,7 @@ Looking at this function, we can see that it essentially scans in data as four b
 
 That is ran within a do while loop, that on paper can run forever (since the condition is while(true)). However there the termination condition is if the first four bytes of our input is `done`. Keep in mind that the buffer that we are overflowing is from the stack in `main`, so we need to return from the main function before getting code execution.
 
-Also there is functionallity which will swap between prompting us for either `LAT` or `LON`, and which one in the sequence there is. However this doesn't affect us too much.
+Also there is functionality which will swap between prompting us for either `LAT` or `LON`, and which one in the sequence there is. However this doesn't affect us too much.
 
 Now we need to exploit the bug. In the main function since `charBuf` is the only thing on the stack, there is nothing between it and the saved base pointer. Add on an extra `8` bytes for the saved base pointer to the `48` bytes for the space `charBuf` takes up and we get `56` bytes to reach the return address. Now the question is what code do we execute? I decided to go with a ROP Chain using gadgets and imported functions from the binary, since PIE isn't enabled so we don't need an infoleak to do this. However the binary isn't too big so we don't have the gadgets we would need to pop a shell.
 

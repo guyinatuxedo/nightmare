@@ -67,7 +67,7 @@ Now since the file `graph.dot` is essentially a text file containing information
 $    cat graph.dot | dot -Tpng > graph.png
 ```
 
-In this case I didn't find the graph to be too helpful. However the patched binary it gave us helped me out alot. Mainly because it patched certain `call` instructions back in which helped finding out where it branched.
+In this case I didn't find the graph to be too helpful. However the patched binary it gave us helped me out a lot. Mainly because it patched certain `call` instructions back in which helped finding out where it branched.
 
 Now looking over the list of functions this binary has, `check_input` sounds like the most important function. Using the patched binary, we can just search for the call function to `check_input` and see that it is at `0x08051986`:
 
