@@ -57,7 +57,7 @@ So we can see here is our heap chunk. Every heap chunk has something called a he
 ```
 0x0:    0x00     - Previous Chunk Size
 0x8:    0x21     - Chunk Size
-0x10:     "panda"     - Content of chunk
+0x10:   "panda"     - Content of chunk
 ```
 
 The previous chunk size (if it is set, which it isn't in this case) designates the size of a previous chunk in the heap layout that has been freed. The heap size in this case is `0x21`, which differs from the size we requested. That's because the size we pass to malloc, is just the minimum amount of space we want to be able to store data in. Because of the heap header, `0x10` extra bytes are added on `x64` systems (extra `0x8` bytes are added on `x86`) systems. Also in some instances it will round a number up, so it can deal with it better with things like binning. For instance if you hand malloc a size of `0x7f`, it will return a size of `0x91`. It will round up the size `0x7f` to `0x80` so it can deal with it better. There is an extra `0x10` bytes for the heap header. Also the `0x1` from both the `0x91` and `0x21` come from the previous in use bit, which just signifies if the previous chunk is in use, and not freed.
@@ -91,7 +91,7 @@ Fastbins[idx=5, size=0x60]  ←  Chunk(addr=0x602170, size=0x70, flags=PREV_INUS
 Fastbins[idx=6, size=0x70]  ←  Chunk(addr=0x6021e0, size=0x80, flags=PREV_INUSE)
 ```
 
-Note the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (assuming it points to the heap header/metadata of the next chunk):
+Note the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (granted it points to the heap header of the next chunk):
 
 ```
 gef➤  x/g 0x602010
@@ -532,7 +532,7 @@ Consolidation tries to fix this by merging adjacent freed chunks together into l
 
 The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as the place where the freed data that isn't in one of the bin lists goes.
 
-Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called the remainder chunk or the wilderness chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
+Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called wilderness chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
 
 Malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However, if there is no chunk in any of the bin lists that could satisfy the request, malloc will pull memory from the top chunk. Let's see that in action with this C Code:
 
