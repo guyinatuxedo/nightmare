@@ -1,10 +1,10 @@
 # Heap Exploitation
 
-This module is literally just an explanation as to how various parts of the heap works. The heap is an area of memory used for dynamic allocation (meaning that it can allocate an amount of space that isn't known at compile time), usually through the use of things like malloc. The thing is malloc has a lot of functionality behind how it operates in order to efficiently do its job (both in terms of space and run time complexity). This gives us a large attack surface on malloc, how in certain situations we can leverage something such as a single null byte overflow into full blown remote code execution. However in order to carry out these attacks effectively, you will need to understand how certain parts of the heap work (it can get a bit more complicated than overwriting a saved return address of a stack). The purpose of this module is to explain some of those parts. Let's get to work. Let's get to work.
+This module is literally just an explanation about how various parts of the heap work. The heap is an area of memory used for dynamic allocation (that is, it can allocate an amount of space that isn't known at compile time), usually through the use of things like [malloc()](https://man7.org/linux/man-pages/man3/malloc.3.html). The thing is malloc has a lot of functionality behind how it operates in order to efficiently do its job (both in terms of space and run time complexity). This gives us a large attack surface on malloc, like in certain situations in which we can leverage something such as a single null byte overflow into full blown remote code execution. However in order to carry out these attacks effectively, you will need to understand how certain parts of the heap work (it can get a bit more complicated than overwriting a saved return address of a function in the stack). The purpose of this module is to explain some of those parts. Let's get to work. Let's get to work.
 
 ## Libc
 
-The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions change, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependent). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in exploit).
+The first thing I would like to say is that on linux all of the source code for standard functions like malloc and calloc is located in the libc. Across different libc versions the code for various functions changes, including the code for malloc. That means that different libc's mallocs operate in different ways. For instance, the same binary running with two different libc versions, can see different behavior in the heap. You'll see this come up a lot. When you are working on a heap challenge, make sure you are using the right libc file (assuming the heap challenge is libc dependent). You might need to use something like `LD_PRELOAD` to do this (which you can see how I tackle this in the upcoming sections).
 
 ## Malloc Chunk
 
@@ -57,10 +57,10 @@ So we can see here is our heap chunk. Every heap chunk has something called a he
 ```
 0x0:    0x00     - Previous Chunk Size
 0x8:    0x21     - Chunk Size
-0x10:     "pada"     - Content of chunk
+0x10:     "panda"     - Content of chunk
 ```
 
-The previous chunk size (if it is set, which it isn't in this case) designates the size of a previous chunk in the heap layout that has been freed. The heap size in this case is `0x21`, which differs from the size we requested. That's because the size we pass to malloc, is just the minimum amount of space we want to be able to store data in. Because of the heap header, `0x10` extra bytes is added on `x64` systems (extra `0x8` bytes is added on `x86`) systems. Also in some instances it will round a number up, so it can deal with it better with things like binning. For instance if you hand malloc a size of `0x7f`, it will return a size of `0x91`. It will round up the size `0x7f` to `0x80` so it can deal with it better. There is an extra `0x10` bytes for the heap header. Also the `0x1` from both the `0x91` and `0x21` come from the previous in use bit, which just signifies if the previous chunk is in use, and not freed.
+The previous chunk size (if it is set, which it isn't in this case) designates the size of a previous chunk in the heap layout that has been freed. The heap size in this case is `0x21`, which differs from the size we requested. That's because the size we pass to malloc, is just the minimum amount of space we want to be able to store data in. Because of the heap header, `0x10` extra bytes are added on `x64` systems (extra `0x8` bytes are added on `x86`) systems. Also in some instances it will round a number up, so it can deal with it better with things like binning. For instance if you hand malloc a size of `0x7f`, it will return a size of `0x91`. It will round up the size `0x7f` to `0x80` so it can deal with it better. There is an extra `0x10` bytes for the heap header. Also the `0x1` from both the `0x91` and `0x21` come from the previous in use bit, which just signifies if the previous chunk is in use, and not freed.
 
 Also the first three bits of the malloc size are flags which specify different things (part of the reason for rounding). If the bit is set, it means that whatever the flag specifies is true (and vice versa):
 
@@ -78,7 +78,7 @@ So when malloc frees a chunk, it will typically insert it into one of the bin li
 
 #### Fast Bins
 
-The fast bin consists of 7 linked lists, which are typically referred to by their `idx`. On `x64` the sizes range from `0x20` - `0x80` by default. Each idx (which is an index to the fastbins specifying a linked list of the fast bin) is separated by size. So a chunk of size `0x20-0x2f` would fit into `idx` `0`, a chunk of size `0x30-0x3f` would fit into `idx` `1`, and so on and so forth.
+The fast bin consists of 7 singly-linked lists, which are typically referred to by their `idx`. On `x64` the sizes range from `0x20` - `0x80` by default. Each idx (which is an index to the fastbins specifying a linked list of the fast bin) is separated by size. So a chunk of size `0x20` would fit into `idx` `0`, a chunk of size `0x30` would fit into `idx` `1`, and so on and so forth.
 
 ```
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -91,7 +91,7 @@ Fastbins[idx=5, size=0x60]  ←  Chunk(addr=0x602170, size=0x70, flags=PREV_INUS
 Fastbins[idx=6, size=0x70]  ←  Chunk(addr=0x6021e0, size=0x80, flags=PREV_INUSE)
 ```
 
-Not the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (granted it points to the heap header of the next chunk):
+Note the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (assuming it points to the heap header/metadata of the next chunk):
 
 ```
 gef➤  x/g 0x602010
@@ -101,15 +101,15 @@ gef➤  x/4g 0x602020
 0x602030: 0x0 0x0
 ```
 
-Now the fast bin is called that, because allocating from the fast bin is typically one of the faster memory allocation methods malloc uses. Also chunks are inserted into the fast bin head first. This means that the fast bin is LIFO, meaning that the last chunk to go into a fast bin list is the first one out.
+This list of freed chunks is called the "fast bin" because allocating from the fast bin is typically one of the faster memory allocation methods malloc uses. Also chunks are inserted into the fast bin head first. This means that the fast bin is LIFO, meaning that the last chunk to go into a fast bin list is the first one out.
 
-#### tcache
+#### tcache (Thread Local Cache)
 
 The tcache is sort of like the Fast Bins, however it has it's differences.
 
-The tcache is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcache). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Also in versions of libc that have a tcache, the tcache is the first place that it will look to either allocate chunks from or place freed chunks (since it's faster).
+The tcache is a new type of binning mechanism introduced in libc version `2.26` (before that, you won't see the tcache). The tcache is specific to each thread, so each thread has its own tcache. The purpose of this is to speed up performance since malloc won't have to lock the bin in order to edit it. Additionally, the tcache is the first place that malloc will check to either allocate from or place chunks into, since it's faster.
 
-An actual tcache list is stored like a Fast Bin where it is a linked list. Also like the Fast Bin, it is LIFO. However a tcache list can only hold `7` chunks at a time. If a chunk is freed that meets the size requirement of a tcache however it's list is full, then it is inserted into the next bin that meets its size requirements. Let's see this in action.
+Just like the Fastbins, tcache is a LIFO singly-linked list. However a tcache list can only hold `7` chunks of the same sine at a time. If a chunk that meets the size requirement of the tcache is freed and the tcache is full, the chunk is inserted into the next bin that meets its size requirements. Let's see this in action.
 
 Here is our source code:
 ```
@@ -162,7 +162,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-So we can see that we allocated and freed 8 chunks of size `0x20` (`0x10` from size requested, and `0x10` from heap metadata). The first seven of these chunks ended up in the tcache, since the tcache has a list for those size. After that list was filled up with seven chunks, the eight chunk we tried to free ended up in the fast bin, since there is a list for its size.
+So we can see that we allocated and freed 8 chunks of size `0x20` (`0x10` from size requested, and `0x10` from heap metadata). The first seven of these chunks ended up in the tcache, since the tcache has a list for that particular size (`0x10`). After that list was filled up with seven chunks, the eighth chunk we tried to free ended up in the fast bin, since there is a list for its size.
 
 Also just to emphasize that the `0x7` chunk limit is just per list of the tcache, not total chunks in the entire tcache bin, we can see here that the tcache holds `14` chunks across two separate bins:
 
@@ -277,7 +277,7 @@ If it clears anything up, I feel like the best simple analogy I've heard for the
 
 #### Unsorted, Large and Small Bins
 
-The Small Bin, Large Bin, and Unsorted Bin are tied more closely together in how they work than the other bins. The Unsorted, Large, and Small Bins all live together in the same array. Each of the bins has different indexes to this array:
+The Small, Large and Unsorted garbage cans are much more similar to each other, given how they work, than to other garbage cans. The Unsorted, Large, and Small Bins all live together in the same array. Each of the bins has different indexes to this array:
 
 ```
 0x00:         Not Used
@@ -289,9 +289,9 @@ The Small Bin, Large Bin, and Unsorted Bin are tied more closely together in how
 There is one list for the Unsorted Bin, 62 for the Small Bin, and 63 for the Large Bin. let's talk about the unsorted bin first.
 
 
-For chunks that are inserted into one of the bins, however isn't inserted into the fast bin or tcache, it will first be inserted into the Unsorted Bin. Chunks will remain there until they are sorted. This happens when another call is made to malloc. It will then check through the Unsorted Bin for any possible chunks that can meet the allocation. Also one thing that you will see in the unsorted bin, is it is capable of taking off a piece of a chunk to serve a request (it can also consolidate chunks together). Also when it checks the unsorted bin, it will check if there are chunks that belong in one of the small / large bin lists. If there are it will move those chunks to the appropriate bins.
+Whenever a chunk is freed it has to be placed into one of the bins. When the chunk doesn't fit into the Fast Bin or the tcache, it will placed into the Unsorted Bin and will remain there until it's sorted. This happens when another call is made to malloc. It will then check through the Unsorted Bin for any possible chunks that can meet the allocation. One thing that you will notice is that unsorted bin not only serves allocation requests, it also divides chunk into smaller pieces and consolidates them together. When malloc traverses the unsorted bin, it will check whether there are chunks that fit into one of the small or large bin lists. If that's the case, malloc will move those chunks to their corresponding bins.
 
-Like the fast bin, the 62 lists of the Small Bin and 63 lists of the Large Bin are divided by size. The small bins on `x64` consists of chunk sizes under `0x400` (`1024` bytes), and on `x86` consists of chunk sizes under `0x200` (`512` bytes), and the large bin consists of values above those.
+The small bins on `x64` consist of chunk sizes under `0x400` (`102` bytes), while on `x86` they consist of chunk sizes under `0x200` (`512` bytes). The large bins consist of values above those.
 
 Let's take at this C code:
 ```
@@ -311,7 +311,7 @@ void main(void)
 }
 ```
 
-Let's see how the start of the heap before the `malloc(0x1000)`:
+Let's see what the heap looks like before the  `malloc(0x1000)`:
 
 ```
 gef➤  heap bins
@@ -356,7 +356,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-We can see since the unsorted bin chunk could not serve the requested size of `0x1000`, it was sorted to its corresponding list of in the small bin at idx `4`. Let's see what happens when we change the value to a large bin size:
+We can see since the unsorted bin chunk could not serve the requested size of `0x1000`, it was sorted to its corresponding list of in the small bin at idx `32`. Let's see what happens when we change the value to a large bin size:
 
 The new C code:
 ```
@@ -420,7 +420,7 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 1 chunks in 1 large non-empty bins.
 ```
 
-As we can see, the heap chunk was moved into its corresponding bin the large bin at idx `63`. Now what if an unsorted bin chunk can serve a malloc request?
+As we can see, the heap chunk was moved into its corresponding bin (the large bin) at idx `63`. Now what if an unsorted bin chunk can serve a malloc request?
 
 Let's change the C code to this:
 
@@ -487,9 +487,9 @@ Fastbins[idx=6, size=0x70] 0x00
 [+] Found 0 chunks in 0 large non-empty bins.
 ```
 
-We can see here that the `0x210` bytes for the chunk was taken off of the chunk in the unsorted bin, and that the chunk remained in the unsorted bin.
+We can see here that the original chunk (`0x410` bytes long) was split and `0x210` are now allocated, serving the malloc(0x200) request. The remaining bytes bytes (`0x200`) are left in the unsorted bin.
 
-Now let's look at chunk itself of a chunk in either the Unsorted, Small, or Large Bins.
+Now let's look at the chunks themselves, either from the Unsorted, Small, or Large Bins.
 
 Small Bin Chunk:
 
@@ -518,23 +518,23 @@ gef➤  x/6g 0x602210
 0x602230: 0x0 0x0
 ```
 
-We can see that each of the chunks have the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
+We can see that each of the chunks has the traditional header of a previous chunk size, and a chunk size. In addition to that, we see that all three chunks have two pointers as the first thing in the content section. That is because the lists in the Unsorted, Small, and Large bins are all doubly linked lists. The first pointer is the `fwd` pointer, and the second pointer is the `bk` pointer. However we can see that the large chunk has two pointer immediately after that.
 
-These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nexsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
+These are pointers to `fwd_nextsize` and `bk_nextsize`. This will point to the next chunk of a different size. Since chunks in the large bin are stored largest to smallest, the `fwd_nextsize` will point to the next smallest chunk, and the `bk_nextsize` will allow it to jump to the next largest jump. It's kind of like a skip list.
 
 ## Consolidation
 
-Now one issue the heap may run into is fragmentation. This is when the heap has a lot of free space, however it is in tiny chunks all over the place. This can become a problem when malloc tries to allocate a large chunk of space since it could have the space, but since it is broken up into a lot of smaller pieces and not continuous it will have to use different memory for it, and effectively waste space.
+Now, one issue the heap may run into is fragmentation. This happens when the heap has a lot of free space but it is spread among small chunks all over the place. This scenario is problematic when malloc tries to allocate a large chunk of space and while there is enough free space to serve the request, it is fragmented. Since there is no contiguous memory to serve the request, malloc will have to use different memory areas to serve it, wasting memory.
 
-Consolidation tries to fix this by merging adjacent freed chunks together, into larger freed chunks. That way it will have larger freed chunks which can support larger allocations, and hopefully combat fragmentation.
+Consolidation tries to fix this by merging adjacent freed chunks together into larger freed ones. This way, larger freed chunks will be available and can support larger allocations, and hopefully combat fragmentation.
 
 ## Top Chunk
 
-The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as where freed data that isn't in one of the bin lists goes.
+The Top Chunk is essentially a large heap chunk that holds currently unallocated data. Think of it as the place where the freed data that isn't in one of the bin lists goes.
 
-Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
+Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so the heap isn't set up. When `malloc` sets up the heap, it will request some space from the kernel that is much larger than `0x10` bytes. Allocating large chunks of memory from the kernel, and managing memory allocations from that memory is a lot more efficient than requesting memory from the kernel each time. The remainder from the `0x20` bytes from the request (`0x10` from requested size and `0x10` from heap metadata) will end up in the top chunk (top chunk is sometimes also called the remainder chunk or the wilderness chunk). So just to reiterate the top chunk holds unallocated data that isn't in the bin list.
 
-Now malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However if there isn't a chunk in any of the bin lists that will satisfy it, it will pull from the Top Chunk. Let's see that in action with this C Code:
+Malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However, if there is no chunk in any of the bin lists that could satisfy the request, malloc will pull memory from the top chunk. Let's see that in action with this C Code:
 
 ```
 #include <stdlib.h>
@@ -591,7 +591,7 @@ gef➤  x/40g 0x602020
 0x602150: 0x0 0x0
 ```
 
-We can see that two things have happened to the top chunk. Firstly that it moved down to `0x602120` from `0x602020` to make room for the new allocation from itself. Secondly, we see that it's size was shrunk by `0x100`, because of the `0x100` byte allocation from it. Now let's see what happens to the top chunk after the `free(p1)` call:
+We can see two things happened to the top chunk: (1) it moved down (notice it moved to a higher memory address, but we say 'down' to respect how it is depicted) to `0x602120` from `0x602020` to make room for the new allocated chunk, and (2) it's size was shrunk by `0x100`, because of the `0x100` byte allocation to serve the malloc request. Now let's see what happens to the top chunk after the `free(p1)` call:
 
 ```
 gef➤  heap bins
@@ -633,13 +633,13 @@ gef➤  x/40g 0x602020
 0x602150: 0x0 0x0
 ```
 
-We can see that the chunk did not end up in the unsorted bin. Instead in consolidated with the top chunk. This is because it was a freed chunk right next to the top chunk, with no allocated space in between. So it just merged it with the top chunk (granted it left it's old size value behind).
+We can see that the chunk did not end up in the unsorted bin. Instead, it consolidated with the top chunk. This is because it was a freed chunk right next to the top chunk, with no allocated space in between. So it just merged it with the top chunk (granted it left it's old size value behind).
 
 Keep in mind, depending on the version of malloc and if the chunk size is fast bin or tcache, this behavior doesn't always show itself.
 
 #### Top Chunk Consolidation
 
-Now a lot of heap attacks we will go through target a bin list. For that we need freed chunks in the bins lists. Consolidation with the top chunk can prevent that, so one thing you will see us do a lot of is allocated a small chunk in between our freed chunks and the top chunk, just to prevent that consolidation.
+A lot of heap attacks we will see target a bin list. For that we need chunks in the bin lists. Consolidation with the top chunk is a problem, so one thing you will see us do a lot is allocate a small chunk in between our freed chunks and the top chunk, just to prevent the consolidation
 
 ## Main Arena
 
@@ -677,7 +677,7 @@ gef➤  x/20g 0x7ffff7dd1b20
 
 ## Exploitation
 
-As you can see, there is a good bit of functionality with the heap (although we haven't covered it all). A lot of this functionality is beneficial to attacking the code. Here is kind of an outlay of how these attacks can work from super high level. Also the man, the myth, the legend himself `noopnoop` was the one to show me this, and I think it's a pretty good way for explaining heap exploitation:
+As you can see, there is a good bit of functionality with the heap (although we haven't covered it all). A lot of this functionality is beneficial to attacking the code. Here is kind of an outline of how these attacks can work from super high level. Also the man, the myth, the legend himself `noopnoop` was the one to show me this, and I think it's a pretty good way for explaining heap exploitation:
 
 ```
 +--------------------+----------------------------+-----------------------+
@@ -691,7 +691,7 @@ As you can see, there is a good bit of functionality with the heap (although we 
 +--------------------+----------------------------+-----------------------+
 ```
 
-First off we have an actual bug. This can be something like a Heap overflow, Use After Free (UAF), a double free, or other things. We leverage the bugs and a bit of heap grooming to edit a freed chunk in one of the bin lists. Then from being able to edit a freed chunk in one of the bin lists we can launch a bin attack (also I'm not 100% sure if Unsafe Unlink counts as a Bin Attack, but that's where I'm putting it).
+First off, we have an actual bug. This can be something like a Heap overflow, Use After Free (UAF), a double free, or other things. We leverage the bugs and a bit of heap grooming to edit a freed chunk in one of the bin lists. Then, from being able to edit a freed chunk in one of the bin lists we can launch a bin attack (also I'm not 100% sure if Unsafe Unlink counts as a Bin Attack, but that's where I'm putting it).
 
 The Houses are essentially different types of Heap Attacks that we can do in different situations, that do different things. A lot of them are built off of the bin attacks, and they can get more complicated than some of the typical bin attacks.
 

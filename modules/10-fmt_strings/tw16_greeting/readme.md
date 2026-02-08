@@ -72,7 +72,7 @@ void getnline(char *ptr,int bytesRead)
 }
 ```
 
-It just scans in `bytesRead` amount of data (in our case `0x40` or `60` so no overflow) into the space pointed to by `ptr`. Proceeding that, it will replace the newline character with a null byte. It will then return the output of `strlen` on our input.
+It just scans in `bytesRead` amount of data (in our case `0x40` or `64` so no overflow) into the space pointed to by `ptr`. Proceeding that, it will replace the newline character with a null byte. It will then return the output of `strlen` on our input.
 
 Now the next thing we need will be a function to overwrite a got entry with. Looking through the list of imports in ghidra (imported functions are included in the compiled binary code, and since pie isn't enabled we know the addresses of those functions) we can see that `system` is imported, and is at the address `0x8048490` in the plt table:
 

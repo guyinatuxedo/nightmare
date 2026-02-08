@@ -1,8 +1,8 @@
 # Facebook CTF 2019 Overfloat
 
-This challenge was a team effort, my fellow Nasa Rejects team mate qw3rty01 helped me out with this one.
+This challenge was a team effort, my fellow Nasa Rejects teammate qw3rty01 helped me out with this one.
 
-One thing about this challenge, it is supposed to be done with the `libc-2.27.so`, which is the default libc version for Ubuntu `18.04`. You can check what libc version is loaded in by checking the memory mappings with in gdb with the `vmmap` command. If it isn't the default, you will need to so something like using ptrace to switch the libc version, or adjust the offsets to match your own libc file.
+One thing about this challenge, it is supposed to be done with the `libc-2.27.so`, which is the default libc version for Ubuntu `18.04`. You can check what libc version is loaded in by checking the memory mappings with in gdb with the `vmmap` command. If it isn't the default, you will need to do something like using ptrace to switch the libc version, or adjust the offsets to match your own libc file.
 
 Let's take a look at the binary:
 
@@ -193,7 +193,7 @@ target = remote("challenges.fbctf.com", 1341)
 # If for whatever reason you are usign a different libc file, just change it out here and it should work
 libc = ELF('libc-2.27.so')
 
-# A helper function to send input, made by a team mate
+# A helper function to send input, made by a teammate
 def sendVal(x):
     v1 = x & ((2**32) - 1)
     v2 = x >> 32
@@ -225,7 +225,7 @@ base = leak - libc.symbols['puts']
 
 print "libc base: " + hex(base)
 
-# Fill up the space between the start of our input and the retun address
+# Fill up the space between the start of our input and the return address
 # For the second round of exploiting the bug
 for i in xrange(7):
     sendVal(0xdeadbeefdeadbeef)
