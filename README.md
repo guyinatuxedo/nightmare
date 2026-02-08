@@ -1,3 +1,9 @@
+# UPDATED
+
+So, I've begun to make some updated ctf stuff. The first big part, deals with heap ctf challs, and can be found here:
+
+https://github.com/guyinatuxedo/Shogun
+
 # Nightmare
 
 Nightmare is an intro to binary exploitation / reverse engineering course based around ctf challenges. I call it that because it's a lot of people's nightmare to get hit by weaponized 0 days, which these skills directly translate into doing that type of work (plus it's a really cool song).
