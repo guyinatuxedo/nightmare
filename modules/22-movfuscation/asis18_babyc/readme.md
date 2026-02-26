@@ -4,7 +4,7 @@ The goal of this challenge is just to find the first `14` characters of the corr
 
 Let's take a look at the binary:
 
-```
+```console
 $    file babyc
 babyc: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, stripped
 $    ./babyc
@@ -15,7 +15,7 @@ Wrong!
 
 So it looks like we are dealing with a `32` bit crackme challenge that takes in input via stdin. A crackme challenge is one that takes in input, and checks if it is what it expects (and we have to figure out the correct input). Looking at the assembly code of the binary in Ghidra, it becomes apparent very quickly that this binary has been obfuscated:
 
-```
+```nasm
         08048343 a3 f0 5f        MOV        [DAT_081f5ff0],EAX
                  1f 08
         08048348 89 15 f4        MOV        dword ptr [DAT_081f5ff4],EDX
@@ -47,19 +47,19 @@ Specifically it has been obfuscated using Movfiscator, which is a compiler that 
 
 Let's run the tool to generate a patched version of the binary, and a graph:
 
-```
+```console
 $       ./demov -g char.dot -o demov_babyc babyc
 ```
 
 and let's convert the .dot file to a pdf:
 
-```
+```console
 $       dot -Tpdf char.dot -o char.pdf
 ```
 
 Looking at the graph `char.pdf`, we see that it starts at `0x804899e` and ends at `0x804b97c`. In between that we can see there is a string of conditionals, which if any of them fail it will lead us to `0x804b5d0`. These conditionals are at these addresses:
 
-```
+```text
 0x8049853:
 0x8049b26:
 0x8049e50:
@@ -71,12 +71,12 @@ Let's take a look at the code for the `0x8049853` conditional, we see this (this
 
 
 Let's us objdump to view it:
-```
+```console
 $       objdump -D demov_babyc -M intel | less
 ```
 
 Then we see this:
-```
+```objdump
  8049847:       a1 e0 5f 1f 08          mov    eax,ds:0x81f5fe0
  804984c:       85 c0                   test   eax,eax
  804984e:       90                      nop
@@ -89,7 +89,7 @@ Then we see this:
 
 So we can see that the comparison which determines if there is a jump is made at `0x804984c`. Let's see what the memory looks like there in gdb:
 
-```
+```gdb
 gef➤  b *0x804984c
 Breakpoint 1 at 0x804984c
 gef➤  r
@@ -141,7 +141,7 @@ So we can see that our input is on the stack, or more specifically our input aft
 
 The next check we have is at `0x8049b26`:
 
-```
+```objdump
  8049a71:       a3 e0 5f 1f 08          mov    ds:0x81f5fe0,eax
  8049a76:       a1 e0 5f 1f 08          mov    eax,ds:0x81f5fe0
  8049a7b:       8b 04 85 60 61 3f 08    mov    eax,DWORD PTR [eax*4+0x83f6160]
@@ -191,7 +191,7 @@ This might seem like a lot, however I set a breakpoint for `0x8049a71` and stepp
 
 We see that the `edx` register gets loaded with our first character:
 
-```
+```gdb
 gef➤  s
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -236,7 +236,7 @@ gef➤
 
 Proceeding that, the `edx` register gets loaded with the character `A` (`0x41`):
 
-```
+```gdb
 gef➤  s
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -281,7 +281,7 @@ gef➤
 
 From this, I decided to see if it was checking if the first character was `A`. After trying the string `A12m0vfu3c4t0r!` I saw that we passed this check, so our assumption was correct. Turns out there are just two last checks that we need to worry about, which are here:
 
-```
+```text
 0x8049e50:      starts at 0x8049d9b
 0x804a17a:      starts at 0x804a0c5
 ```

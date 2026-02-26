@@ -4,7 +4,7 @@ The Stack Canary is another mitigation designed to protect against things like s
 
 To understand this better, let's look at a binary compiled with a stack canary:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x0000000000401132 <+0>:    push   rbp
@@ -32,7 +32,7 @@ End of assembler dump.
 
 Now let's look at a binary compiled from the same source code, but without a stack canary:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x0000000000401122 <+0>:    push   rbp
@@ -52,7 +52,7 @@ End of assembler dump.
 
 We can see a few differences between the code, like when it checks the stack canary:
 
-```
+```nasm
    0x0000000000401169 <+55>:    mov    rax,QWORD PTR [rbp-0x8]
    0x000000000040116d <+59>:    xor    rax,QWORD PTR fs:0x28
    0x0000000000401176 <+68>:    je     0x40117d <main+75>
@@ -61,7 +61,7 @@ We can see a few differences between the code, like when it checks the stack can
 
 Let's actually take a look at the stack canary in memory:
 
-```
+```gdb
 Breakpoint 1, 0x0000000000401168 in main ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -120,7 +120,7 @@ For `x86` elfs, the pattern is a `0x4` byte dword, where the first three bytes a
 
 Let's change the value of the canary and see what happens!
 
-```
+```gdb
 gef➤  x/g $rbp-0x8
 0x7fffffffdfe8:    0x92105577ff879300
 gef➤  set *0x7fffffffdfe8 = 0x0
@@ -135,7 +135,7 @@ As we can see, it saw that the value of the canary changed and it terminated the
 
 So what's the bypass? If we need to overwrite the stack canary, then we just overwrite it with itself. For instance:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x401159 <main+39>        mov    rdi, rax
      0x40115c <main+42>        call   0x401040 <fgets@plt>

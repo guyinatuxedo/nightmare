@@ -2,7 +2,7 @@
 
 So the first big wall you will need to tackle is starting to learn assembly. It may be a little bit tough, but it is perfectly doable and a critical step for what comes after. To start this off, I would recommend watching this video. It was made by the guy who actually got me interested in this line of work. I started off learning assembly by watching this video several times. It's really well put together:
 
-```
+```text
 [x86 Assembly Crash Course](https://www.youtube.com/watch?v=75gBFiFtAb8)
 ```
 
@@ -12,7 +12,7 @@ Now that you have watched the video, we will go through some documentation expla
 
 So first off, what is assembly code? Assembly code is the code that is actually run on your computer by the processor. For instance take some C code:
 
-```
+```c
 #include <stdio.h>
 
 void main(void)
@@ -23,7 +23,7 @@ void main(void)
 
 This code is not what runs. This code is compiled into assembly code, which looks like this:
 
-```
+```objdump
 0000000000001135 <main>:
     1135:       55                      push   rbp
     1136:       48 89 e5                mov    rbp,rsp
@@ -44,7 +44,7 @@ With assembly code, there are a lot of different architectures. Different types 
 
 Registers are essentially places that the processor can store memory. You can think of them as buckets which the processor can store information in. Here is a list of the `x64` registers, and what their common use cases are.
 
-```
+```text
 rbp: Base Pointer, points to the bottom of the current stack frame
 rsp: Stack Pointer, points to the top of the current stack frame
 rip: Instruction Pointer, points to the instruction to be executed
@@ -69,7 +69,7 @@ r15:
 
 In `x64` linux arguments to a function are passed in via registers. The first few args are passed in by these registers:
 
-```
+```text
 rdi:    First Argument
 rsi:    Second Argument
 rdx:    Third Argument
@@ -82,7 +82,7 @@ With the `x86` elf architecture, arguments are passed onto the stack. Also, as y
 
 There are also different sizes for registers. The typical sizes we will be dealing with are `8` bytes, `4` bytes, `2` bytes, and `1` byte. The reason for these different sizes is due to the advancement of technology, so that we can store more data in a register.
 
-```
+```text
 +-----------------+---------------+---------------+------------+
 | 8 Byte Register | Lower 4 Bytes | Lower 2 Bytes | Lower Byte |
 +-----------------+---------------+---------------+------------+
@@ -119,7 +119,7 @@ You might hear the term word throughout this. A word is just two bytes of data. 
 Now one of the most common memory regions you will be dealing with is the stack. It is where local function variables in the code are stored.
 
 For instance, in this code the variable `x` is stored in the stack:
-```
+```c
 #include <stdio.h>
 
 void main(void)
@@ -131,7 +131,7 @@ void main(void)
 
 Now we can see it is stored on the stack at `rbp-0x4`.
 
-```
+```objdump
 0000000000001135 <main>:
     1135:       55                      push   rbp
     1136:       48 89 e5                mov    rbp,rsp
@@ -155,7 +155,7 @@ The exact bounds of the stack is recorded by two registers, `rbp` and `rsp`. The
 
 There is one register that contains flags. A flag is a particular bit of this register. If it is set or not typically means something. Here is the list of flags.
 
-```
+```text
 00:     Carry Flag
 01:     always 1
 02:     Parity Flag
@@ -186,7 +186,7 @@ Now we will be covering some of the more common instructions you will see. This 
 
 The move instruction just moves data from one register to another. For instance:
 
-```
+```nasm
 mov rax, rdx
 ```
 
@@ -196,13 +196,13 @@ This will just move the data from the `rdx` register to the `rax` register. Note
 
 If you ever see brackets like `[]`, they are meant to dereference, which deals with pointers. A pointer is a value that points to a particular memory address (it is a memory address). Dereferencing a pointer means to treat a pointer like the value it points to. Put another way, a pointer is a variable that holds a memory address, and to dereference that pointer means you are accessing the value stored at that memory address. For instance:
 
-```
+```nasm
 mov rax, [rdx]
 ```
 
 Will move the value pointed to by `rdx` into the `rax` register. On the flipside:
 
-```
+```text
 mov [rax], rdx
 ```
 
@@ -212,7 +212,7 @@ Will move the value of the `rdx` register into whatever memory is pointed to by 
 
 The lea instruction calculates the address of the second operand, and moves that address in the first. For instance:
 
-```
+```nasm
 lea rdi, [rbx+0x10]
 ```
 
@@ -221,7 +221,7 @@ This will move the address `rbx+0x10` into the `rdi` register.
 #### add
 This just adds the two values together, and stores the sum in the first argument. For instance:
 
-```
+```nasm
 add rax, rdx
 ```
 
@@ -231,7 +231,7 @@ That will add the value of `rdx` to `rax`, setting `rax` equal to `rax + rdx`.
 
 This value will subtract the second operand from the first one, and store the difference in the first argument. For instance:
 
-```
+```nasm
 sub rsp, 0x10
 ```
 
@@ -241,7 +241,7 @@ This will subtract 10 from `rsp`, setting the `rsp` register equal to `rsp - 0x1
 
 This will perform the binary operation xor on the two arguments it is given, and stores the result in the first argument:
 
-```
+```nasm
 xor rdx, rax
 ```
 
@@ -255,7 +255,7 @@ The `and` and `or` instructions essentially do the same thing, except with the `
 
 The `push` instruction will grow the stack by either `8` bytes (for `x64`, `4` for `x86`), then push the contents of a register onto the new stack space. For instance:
 
-```
+```text
 push rax
 ```
 
@@ -265,7 +265,7 @@ This will grow the stack by `8` bytes, and the contents of the `rax` register wi
 
 The `pop` instruction will pop the top `8` bytes (for `x64`, `4` for `x86`) off of the stack and into the argument. Then it will shrink the stack. For instance:
 
-```
+```text
 pop rax
 ```
 
@@ -275,7 +275,7 @@ The top `8` bytes of the stack will end up in the `rax` register.
 
 The `jmp` instruction will jump to an instruction address. It is used to redirect code execution. For instance:
 
-```
+```text
 jmp 0x602010
 ```
 

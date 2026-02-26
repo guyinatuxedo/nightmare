@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file time 
 time: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=4972fe3e2914c74bc97f0623f0c4643c40300dab, not stripped
 $	pwn checksec time 
@@ -24,7 +24,7 @@ Sorry. Try again, wrong guess!
 
 So we can see that we are dealing with a 64 bit binary. When we run it, it prompts us to guess a number. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -66,7 +66,7 @@ undefined8 main(void)
 
 So we can see it generates a random number using the `rand` function. It then prompts us for input using `scanf` with the `%u` format string stored in `fmtString` (double click on `fmtString` in the assembly to see it). Then it checks if the two number are the same, and if they are it will run the `giveFlag` function which when we look at it, we can see that it reads prints out the flag file from `/home/h3/flag.txt`:
 
-```
+```c
 void giveFlag(void)
 
 {
@@ -96,14 +96,14 @@ void giveFlag(void)
 
 So we need to figure out what the output of the `rand` function will be. Thing is the output of the `rand` function is not actually random. The output is based off a value called a seed, which it uses to determine what number sequence to generate. So if we can get the same seed, we can get `rand` to generate the same sequence of numbers. Looking at the decompiled code, we see that it uses the current time as a seed:
 
-```
+```text
   time = time((time_t *)0x0);
   srand((uint)time);
 ```
 
 So if we just write a simple C program to use the current time as a seed, and output a digit and redirect the output to the target, we will solve the challenge:
 
-```
+```c
 #include<stdio.h>
 #include<time.h>
 #include<stdlib.h>
@@ -122,7 +122,7 @@ int main()
 
 When we compile and run it:
 
-```
+```c
 $	cat solve.c 
 #include <stdio.h>
 #include <stdlib.h>

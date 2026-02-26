@@ -4,7 +4,7 @@ Relro (Read only Relocation) affects the memory permissions similar to NX. The d
 
 With relro:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000555555554000 0x0000555555555000 0x0000000000000000 r-- /tmp/tryc
@@ -39,7 +39,7 @@ gef➤  search-pattern 0x7ffff7e4d100
 
 Without relro:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-- /tmp/try

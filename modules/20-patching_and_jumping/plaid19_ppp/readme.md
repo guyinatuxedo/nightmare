@@ -2,7 +2,7 @@
 
 Full warning, I solved this using the unintended / cheesy solution. With that let's take a look at the binary:
 
-```
+```console
 $    file pppiii-b73804b431586f8ecd4a0e8c0daf3ba6
 pppiii-b73804b431586f8ecd4a0e8c0daf3ba6: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=8190b786e8260d7cb6e6d183a1f9f182a96f86d6, stripped
 $    ./pppiii-b73804b431586f8ecd4a0e8c0daf3ba6
@@ -50,7 +50,7 @@ So we are dealing with a 64 bit binary, that crashes when we run it.
 
 Looking through the list of functions (or checking references to functions and strings) we find this function which appears to start the parts of this binary that we are interesting in:
 
-```
+```c
 undefined8 FUN_00105948(int arg_count,long param_2)
 
 {
@@ -124,7 +124,7 @@ Also with the setup function, we see that it sets `x` to be a pointer to various
 
 Then it decides to either simulate or check the dinner. This is based upon the value `first_arg` (initialized to `1`). If it is `1` then it simulates it, `2` for checking. If it is a value other than those two then the program aborts. At the moment the `simulatingDinner` function is of more interest to use because we can see that the flag is printed in that function:
 
-```
+```c
   customPrint(&local_c8,"It\'s a flag!");
   FUN_00101113(&local_c8,5);
   __ptr = (void *)genFlag(lParm1);
@@ -136,7 +136,7 @@ Then it decides to either simulate or check the dinner. This is based upon the v
 
 However before that happens, we see that this code runs around `0x1829`:
 
-```
+```c
   while (i < 0xf) {
     abortCheck0 = pthread_create(th + (long)i,(pthread_attr_t *)0x0,FUN_001014f8,
                                  (void *)((long)i * 0x20 + lParm1));
@@ -159,7 +159,7 @@ However before that happens, we see that this code runs around `0x1829`:
 
 What that block does is it takes the functions stored in `x`, and executes them in different threads. In one of those functions somewhere, the program is aborting. After a bit of reversing we find this section of code at `0x3288` in the function at `0x314e`:
 
-```
+```c
   pcVar4 = strstr(*(char **)(lVar3 + 8),"paneer");
   if (pcVar4 != (char *)0x0) {
                     /* WARNING: Subroutine does not return */
@@ -168,7 +168,7 @@ What that block does is it takes the functions stored in `x`, and executes them 
 
 Depending on the order of spots we give, a different string gets compared here. To get past this, I just changed around the spots a bit until I got past that check. Then I ran into another problem where due to the `pthread_join(th[(long)j],(void **)0x0)` calls, the code hangs to the point where we won't get the flag:
 
-```
+```console
 $    ./pppiii-b73804b431586f8ecd4a0e8c0daf3ba6 1 12 13 14 15 1 2 3 4 5 6 7 8 9 10 11
 Simulating the dinner...
 
@@ -224,7 +224,7 @@ jarsp: *grabs the mango lassi*
 However we don't need to figure out how to get past that wall to get the flag. Turns out there is an unintentional solution where we can just jump past this section, and it will print the flag. For this I would set a breakpoint for the `pthread_join` call, then jump to right past the for loop with the `pthread_join` call at `0x18e7`:
 
 First set breakpoints and run it:
-```
+```gdb
 gef➤  pie b *0x18be
 gef➤  pie b *0x18e7
 gef➤  pie run 1 12 13 14 15 1 2 3 4 5 6 7 8 9 10 11
@@ -238,7 +238,7 @@ Simulating the dinner...
 
 Then we once we get to the `pthread_join` call, we can just jump past it. We will need to add it's offset to the pie base `0x0000555555554000` since pie is enabled:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000555555554000 0x000055555555c000 0x0000000000000000 r-x /Hackery/plaid19/planning/pppiii-b73804b431586f8ecd4a0e8c0daf3ba6
@@ -317,7 +317,7 @@ zwad3: *grabs the basmati rice*
 
 Then when we hit the final breakpoint, we can just continue and we will get the flag:
 
-```
+```gdb
 Thread 1 "pppiii-b73804b4" hit Breakpoint 2, 0x00005555555558e7 in ?? ()
 gef➤  c
 Continuing.

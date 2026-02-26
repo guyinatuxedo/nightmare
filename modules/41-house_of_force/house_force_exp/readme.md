@@ -3,7 +3,7 @@
 This is a well documented C source file that explains how a House of Force attack works.
 
 Here is the code:
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -69,7 +69,7 @@ int main(void)
 ```
 
 Here is the code running (ran on `Ubuntu 16.04`):
-```
+```console
 ./house_force_exp 
 So let's cover House of Force.
 With this Hose Attack, our goal is to get malloc to allocate a chunk outside of the heap.

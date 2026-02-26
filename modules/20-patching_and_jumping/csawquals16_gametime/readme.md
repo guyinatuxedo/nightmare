@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file gametime.exe
 gametime.exe: PE32 executable (console) Intel 80386, for MS Windows
 ```
@@ -11,7 +11,7 @@ So we are just given a 32 bit Windows executable . When we run the game in windo
 
 So we can see that is a 32 bit Windows Executable. When we look at in Ghidra at the binary we see two strings that can be of interest to us:
 
-```
+```nasm
                              s__UDDER_FAILURE!_http://imgur.com_00417a80     XREF[1]:     FUN_00401435:004014f2(*)  
         00417a80 0d 55 44        ds         "\rUDDER FAILURE! http://imgur.com/4Ajx21P \n"
                  44 45 52
@@ -29,7 +29,7 @@ So we can see that is a 32 bit Windows Executable. When we look at in Ghidra at 
 
 For now it should be safe to assume that this is a failure message, displayed when you loose the game. When we check the references to the to see where the first string is reference, we see that it is called after a test instruction like this (and the second string is referenced in a similar fashion):
 
-```
+```c
                              LAB_004014ca                                    XREF[1]:     004014ad(j)  
         004014ca ba a0 86        MOV        param_2,0x186a0
                  01 00
@@ -47,7 +47,7 @@ We see in both instances that if the output of the `test` instruction is not 0, 
 
 We can edit it using Binary Ninja (or you can edit it using a different hex editor, although Binary Ninja is a lot more than a hex editor). There is a free version that we can use for personal use, and it is a great tool for patching binaries. To edit it in Binary Ninja, just open the executable in it, go to each of the two functions (at `0x401507` and `0x401435`), right click on the line we want to edit, go to Patch->Edit Current Line and then just change `jne` to `je`. Lastly just save it. After that you should just be able to run the exe in windows, not give it any input, and eventually it will print the flag (which isn't in the standard format, and may take a little bit):
 
-```
+```text
 key is <no5c30416d6cf52638460377995c6a8cf5>
 ```
 

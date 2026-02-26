@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file syscaller
 syscaller: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, BuildID[sha1]=15d03138700bbfd52c735087d738b7433cfa7f22, not stripped
 $    pwn checksec syscaller
@@ -23,7 +23,7 @@ So we can see that we are dealing with a `64` bit binary, with non of the standa
 
 When we through the binary in Ghidra, we see that it looks like another custom assembled binary. When we look at the `entry` function, we see this:
 
-```
+```nasm
                              //
                              // .text
                              // SHT_PROGBITS  [0x4000e0 - 0x40016d]
@@ -83,7 +83,7 @@ So for the exploit, we will have to do several things. We will use the `syscall`
 
 Let's take a look at the memory mappings:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-x /Hackery/pod/modules/srop/swamp19_syscaller/syscaller
@@ -96,7 +96,7 @@ gef➤
 
 So we can see that the only writable memory region by default is the stack. Thing is, we need to write the string `/bin/sh` somewhere in memory at an address we know in order to call it. So starting off the only region we can write to is the stack. However when the syscall is executed, the only real stack addresses we have are stored in the `rbp` and `rsp` registers, which are overwritten by the sigreturn. We can't use the syscall to give us an infoleak, because if it does it will continue on to the exit syscall before we actually get code execution. So by using the sigreturn, we effectively lose our only really stack addresses (stored in `rbp` and `rsp`). Also when we check the stack to see what's in range of our input for a potential leak, we come up with nothing:
 
-```
+```gdb
 gef➤  x/65g 0x7fffffffde68
 0x7fffffffde68:    0x3832373533393531    0xa
 0x7fffffffde78:    0x0    0x0
@@ -135,7 +135,7 @@ gef➤  x/65g 0x7fffffffde68
 
 My solution to this is to remap the binary segment (`0x400000 - 0x401000`) to the permissions `rwx`, so we can read write and execute to that segment. I will do this using an `mprotect` syscall, which allows me to assign permissions to a memory region. For that, we will need to have the following register values set:
 
-```
+```text
 rax:    0xa (specify memprotect syscall)
 rdi:    0x400000 (specify beginning of the binary's data segment)
 rsi:    0x1000 (specify to apply the permissions to the chunk of this length, which covers the entire memory segment)
@@ -144,7 +144,7 @@ rdx:    0x7 (standard unix permission for read write and execute, read is 4, wri
 
 When we make that syscall, we see that we are able to remap the permissions to be `rwx` from `r-x`:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 rwx /Hackery/pod/modules/srop/swamp19_syscaller/syscaller
@@ -160,7 +160,7 @@ Also for which syscall to use, I choose `0x400104`. The reason for this, is imme
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 # Establish the target
@@ -221,7 +221,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './syscaller': pid 16165
 input

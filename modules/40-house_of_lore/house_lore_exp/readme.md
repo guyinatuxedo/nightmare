@@ -4,7 +4,7 @@ This is just a well documented C file explaining how a house of Lore attack work
 
 Code:
 
-```
+```c
 // This is based off of: https://github.com/shellphish/how2heap/blob/master/glibc_2.26/house_of_lore.c
 
 #include <stdio.h>
@@ -99,7 +99,7 @@ int main(void)
 ```
 
 Running it:
-```
+```console
 $ ./house_of_lore 
 So let's cover House of Lore.
 House of Lore focuses on attacking the small bin to allocate a chunk outside of the heap.

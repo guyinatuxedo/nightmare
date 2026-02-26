@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file server
 server: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=be2f490cdd60374344e1075c9dd31060666bd524, not stripped
 $    pwn checksec server
@@ -51,7 +51,7 @@ So we can see we are dealing with a `32` bit binary, with `NX` enabled. When we 
 
 When we take a look at the `vuln` function in ghidra (`0x080485b1`) we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void vuln(void)
@@ -73,7 +73,7 @@ void vuln(void)
 
 So we can see that there is a buffer overflow with `gets`. Since there is no stack canary, we can overwrite the return address and get code execution. Let's see how far away the return address is from the start of our input:
 
-```
+```gdb
 gef➤  b *vuln+119
 Breakpoint 1 at 0x8048628
 gef➤  r
@@ -155,7 +155,7 @@ So we can call an instruction pointer, however the difficulty is what to call. W
 
 First off, since PIE isn't enabled we can call imported functions. We also see that `puts` is enabled:
 
-```
+```console
 $    objdump -D server | grep puts
 08048410 <puts@plt>:
  8048704:    e8 07 fd ff ff           call   8048410 <puts@plt>
@@ -168,7 +168,7 @@ So we can just call `puts` twice, with the address being the `got` address for `
 
 Now for actually identifying the remote libc version, we can just use the tool I mentioned earlier (https://github.com/guyinatuxedo/The_Night). All we need to do is import it into our exploit code, then call a single function. For that single function, there will be four arguments. The first two will be the first libc infoleak along with the symbol for it. The last two will be the second infoleak along with the symbol for it:
 
-```
+```python
 mport TheNight
 from pwn import *
 
@@ -213,7 +213,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python idLibc.py
 [+] Opening connection to chal.utc-ctf.club on port 4902: Done
 [*] '/Hackery/utc/shelltime/server'
@@ -274,7 +274,7 @@ $
 
 So these are the possible libc versions:
 
-```
+```text
 Possible libc: output-symbols-libc6-i386_2.19-10ubuntu2_amd64.so
 Possible libc: output-symbols-libc6_2.19-10ubuntu2_i386.so
 Possible libc: output-symbols-libc6_2.19-10ubuntu2.3_i386.so
@@ -290,7 +290,7 @@ Also to find the offset from the start of the libc to `/bin/sh`, I just used a h
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 cat exploit.py
 import TheNight
 from pwn import *
@@ -343,7 +343,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Opening connection to chal.utc-ctf.club on port 4902: Done
 [*] '/Hackery/utc/shelltime/libc6_2.27-3ubuntu1_i386.so'

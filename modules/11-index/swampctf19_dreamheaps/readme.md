@@ -2,7 +2,7 @@
 
 This writeup goes out to my friend and the person who made this challenge the man the myth the legend himself, noopnoop.
 
-```
+```console
 $    file dream_heaps
 dream_heaps: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=9968ee0656a4b24cb6bf5ebc1f8f37d4ddd0078d, not stripped
 $    pwn checksec dream_heaps
@@ -30,7 +30,7 @@ So we are given a libc file `libc6.so`, and a `64` bit elf with no PIE or RELRO.
 
 When we look at the main function in ghidra, we see that it is essentially just a menu for the four different options:
 
-```
+```c
 
 void main(void)
 
@@ -73,7 +73,7 @@ void main(void)
 ```
  When we look at the Ghidra pseudocode for the `new_dream` function which allows us to write new dreams, we see this:
 
-```
+```c
 void new_dream(void)
 
 {
@@ -103,7 +103,7 @@ void new_dream(void)
 
 So for making a new dream, it first prompts us for a size. It then mallocs a space of memory equal to the size we gave it. It then let's us scan in as many bytes as we specified with the size. It then will save the heap pointer and the size of the space in the `HEAP_PTRS` and `SIZES` bss arrays at the addresses `0x6020a0` and  `0x6020e0` (double click on the pointers in the assembly to see where they map to the bss). The index in the array will be equal to the value of `INDEX` which is a bss integer stored at `0x60208c`. After this it will increment the value of `INDEX`. Next up we have the read function:
 
-```
+```c
 void read_dream(void)
 
 {
@@ -132,7 +132,7 @@ void read_dream(void)
 
 Here we can see that it prompts us for an index to `HEAP_PTRS`, and first checks that it is not larger than `INDEX` to prevent us from reading something past it. It will then grab a pointer from `HEAP_PTRS` from the desired index, and print it. However there is a bug here. While it checks to make sure that we gave it an index smaller than or equal to `INDEX`, it doesn't check to see if we gave it an index smaller than one. This bug will allow us to read something from memory before the start of the `HEAP_PTRS` array in the bss. In addition to that since `INDEX` is incremented after it adds a new value, it will be equal to the next dream that is allocated. Since it just checks to make sure our index isn't greater than `INDEX` we can go past one spot for the end of the pointers in `HEAP_PTRS`. Next up we have the `edit_dream` function:
 
-```
+```c
 void edit_dream(void)
 
 {
@@ -166,7 +166,7 @@ void edit_dream(void)
 
 So here it prompts us for an index, and has the same vulnerable index check from `read_dream`. If the index check passes it will take the pointer stored in `HEAP_PTRS` and the integer stored in `SIZES` at the index you specified and allow you to write that many bytes to the pointer. After that it will null terminate the buffer by setting `ptr + size` equal to `0x0`. However since arrays are zero index, it should be `ptr + (size - 1)` and thus it gives us a single null byte overflow. The last function we'll look at closely is the `delete_dream` function:
 
-```
+```c
 void delete_dream(void)
 
 {
@@ -202,7 +202,7 @@ So we have an index check bug with the read, edit, and free function. On top of 
 
 For the libc infoleak, we will need a pointer to a pointer to a libc address. This is because with the dreams are stored in a 2D array. Luckily for us since there is no PIE we can just read an address from the got table (which is a table mapping various functions to their libc addresses). However first we will need an address to the got table, which we can find using gdb:
 
-```
+```gdb
 gef➤  p puts
 $1 = {int (const char *)} 0x7ffff7a649c0 <_IO_puts>
 gef➤  search-pattern 0x7ffff7a649c0
@@ -219,7 +219,7 @@ Here we can see that the address `0x400538` will work for us. To leak the addres
 
 Now for the got overwrite, we can use a couple of things to exploit that. Firstly if we make enough dreams, they will overflow into the sizes. This is because there isn't a check for this, and `SIZES` starts at `0x602080` and `HEAP_PTRS` starts at `0x6020a0`. The difference between the two is `0x40` bytes, and since pointers are `0x8` bytes it will just be `8` pointers before we start overflowing them. In addition to that since ints are `4` bytes, the two will overlap nicely and end up being written behind the pointers. When we try making a lot of different dreams, we see that we can end up writing a pointer than can be reached by the `edit_dream` function:
 
-```
+```gdb
 gef➤  x/30g 0x6020a0
 0x6020a0 <HEAP_PTRS>: 0x00000000013ea020  0x00000000013ea040
 0x6020b0 <HEAP_PTRS+16>:  0x00000000013ea070  0x00000000013ea0b0
@@ -242,7 +242,7 @@ The pointers are addresses like 0x13eaac0, and the sizes are the integers like 0
 
 Also for the function that we will be overwriting the got address of will be `free` at `0x601fb0`. This is because it won't cause any real issues for us, and to get a shell we will just have to free a dream with the contents `/bin/sh`:
 
-```
+```console
 $ objdump -R dream_heaps | grep free
 0000000000602018 R_X86_64_JUMP_SLOT  free@GLIBC_2.2.5
 ```
@@ -251,7 +251,7 @@ $ objdump -R dream_heaps | grep free
 
 Putting it all together into our exploit, we get this. Also since our exploit relies on calling code from libc, it is dependent on which libc version you're using. If you're libc version is different then the one in the exploit, just swap out the file (check memory mappings in gdb to see which one you're using if this exploit doesn't work):
 
-```
+```python
 from pwn import *
 
 target = process('./dream_heaps')
@@ -334,7 +334,7 @@ target.interactive()
 
 when we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './dream_heaps': pid 9062
 [*] '/Hackery/pod/modules/index/swampctf19_dreamheaps/libc-2.27.so'

@@ -3,7 +3,7 @@
 ### Reversing
 
 Let's take a look at the binary:
-```
+```console
 $    file challenge
 challenge: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=fe602c2cb2390d3265f28dc0d284029dc91a2df8, not stripped
 $    pwn checksec challenge
@@ -17,7 +17,7 @@ $    pwn checksec challenge
 
 So we are dealing with a `64` bit binary with no PIE or RELRO. When we run the binary, we see that we have the option to add, remove and view books. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -59,7 +59,7 @@ void main(void)
 
 So we can see the main function, it essentially just acts as a menu which launches the `remove_book`, `view_books`, and `add_book` functions. Looking at the `add_book` function we see this:
 
-```
+```c
 void add_book(void)
 
 {
@@ -123,13 +123,13 @@ So here is the function which adds books. We can see that it first allocates a c
 
 Books is a single array of heap pointers:
 
-```
+```gdb
 gef➤  x/2g 0x6021a0
 0x6021a0 <books>: 0x0000000000603260  0x00000000006032c0
 ```
 
 Each book has the following structure:
-```
+```text
 0x0:    Int contains index of book
 0x8:    Ptr to name of book
 0x10:   len of book name
@@ -137,7 +137,7 @@ Each book has the following structure:
 ```
 
 Which we can see that layout in gdb:
-```
+```gdb
 gef➤  x/10g 0x6032c0
 0x6032c0: 0x0000000000000001  0x0000000000603300
 0x6032d0: 0x0000000000000019  0x6867697279706f43
@@ -148,7 +148,7 @@ gef➤  x/10g 0x6032c0
 
 Looking at the `view_books` function, we see this:
 
-```
+```c
 void view_books(void)
 
 {
@@ -185,7 +185,7 @@ void view_books(void)
 
 Here we can see the `view_books` function, which prints out the various info about the books. We can see that there is a format string bug with `printf((char *)(*(long *)(books + (long)index * 8) + 0x18));`, since it is printing a non static string without a specific format string. However we will need another bug to effectively use it. Looking at the `remove_book` function we see this:
 
-```
+```c
 void remove_book(void)
 
 {
@@ -213,7 +213,7 @@ Since PIE is disabled, we know the addresses of the got table entries. Since REL
 
 For leaking the libc address, I started off by just allocating a lot of books of the same size (`50` because I felt like it). After that, I removed a lot of the books I allocated, then allocated one more, and checked with gdb to see the offset between that and a pointer which is printed. Here is an example in gdb, where I allocated five `50` byte chunks, freed them, then allocated a new book with the name `15935728`:
 
-```
+```gdb
 Legend: code, data, rodata, value
 Stopped reason: SIGINT
 0x00007ffff7af4081 in __GI___libc_read (fd=0x0, buf=0x7fffffffdf80, nbytes=0x2)
@@ -243,7 +243,7 @@ Now for the actual write itself, I will do three writes of two bytes each. The r
 
 Putting it all together, we get the following exploit. Also when I was doing the exploit dev for this one, I'm not sure why but I had some I/O issues. In addition to that, this exploit is dependent on the libc version. So if you have a different libc version, you will need to swap out the libc file in the exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./challenge')
@@ -364,7 +364,7 @@ target.interactive()
 
 and when we run the remote exploit:
 
-```
+```console
 $ python exploit.py
 [+] Opening connection to pwn.ctf.nullcon.net on port 4002: Done
 NullCon Shop

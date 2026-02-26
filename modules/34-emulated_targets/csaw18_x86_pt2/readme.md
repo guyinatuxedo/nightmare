@@ -3,13 +3,13 @@
 
 Now for this challenge, we have to compile and run a binary (which we will need nasm and qemu installed to do):
 
-```
+```console
 $ sudo apt-get install nasm qemu qemu-system-i386
 ```
 
 You can compile it like this:
 
-```
+```console
 $    ls
 Makefile  stage-1.asm  stage-2.bin
 $    make
@@ -26,7 +26,7 @@ dd bs=512 seek=1 if=stage-2.bin of=tacOS.bin
 ```
 
 You can run the binary like this (or you can just look in the Makefile and see the qemu command to run it):
-```
+```console
 $    make run
 Binary is 4 KB long
 qemu-system-x86_64 -serial stdio -d guest_errors -drive format=raw,file=tacOS.bin
@@ -34,7 +34,7 @@ qemu-system-x86_64 -serial stdio -d guest_errors -drive format=raw,file=tacOS.bi
 
 When we run it, we see a screen that comes up and prints some text. It doesn't look like anything important yet. So we take a quick look again through `stage-1.asm` and we see this on line `224`
 
-```
+```nasm
 load_second_stage:
   ; this bit calls another interrupt that uses a file-descriptor-like thing, a daps, to find a load a file from disk.
   ; load the rest of the bootloader
@@ -46,7 +46,7 @@ load_second_stage:
 
 This coupled with the fact that we are on stage 2, we can reasonably assume that the code in `stage-2.bin` is being ran. Let's take a quick look at the `stage-2.bin` in Ghidra. When we do this, we will need to specify the `x86` processor (also I analyzed it for the `default` variant). After that I disassembled the binary data starting at `0x0` (you can do this either by right clicking, then Disassemble):
 
-```
+```nasm
                              //
                              // ram
                              // fileOffset=0, length=470

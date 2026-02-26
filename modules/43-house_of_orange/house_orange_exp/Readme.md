@@ -4,7 +4,7 @@ First off, this code from this challenge is from https://github.com/shellphish/h
 
 With that being said, here is the well documented source code explaining the attack:
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -203,7 +203,7 @@ void main(void)
 
 This is it running:
 
-```
+```c
 $	./house_orange_exp 
 *** Error in `./house_orange_exp': malloc(): memory corruption: 0x00007ff3ededd520 ***
 ======= Backtrace: =========

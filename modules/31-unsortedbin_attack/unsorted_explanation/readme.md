@@ -3,7 +3,7 @@
 This is just a well documented C file explaining how an Unsorted Bin Attack works. Make sure you run it on a version of libc without the tcache enabled (I ran it using `libc-2.23.so` on Ubuntu `16.04.6`).
 
 Here is the source code:
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -64,7 +64,7 @@ int main(void)
 }
 ```
 Here is it running:
-```
+```console
 $	./unsorted_explanation 
 So we will be covering an unsorted bin attack.
 The unsorted bin is a doubly linked list.

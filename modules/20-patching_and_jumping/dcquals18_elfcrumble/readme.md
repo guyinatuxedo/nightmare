@@ -2,7 +2,7 @@
 
 The challenge prompt is something about having an elf that prints the flag, however it was dropped and the pieces fell out. However the pieces of compiled code were not changed. We were given a `tgz` file. Let's see what we have when we decompress it:
 
-```
+```console
 $    ls pieces
 broken          fragment_2.dat  fragment_4.dat  fragment_6.dat  fragment_8.dat
 fragment_1.dat  fragment_3.dat  fragment_5.dat  fragment_7.dat
@@ -17,14 +17,14 @@ $    cat pieces/fragment_1.dat
 
 So in there we have an x86 binary and 8 files which just contain data. Let's see what happens when we run the binary:
 
-```
+```console
 $    pieces/broken
 Segmentation fault (core dumped)
 ```
 
 So when we run it, we get a segfault.  When we take a look at the binary in Ghidra, we see that there are five functions `main`, `recover_flag`, `f1`, `f2`, and `f3`. Let's take a look at the main function in gdb:
 
-```
+```gdb
 gdb-peda$ disas main
 Dump of assembler code for function main:
    0x000007dc <+0>:    pop    eax
@@ -36,7 +36,7 @@ Dump of assembler code for function main:
 
 So we can see that the main function is just the `pop eax` instruction repeated over and over again. We also see that this is the same way with the functions `recover_flag`, `f1`. `f2`, and `f3`. When we look at it in a hex editor we can see that the opcode for `pop eax` (which is `0x58`) has been overwritten to the five functions. We can see that the X's (`0x58` is hex for `X`) start at `0x5ad` and end at `0x8d3` for a total of 807 bytes. Let's see the size of all of the different fragments.
 
-```
+```console
 $    wc -c < fragment_1.dat
 79
 $    wc -c < fragment_2.dat
@@ -62,7 +62,7 @@ When we add up all of the different segments, we get 807 bytes the same amount a
 Before we figure out where the fragments are, it would be helpful to figure out where the functions start and end. The five functions we are worried about are `f1`, `f2`, `f3`, `recover_flag`, and `main`. For this we can use gdb (or you could use binja):
 
 To find the start of a function in gdb:
-```
+```gdb
 gef➤  p f1
 $1 = {<text variable, no debug info>} 0x5ad <f1>
 gef➤  p f2
@@ -76,7 +76,7 @@ $5 = {<text variable, no debug info>} 0x7dc <main>
 ```
 
 Proceeding that we can find the following information:
-```
+```text
 f1 : starts 0x5ad
 f2 : starts : starts 0x6e9
 f3 : starts : starts 0x72e
@@ -112,7 +112,7 @@ Lastly we have the two pieces 5 and 6. For this it's just a matter of putting th
 
 The order of the fragments is `8 7 1 5 6 2 3 4`. Once you have reassembled the fragments you can just patch over the binary with a hex editor like binja or bless (or whatever hex editor you want to use). Proceeding that you just have to run the program to get the flag:
 
-```
+```console
 $    ./rev
 welcOOOme
 ```

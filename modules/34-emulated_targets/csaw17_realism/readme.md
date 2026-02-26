@@ -4,7 +4,7 @@ This writeup is based off of: `https://github.com/DMArens/CTF-Writeups/blob/mast
 
 Let's take a look at what we have:
 
-```
+```console
 $    file main.bin
 main.bin: DOS/MBR boot sector
 ```
@@ -21,13 +21,13 @@ A couple of things about Master Boot Records that are extremely helpful to know 
 
 When reversing this, using gdb to analyze the program as it is running is very helpful. Luckily for us, qemu has built in gdb support with the `-gdb` flag. Here is the command you need to run if you want to run the program with a listener on port `1234` (ip is localhost) for gdb:
 
-```
+```console
 $    qemu-system-i386 -drive format=raw,file=main.bin -gdb tcp::1234
 ```
 
 and if you want to connect to the listener on localhost on port `1234` (before that we will set the architecture to `i8086`, so we can view the instructions properly):
 
-```
+```gdb
 gef➤  set architecture i8086
 warning: A handler for the OS ABI "GNU/Linux" is not built into this configuration
 of GDB.  Attempting to continue with the default i8086 settings.
@@ -62,14 +62,14 @@ gs             0x0                 0x0
 
 Now that we have attached the process to gdb, let's see if the instructions begin where we would expect them to at `0x7c00`:
 
-```
+```gdb
 gef➤  x/4g 0x7c00
 0x7c00: 0xc0200f10cd0013b8  0x220f02c883fbe083
 0x7c10: 0x0f06000de0200fc0  0x000a126606c7e022
 ```
 
 When we check the instructions / opcodes in Ghidra:
-```
+```nasm
                              //
                              // ram
                              // fileOffset=0, length=512
@@ -94,7 +94,7 @@ So we can see here the same opcodes that we see at the start of the program (so 
 
 So what I decided to do to figure out which code segments are responsible for the check, is set breakpoints at the start of various sub functions (in IDA they are titled something like `loc_8E`)
 
-```
+```text
 0x7c00
 
 0x7c23
@@ -118,7 +118,7 @@ When I ran the program normally, it just encountered the breakpoints at `0x7c58`
 
 The actual instruction at `0x7c78` is a `jnz` instruction for the previous `cmp` instruction at `0x7c6f`. Specifically this is the instruction:
 
-```
+```nasm
        0000:006f 66 81 3e        CMP        dword ptr [0x1234],0x67616c66
                  34 12 66
                  6c 61 67
@@ -132,7 +132,7 @@ So with this new discovery, I'm pretty sure what though the check happened at `0
 
 So now that we know where the check occurs, we can start reversing it. Below is the code that is relevant to the check:
 
-```
+```nasm
        0000:0066 80 3e c8        CMP        byte ptr [0x7dc8],0x13
                  7d 13
        0000:006b 0f 8e 9e 00     JLE        LAB_0000_010d
@@ -182,7 +182,7 @@ So now that we know where the check occurs, we can start reversing it. Below is 
 
 The code between `0x66 ` - `0x78` was discussed above (it just checks the length to see if a check is needed, and if the string starts with `flag`). Proceeding that we see the following code:
 
-```
+```text
        0000:007c 0f 28 06        MOVAPS     XMM0,xmmword ptr [0x1238]
                  38 12
        0000:0081 0f 28 2e        MOVAPS     XMM5,xmmword ptr [0x7c00]
@@ -191,7 +191,7 @@ The code between `0x66 ` - `0x78` was discussed above (it just checks the length
 
 Both of these commands are just moving data in memory into the `xmm0` and `xmm5` registers. The instruction at `0x7c` is moving the `16` bytes of our input into the `xmm0` register, which we can see with gdb (depicted below). The instruction at `0x81` is loading the first `16` bytes of the program (since the code for the program starts at `0x7c00`, since it is a MBR, check it with gdb if you want) into the `xmm5` register. These registers are used later:
 
-```
+```gdb
 Breakpoint 1, 0x00007c7c in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -204,7 +204,7 @@ gef➤  x/s $ds+0x1238
 
 and on the next line of assembly code, we have this:
 
-```
+```text
        0000:0086 66 0f 70        PSHUFD     XMM0,XMM0,0x1e
                  c0 1e
 ```
@@ -212,7 +212,7 @@ and on the next line of assembly code, we have this:
 This instruction essentially just rearranges our input. It inserts the contents of argument two (the `xmm0` register) into the first argument (also the `xmm0` register) at the position of the third argument `0x1e`. We can see how it rearranges it in gdb (below the input string it is dealing with is `0123456789abcdef`):
 
 before `pshufd`:
-```
+```gdb
 Breakpoint 2, 0x00007c86 in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -230,7 +230,7 @@ $1 = {
 ```
 
 after `pshufd`:
-```
+```gdb
 Breakpoint 3, 0x00007c8b in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -248,14 +248,14 @@ $2 = {
 ```
 
 The exact order that this instance of `pshufd` shuffles our input is this:
-```
+```text
 0.) last eight bytes first
 1.) second group of four bytes
 2.) first group of four bytes
 ```
 next we have this line of assembly:
 
-```
+```nasm
        0000:008b be 08 00        MOV        SI,0x8
 ```
 
@@ -265,28 +265,28 @@ This just moves the value `8` into the `si` register. This is going to be used f
 
 Now we enter the loop. The first line just moves the contents of the `xmm0` register into the `xmm2` register:
 
-```
+```nasm
                              LAB_0000_008e                                   XREF[1]:     0000:00c1(j)  
        0000:008e 0f 28 d0        MOVAPS     XMM2,XMM0
 ```
 
 The next line of code ands together the `xmm2` register with the values stored at `si+0x7d90`, and stores the output in the `xmm2` register. The value at `si+0x7d90` is two `0xffffffffffffff00` segments. The end result is the eight and sixteen bytes of `xmm2` are set to `0x00`.
 
-```
+```text
        0000:0091 0f 54 94        ANDPS      XMM2,xmmword ptr [SI + 0x7d90]
                  90 7d
 ```
 
 next we have the `psadbw` instruction:
 
-```
+```text
        0000:0096 66 0f f6 ea     PSADBW     XMM5,XMM2
 ```
 
 this instruction computes the absolute sum of differences between the `xmm5` and `xmm2` registers, and stores it in the `xmm5` register. So essentially what it does is it subtracts each byte of the `xmm2` register, from each byte of the `xmm5` register. It then takes the absolute values of the differences, and adds them together. Also it does two additions, one for the first eight bytes and the second eight bytes. For an example, here we can see the `xmm2` and `xmm5` registers before and after the `psadbw` instruction (this time the input string is `{g0ttem_b0yzzz{_`):
 
 before:
-```
+```gdb
 Breakpoint 5, 0x00007c96 in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -313,7 +313,7 @@ $4 = {
 ```
 
 after:
-```
+```gdb
 gef➤  p $xmm5
 $5 = {
   v4_float = {1.14626214e-42, 0, 1.01594139e-42, 0},
@@ -328,7 +328,7 @@ $5 = {
 
 and here are the calculations that happened:
 
-```
+```text
 0xb8 - 0x0 = 184
 0x30 - 0x13 = 29
 0x79 - 0x0 = 121
@@ -352,7 +352,7 @@ hex(131 + 123 + 142 + 36 + 77+ 101 + 33 + 82) = 0x2d5
 
 Proceeding that we have the rest of the check:
 
-```
+```nasm
        0000:009a 0f 29 2e        MOVAPS     xmmword ptr [0x1268],XMM5
                  68 12
        0000:009f 8b 3e 68 12     MOV        DI,word ptr [0x1268]
@@ -370,7 +370,7 @@ Proceeding that we have the rest of the check:
 
 Essentially what this section of code does, it takes the two values obtained from the previous `psadbw` instruction, arranges them in the `edi` register (`0x313` first then `0x2d5`) and compares it against a value stored in memory. If the check is successful, the loop continues for another iteration where it repeats the loop. The loop will run for eight times, and if we pass all of the checks, we have the correct flag. To find the values that we need to be equal to to pass this check, we can use gdb, and then just jump to the next iteration to see the next value (btw the check happens at `0x7cb2`, our input is in the `edi` register and the value we are comparing it against is in `edx+0x7da8`):
 
-```
+```gdb
 Breakpoint 1, 0x00007cb2 in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -395,7 +395,7 @@ and you can continue to do that until you have all eight values.
 
 Now that we have reversed the algorithm that our input is sent through, and we know the end value it is being compared to, we can use z3 to figure out what the flag is. Below is my z3 script I wrote to find the flag:
 
-```
+```python
 # This script is from a solution here: https://github.com/DMArens/CTF-Writeups/blob/master/2017/CSAWQuals/reverse/realistic.py
 
 # One thing about this script, it uses z3, which uses special data types so it can solve things. As a result, we have to do some special things such as write our own absolute value function instead of using pythons built in functions.
@@ -482,7 +482,7 @@ print "flag{}".format(flag)
 ```
 
 and when we run it:
-```
+```console
 $    python rev.py 
 z3 can solve it
 flag{4r3alz_m0d3_y0}

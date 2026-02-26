@@ -4,7 +4,7 @@ Full disclosure, the solution I found and talk about in here is an unintended so
 
 Let's take a look at the binary:
 
-```
+```console
 $    file future
 future: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=d6e528233c162804c1b358c2e15be38eb717c98a, not stripped
 $    ./future
@@ -14,7 +14,7 @@ Try harder.
 
 So it is a 32 bit binary, and when we run it it prompts us for the flag. Luckily for this one we're given the source code. Let's take a look at it:
 
-```
+```c
 $    cat future.c
 #include <stdio.h>
 #include <string.h>
@@ -85,7 +85,7 @@ So looking at the source code, we can tell what the program does. It scans in up
 
 So first we need to figure out how our input is stored in the matrix. For that, python can help. There are three different values we need to worry about in the `genMatrix` function `f`,  `m/5`, and `m%5`:
 
-```
+```pycon
 >>> for i in xrange(25):
 ...     print ((i * 2) % 25) / 5
 ...
@@ -174,7 +174,7 @@ So first we need to figure out how our input is stored in the matrix. For that, 
 
 Putting it all together, we find that this is how our input is stored in the5 by 5 matrix:
 
-```
+```text
 matrix[0][0] = input[0]
 matrix[0][2] = input[7]
 matrix[0][4] = input[14]
@@ -204,7 +204,7 @@ matrix[4][3] = input[18]
 
 The mathematical operations done with the matrix is made clear in the source code. So now that we know how our input is scanned in, stored in the matrix, the algorithm the data is ran through, and the desired output it's compared against. We can just write a bit of python code which will use Microsoft's z3 theorem solver to figure out the input we need to get an output. You can check the source code of the script for more details on how Z3 works (tl;dr we specify the inputs we have control over, the algorithm it gets run through, and the constraints such as what we want the end result to be):
 
-```
+```python
 #Import z3
 from z3 import *
 
@@ -296,7 +296,7 @@ if z.check() == unsat:
 
 When we run it:
 
-```
+```console
 $    python reverent.py
 Condition is satisfied, would still recommend crying: sat
 solution is: KgBIVp@g@@9n%Y/`PFTt@vb3w

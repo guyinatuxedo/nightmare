@@ -4,7 +4,7 @@ Goal of this challenge is to get the flag, not pop a shell.
 
 Let's take a look at the binary:
 
-```
+```console
 $    file wyvern
 wyvern: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.24, BuildID[sha1]=45f9b5b50d013fe43405dc5c7fe651c91a7a7ee8, not stripped
 $    ./wyvern
@@ -26,7 +26,7 @@ So we are dealing with a `64` bit binary, that prompts us for input via stdin. I
 
 When we take a look at the main function, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -76,13 +76,13 @@ undefined8 main(void)
 ```
 
 So we can see that it prompts us for input here:
-```
+```c
   fgets((char *)input,0x101,stdin);
 ```
 
 Looking through the code, we can see that it really doesn't do much input checking. It just passes our input to `start_quest`, and checks to see if it's output is `0x1337` (which we will need to figure out how to make that happen to solve this challenge). Also the disassembly shows that our input isn't passed, however that is wrong. We can see that in gdb our input is passed:
 
-```
+```gdb
 Breakpoint 1, 0x000000000040e261 in main ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -142,7 +142,7 @@ gef➤
 
 So that brings us to the `start_quest` function:
 
-```
+```c
 
 /* start_quest(std::basic_string<char, std::char_traits<char>, std::allocator<char>>) */
 
@@ -325,37 +325,37 @@ LAB_0040489f:
 
 So looking at this code, it becomes apparent that it has been obfuscated. Obfuscating code means that it has essentially been made harder to reverse and understand what it does. Throughout this code, we see a lot of code segments like this:
 
-```
+```text
 ((x25 * (x25 + -1) & 1U) == 0 || y26 < 10)
 ```
 
 and this:
 
-```
+```text
 while ((x25 * (x25 + -1) & 1U) != 0 && 9 < y26)
 ```
 
 This is a part of the obfuscation. Thing is, in these statements they reference variables like `x25` and `y26`. The thing is, these variables are never given a non-zero value. That way their value is `0`. As a result this expression:
 
-```
+```text
 ((x25 * (x25 + -1) & 1U) == 0 || y26 < 10)
 ```
 
 really means this:
 
-```
+```text
 ((0 * (0 + -1) & 1U) == 0 || 0 < 10)
 ```
 
 So realistically, these statements are just a complicated way of stating things like `if (true)`. These statements evaluate to the following:
 
-```
+```text
 ((x25 * (x25 + -1) & 1U) == 0 || y26 < 10)
 ```
 
 ^ evaluates to true
 
-```
+```text
 ((x25 * (x25 + -1) & 1U) != 0 && 9 < y26)
 ```
 
@@ -363,7 +363,7 @@ So realistically, these statements are just a complicated way of stating things 
 
 So going through and editing the code (I just did this in a text editor) to remove some of the obfuscation, we are left with this:
 
-```
+```c
 
 /* start_quest(std::basic_string<char, std::char_traits<char>, std::allocator<char>>) */
 
@@ -470,7 +470,7 @@ LAB_0040489f:
 This looks much readable. Starting off we see `28` calls to `push_back`. Looking at the calls in gdb tell us roughly what they do:
 
 Before the call:
-```
+```gdb
 Breakpoint 1, 0x0000000000404409 in start_quest(std::string) ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ──────────────────────────────────────────────────────────────── registers ────
@@ -528,7 +528,7 @@ gef➤
 ```
 
 With the next call, we see this:
-```
+```gdb
 0x0000000000404422 in start_quest(std::string) ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ──────────────────────────────────────────────────────────────── registers ────
@@ -589,7 +589,7 @@ So we can see that it is essentially writing one byte of data to an array. Each 
 
 After that we have a check for the length of our input:
 
-```
+```text
     inputLength = length(puVar3[-0x48]);
     lenCheck = inputLength + -1 != (long)(legend >> 2);
     puVar1 = puVar3 + -0x40;
@@ -601,7 +601,7 @@ After that we have a check for the length of our input:
 
 We can see that the value of `legend` is `0x73`:
 
-```
+```c
                              legend                                          XREF[5]:     Entry Point(*),
                                                                                           sanitize_input:00401ece(R),
                                                                                           start_quest:004046a7(R),
@@ -612,19 +612,19 @@ We can see that the value of `legend` is `0x73`:
 
 `0x73 >> 2 = 28`, which also corresponds to the number of `push_back` calls made earlier. So our input has to be `28` bytes (not counting the null byte). The final portion of the code runs the `sanitize_input` function, and essentially just returns the value of it. The rest of the checks will happen in that function:
 
-```
+```text
     local_50 = sanitize_input((char)this,puVar3[-0x48]);
 ```
 
 Transfers data:
 
-```
+```text
       *puVar2 = local_50;
 ```
 
 Returns it:
 
-```
+```text
   return (ulong)*puVar2;
 ```
 
@@ -632,7 +632,7 @@ Returns it:
 
 Looking at `sanitize_input` function initially, we see this:
 
-```
+```c
 
 /* sanitize_input(std::basic_string<char, std::char_traits<char>, std::allocator<char>>) */
 
@@ -910,26 +910,26 @@ LAB_0040385f:
 
 So let's start going through this. First we can see that there is an iteration counter, which is initialized here:
 
-```
+```text
     *i = 0;
 ```
 
 You can see it checked here. It checks to see if it is greater than `28`:
 
-```
+```c
       lenCheck = (int)*i < legend >> 2;
     if (!lenCheck) goto LAB_00403729;
 ```
 
 And it is incremented here:
 
-```
+```text
       *i = *i + 1;
 ```
 
 Checking `LAB_00403729`, we see that it is probably the code path we want to take in order to solve the challenge:
 
-```
+```c
 LAB_00403729:
   *(undefined8 *)(puVar3 + -0x2e) = 0x403810;
   local_140 = operator<<<std--char_traits<char>>(cout,"success\n",*(undefined *)(puVar3 + -0x2e));
@@ -945,12 +945,12 @@ LAB_0040385f:
 In order to execute that code path, we will need to run this loop `28` times.
 
 Later on, we can see that the actual check it performs is here:
-```
+```text
 passedCheck = heroValue == transformedValue;
 ```
 
 The first time we hit the check, it looks like it just checking the first character of our input against the first `hero` value:
-```
+```gdb
 gef➤  b *0x402a7f
 Breakpoint 1 at 0x402a7f
 gef➤  r
@@ -1023,7 +1023,7 @@ gef➤  x/g 0x623790
 ```
 
 However the second time around, it looks a bit different. It is still checking our input against the `hero` value we would expect, however the value our input influences is different from what we would expect:
-```
+```gdb
 Breakpoint 1, 0x0000000000402a7f in sanitize_input(std::string) ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ─────────────────────────────────────────────────────────────── registers ────
@@ -1080,20 +1080,20 @@ $4 = 0x94
 
 Let's see where it comes up with those values. For `heroValue` we can see that it grabs it from the `hero` array:
 
-```
+```text
       heroValueTransfer = (int *)operator[](hero,(long)(int)*puVar4,*(undefined *)(puVar5 + -0x2e));
         heroValue = *heroValueTransfer;
 ```
 
 In addition to that, when we stop at the check in the debugger, we see that it always has a value that corresponds to `hero[i]` where `i` is the iteration count. For `transformedValue` we see that it is grabbed from here:
 
-```
+```text
 transformedValue = transform_input((int)this_00,*(undefined *)(puVar5 + -0x2e));
 ```
 
 When we stop at this call in gdb, we see that it's argument is our input stored in the same style as the `hero` array.
 
-```
+```gdb
 ────────────────────────────────────────────────────────────── code:x86:64 ────
      0x402a11 <sanitize_input(std::string)+3409> jne    0x402a1c <_Z14sanitize_inputSs+3420>
      0x402a17 <sanitize_input(std::string)+3415> jmp    0x404298 <_Z14sanitize_inputSs+9688>
@@ -1124,7 +1124,7 @@ gef➤
 
 output is `0x64` in `eax`. For the second iteration, we have this:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x402a11 <sanitize_input(std::string)+3409> jne    0x402a1c <_Z14sanitize_inputSs+3420>
      0x402a17 <sanitize_input(std::string)+3415> jmp    0x404298 <_Z14sanitize_inputSs+9688>
@@ -1157,7 +1157,7 @@ Output is `0x94` in the `eax` register. We can see a pattern here. The input to 
 
 So now that we know how exactly our input is influencing the check, we can figure out what input we need to give it to pass everything. Since it is adding our values together, we can just subtract the `hero` values in the same manner to undo it. First here is all of the `hero` values:
 
-```
+```gdb
 gef➤  x/14g 0x623790
 0x623790: 0xd600000064  0x1710000010a
 0x6237a0: 0x20f000001a1 0x2dd0000026e
@@ -1169,7 +1169,7 @@ gef➤  x/14g 0x623790
 ```
 
 When we subtract it:
-```
+```text
 0x64 - 0x00   = 0x64 'd'
 0xd6 - 0x64   = 0x72 'r'
 0x10a - 0xd6  = 0x34 '4'
@@ -1179,7 +1179,7 @@ When we subtract it:
 
 So we can see that this is starting to give us something that looks like a solution. When we script this out, we get this:
 
-```
+```text
 hero = [0x0, 0x64, 0xd6, 0x10a, 0x171, 0x1a1, 0x20f, 0x26e, 0x2dd, 0x34f, 0x3ae, 0x41e, 0x452, 0x4c6, 0x538, 0x5a1, 0x604, 0x635, 0x696, 0x704, 0x763, 0x7cc, 0x840, 0x875, 0x8d4, 0x920, 0x96c, 0x9c2, 0xa0f]
 
 flag = ""
@@ -1192,7 +1192,7 @@ print "We fought off the dragon: " + flag
 
 When we run it:
 
-```
+```console
 $ ./wyvern
 +-----------------------+
 |    Welcome Hero       |

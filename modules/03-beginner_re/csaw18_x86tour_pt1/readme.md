@@ -9,7 +9,7 @@ These questions are in regards to the `stage1.asm` file in this directory. That 
 #### What is the value of dh after line 129 executes?
 
 Line `129` is:
-```
+```nasm
   xor dh, dh  ; <- Question 1
 ```
 
@@ -18,13 +18,13 @@ This command is xoring the `dh` register with itself, and stores the value in th
 #### What is the value of gs after line 145 executes?
 
 Line `145` is:
-```
+```nasm
   mov gs, dx ; to use them to help me clear     <- Question 2
 ```
 
 With this instruction the contents of the `dx` register get moved into the `gs` register. So we need to know the contents of the `dx` register. Looking a bit further up in the code, we see this (lines `131` and `132`):
 
-```
+```nasm
   mov dx, 0xffff  ; Hexadecimal
   not dx
 ```
@@ -34,25 +34,25 @@ Here we see that the value `0xffff` is moved into the `dx` register, then not. W
 #### What is the value of si after line 151 executes?
 
 Line `151` is:
-```
+```nasm
   mov si, sp ; Source Index       <- Question 3
 ```
 
 So for this just moves the value of the Stack Pointer register into the Source Index register. In order to know what the value of `si` is after this, we need to know what the value of `sp` is. Looking up in the code, we see this on line `149`:
 
-```
+```nasm
   mov sp, cx ; Stack Pointer
 ```
 
 So we know that the value of the `sp` register is equal to that of the `cx` register. Looking further up in the code, we see a comment telling us what it is (line 144):
 
-```
+```nasm
   mov fs, cx ; already zero, I'm just going
 ```
 
 And when we look at line 107, we can see where the register `cx` gets the value `0x0` assigned to it:
 
-```
+```nasm
   mov cx, 0 ; The other two values get overwritten regardless, the value of ch and cl (the two components that make up cx) after this instruction are both 0, not 1.
 ```
 
@@ -60,7 +60,7 @@ And when we look at line 107, we can see where the register `cx` gets the value 
 #### What is the value of ax after line 169 executes?
 
 Lines `168-169` are:
-```
+```nasm
   mov al, 't'
   mov ah, 0x0e      ; <- question 4
 ```
@@ -79,38 +79,38 @@ The diagram above shows the 16 bits of the `ax` register. The lower 8 bits are c
 #### What is the value of ax after line 199 executes for the first time?
 
 Line `199` is:
-```
+```nasm
     mov ah, 0x0e  ; <- Question 5!
 ```
 
 So we see here that the value `0x0e` is loaded into the `ah` register. So from the previous question, we know that the higher 8 bits of the `ax` register must be equal to `0x0e`. That just leaves the question of the lower 8 bits. Looking at line 197 tells us the value which will be stored in the `al` register (lower 8 bits):
 
-```
+```nasm
     mov al, [si]  ; Since this is treated as a dereference of si, we are getting the BYTE AT si... `al = *si`
 ```
 
 Looking here we can see that the dereferenced value of `si` is moved into `al`. So whatever value `si` is pointing to, is now the new value in the `al` register. Looking at line `189` helps with that:
 
-```
+```nasm
     mov si, ax  ; We have no syntactic way of passing parameters, so I'm just going to pass the first argument of a function through ax - the string to print.
 ```
 
 Here we see that the contents of `ax` is moved into `si`. Looking around a bit more we see this.
 
-```
+```nasm
   ; First let's define a string to print, but remember...now we're defining junk data in the middle of code, so we need to jump around it so there's no attempt to decode our text string
   mov ax, .string_to_print
 ```
 
 So here we see that an address to a string is loaded into the `ax` register. We can also see what string the address points to.
 
-```
+```nasm
 .string_to_print: db "acOS", 0x0a, 0x0d, "  by Elyk", 0x00  ; label: <size-of-elements> <array-of-elements>
 ```
 
 and lastly we can just take a quick look at the entire loop where line `199` resides:
 
-```
+```nasm
 ; Now let's make a whole 'function' that prints a string
 print_string:
   .init:

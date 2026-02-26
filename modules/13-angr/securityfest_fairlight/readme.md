@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file fairlight
 fairlight: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.24, BuildID[sha1]=382cac0a89b47b48f6e24cdad066e1ac605bd3e5, not stripped
 $    ./fairlight
@@ -13,7 +13,7 @@ NOPE - ACCESS DENIED!
 
 So we can see that we are dealing with a `64` bit binary. When we run it, we see that it takes in input through an argument. It appears to be a crackme that scans in input, evaluates it, and if it's write we get the flag. When we take a look at the `main` function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(int argc,long argv)
 
 {
@@ -74,7 +74,7 @@ So there are two ways I can see us solve this (although there are more). The fir
 
 To use Angr here, we will need three things. The first is what input we have, and how it gets passed to the binary. This we already know, which is `0xe` (`14`) byte char characters passed in as a single argument. The second is the instruction address that we want Angr to reach. While it performs its analysis, it's goal will be to reach this function. For this I chose the `printf("%s",&victory);` call `0x401a6e` since if we hit that code path, it means we passed the check:
 
-```
+```c
         00401a6e b8 00 00        MOV        inputLen,0x0
                  00 00
         00401a73 e8 88 eb        CALL       printf                                           int printf(char * __format, ...)
@@ -85,7 +85,7 @@ To use Angr here, we will need three things. The first is what input we have, an
 
 Moving on, the last thing we need is an instruction address that if it is executed, then Angr knows that it's input isn't correct. For this, we can see that in all of the `check` functions if the check isn't passed it runs the `denied_access` function:
 
-```
+```c
 void check_0(void)
 
 {
@@ -100,7 +100,7 @@ void check_0(void)
 
 So for this address I choose the start of `denied_access` at `0x40074d`. This instruction is part of the code path that is executed when our input is incorrect, so this address would be a good candidate to use:
 
-```
+```nasm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -129,13 +129,13 @@ So for this address I choose the start of `denied_access` at `0x40074d`. This in
 ```
 
 You can install Angr with pip:
-```
+```console
 $    sudo pip install angr
 ```
 
 With that we have everything we need to write the Angr Script:
 
-```
+```nasm
 # Import angr and claripy
 import angr
 import claripy
@@ -161,7 +161,7 @@ print solution.solver.eval(inp, cast_to=bytes)
 ```
 
 When we run it:
-```
+```console
 $    python rev.py
 WARNING | 2019-07-21 14:18:20,477 | angr.analyses.disassembly_utils | Your version of capstone does not support MIPS instruction groups.
 WARNING | 2019-07-21 14:18:27,811 | angr.state_plugins.symbolic_memory | Concretizing symbolic length. Much sad; think about implementing.

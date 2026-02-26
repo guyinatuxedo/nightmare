@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	pwn checksec tuxtalkshow 
 [*] '/Hackery/pod/modules/bad_seed/hsctf19_tuxtalkshow/tuxtalkshow'
     Arch:     amd64-64-little
@@ -19,7 +19,7 @@ Enter your lucky number: 15935728
 
 So we can see that we are dealing with a 64 bit binary with PIE enabled. When we run it, it prompts us for a number. When we look at the `main` function we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -83,7 +83,7 @@ undefined8 main(void)
 
 So we can see, it starts off by scanning in the contents of `flag.txt` to `local_228`. Proceeding that we see that it initializes an int array with size entries, although the decompilation only shows four. Looking at the assembly code shows us the rest:
 
-```
+```nasm
         001012c1 c7 85 88        MOV        dword ptr [local_280 + RBP],0x79
                  fd ff ff 
                  79 00 00 00
@@ -106,7 +106,7 @@ So we can see, it starts off by scanning in the contents of `flag.txt` to `local
 
 Also we can see that it uses time as a seed. Proceeding that it performs an algorithm where it will generate random numbers (using time as a seed) to edit the values of `array`, then accumulate all of those values and that is the number we are supposed to guess. Since the `rand` function is directly based off of the seed, and since the seed is the time, we know what values the `rand` function will output. Thus we can just write a simple C program that will simply use time as a seed, and just generate the same number that the target wants us to guess. With that, we can solve the challenge!
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -152,7 +152,7 @@ int main()
 ```
 
 With that, we can solve the challenge. In order for this to work, `flag.txt` needs to be in the same directory as the binary `tuxtalkshow`:
-```
+```console
 $	./solve | ./tuxtalkshow 
 Welcome to Tux Talk Show 2019!!!
 Enter your lucky number: flag{i_need_to_think_of_better_flags}

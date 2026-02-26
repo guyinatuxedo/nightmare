@@ -4,7 +4,7 @@ The goal of this challenge is to read the contents of the `flag` file.
 
 Let's take a look at the binary:
 
-```
+```console
 $    file stackstuff
 stackstuff: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=f46fbf9b159f6a1a31893faf7f771ca186a2ce8d, not stripped
 $    pwn checksec stackstuff
@@ -20,7 +20,7 @@ $    /stackstuff
 
 So we are dealing with a `64` bit binary, with NX and PIE. When we run it, it doesn't appear to do anything. However when we check netstat as we run it, we see that it binds to a port:
 
-```
+```console
 $    netstat -planet
 
 .    .    .
@@ -32,7 +32,7 @@ tcp6       0      0 :::1514                 :::*                    LISTEN      
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 
 /* WARNING: Could not reconcile some variable overlaps */
 
@@ -96,7 +96,7 @@ undefined8 main(undefined8 uParm1,char **ppcParm2)
 
 So we see here is where it handles the logic of listening on a port, and forking a child process to handle the request. We can see that `handle_request` is the function responsible for handling requests:
 
-```
+```c
 void handle_request(void)
 
 {
@@ -137,7 +137,7 @@ void handle_request(void)
 
 So we can see that it tries to open up the files `password` and `flag` (so we will need to make them and have them in the same directory as the elf). Proceeding that it runs the `require_auth` function, which does this:
 
-```
+```c
 void require_auth(void)
 
 {
@@ -154,7 +154,7 @@ void require_auth(void)
 
 We can see that the `require_auth` function just runs an infinite loop, which checks to see if the output of `check_password_correct` is not equal to zero (which would signify we have the correct password). If we are the hit the part of `handle_request` that prints the flag, we have to break out of the loop. When we take a look at `check_password_correct`, we see this:
 
-```
+```c
 
 ulong check_password_correct(void)
 
@@ -199,7 +199,7 @@ So we can see here, it essentially prompts us for a password length, then scans 
 
 Let's see what the distance is between the start of our input and the return address is. First we set the breakpoint and specify to follow the child process on fork in gdb:
 
-```
+```gdb
 gef➤  set follow-fork-mode child
 gef➤  r
 Starting program: /Hackery/pod/modules/partial_overwrite/hacklu15_stackstuff/stackstuff
@@ -213,7 +213,7 @@ process 6345 is executing new program: /Hackery/pod/modules/partial_overwrite/ha
 
 Then we give our input via netcat:
 
-```
+```console
 $    nc 127.0.0.1 1514
 Hi! This is the flag download service.
 To download the flag, you need to specify a password.
@@ -223,7 +223,7 @@ Length of password: 8
 
 And then we hit our breakpoint in gdb:
 
-```
+```gdb
 Thread 2.1 "exe" hit Breakpoint 1, 0x0000555555554f7e in check_password_correct ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ────────────────────────────────────────────────────────────────────────────────────────── registers ────
@@ -298,7 +298,7 @@ So we can see that the offset is `0x7fffffffdee8 - 0x7fffffffdea0 = 0x48`. Since
 
 So for our exploit, we will be doing a partial overwrite. We will be doing this to bypass PIE's address randomization, however there will be a bit of brute forcing needed (we will cover that later). However before we do that, we will be doing an overwrite of the saved return address and the QWORD next to it. For that we will need to find a valid instruction pointer to place there, which will essentially just return, and act as a placeholder to execute the address which we partially overwrote. However the problem with this is that PIE is enabled, and since we don't have any infoleaks we can't call rop gadgets from the PIE or libc segments. This is where vsyscalls will come in handy:
 
-```
+```gdb
 ef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000555555554000 0x0000555555556000 0x0000000000000000 r-x /Hackery/pod/modules/partial_overwrite/hacklu15_stackstuff/stackstuff
@@ -343,7 +343,7 @@ The purpose of vsyscalls is to increase performance by offloading certain syscal
 
 Now for the partial overwrite. We can see that the address that we are going to be overwritten is going to be `0x000055555555508b` which is `handle_request+177`:
 
-```
+```gdb
 gef➤  x/4g 0x7fffffffdee8
 0x7fffffffdee8:    0x0000555555554fd1    0x0000000000000000
 0x7fffffffdef8:    0x000055555555508b    0x0000000000000002
@@ -359,7 +359,7 @@ Also one small thing, while debugging this program, you may need to view the pid
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 targetProcess = process('./stackstuff')
@@ -409,7 +409,7 @@ while flag == 0:
 
 When we run it:
 
-```
+```console
 python exploit.py
 [+] Starting local process './stackstuff': pid 13491
 [+] Opening connection to 127.0.0.1 on port 1514: Done

@@ -3,12 +3,12 @@
 So starting off, for these challenges we will have to set up a few things before we can really dive in. We will have to set up a virtual environment for this to work.
 
 First if you don't have it already, you will need to install pipenv:
-```
+```console
 $    sudo pip install pipenv
 ```
 
 Then unzip the tar file and traverse into it:
-```
+```console
 $    tar -zxvf h3-machine-emulator.tar.gz
 
 .    .    .
@@ -18,7 +18,7 @@ $    cd h3-machine-emulator/
 
 Then setup the virtual environment:
 
-```
+```console
 $    pipenv --three install
 Virtualenv already exists!
 Removing existing virtualenv...
@@ -56,7 +56,7 @@ Alternatively, run a command inside the virtualenv with pipenv run.
 
 After that you will need to compile the emulator. Just run `make` in the same directory:
 
-```
+```console
 $	make
 cc --std=gnu99 -Wall -Wextra -Werror -Wpedantic   -c -o src/h3emu.o src/h3emu.c
 cc --std=gnu99 -Wall -Wextra -Werror -Wpedantic   -c -o src/machine.o src/machine.c
@@ -67,7 +67,7 @@ cc    -o h3emu src/h3emu.o src/machine.o src/opcodes.o src/opcode_lookup.o
 
 So now that the setup is out of the way, let's focus on the challenge. So this module is all about dealing with a custom architecture (rather one particular instance of a custom architecture). This means that the assembly code of the binaries wasn't written in `x86`, `x64`, `MIPS`, `ARM` or anything else that you will typically see. The assembly code itself is custom and unique. Fortunately they provided some documentation in the `README.md` file that I will copy and paste here for convenience (reading this will really help). Again this following chunk of documentation was made by the challenge authors, not me:
 
-```
+```nasm
 # H3 Machine
 
 The H3 Machine is a simple computer designed for writing interesting binary reversing problems.
@@ -284,7 +284,7 @@ So a few things of note from this documentation. This architecture is 16 bit (so
 
 Also we can see it gives us a lot of documentation on the opcodes, however I won't really be going over that in depth since the instructions are very similar to their `x64/x86` counterparts. We can also see that we are given an assembler, disassembler, and emulator for this architecture. So we can write our own code for this custom architecture, run the code, and disassemble it. Let's take a look at the first challenge:
 
-```
+```console
 $    ./h3disasm challenge0.h3i
 0001: 12020400 push $0004
 0002: 50040080 setf 8000
@@ -294,7 +294,7 @@ $    ./h3disasm challenge0.h3i
 
 So we can see here there are only three instructions. It first pushes the address `0x4` onto the stack. Then it runs the `setf` operation to set the flag register to `0x8000`. When we check the documentation to see what this corresponds to, we see this is equivalent to setting the `FLAG` register, and clearing the other two. Then it runs the `halt` instruction with the `FLAG` register set which specifies that the value on top of the stack is the flag we are looking for. Let's run it:
 
-```
+```console
 $    ./h3emu challenge0.h3i
 Stack:
 ffff: flag{f10b5307}

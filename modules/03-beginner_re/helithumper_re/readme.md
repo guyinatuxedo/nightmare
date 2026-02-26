@@ -2,7 +2,7 @@
 
 The goal of this challenge is to get the flag. This was a challenge made by Helithumper (github.com/helithumper). Let's take a look at the binary:
 
-```
+```console
 $    ./rev
 Welcome to the Salty Spitoon™, How tough are ya?
 Tough as Joseph, but not Jotaro
@@ -15,7 +15,7 @@ So we can see that we are dealing with a `64` bit binary. When we run it, it pro
 
 When we take a look at the main function in Ghidra, we see this (btw I cleaned up the code a little bit, what you see will probably look a little different):
 
-```
+```c
 ulong main(void)
 
 {
@@ -38,7 +38,7 @@ ulong main(void)
 
 So we can see that it is scanning in data to `ptr`, then running the `validate` function. We can see that the `validate` function does this:
 
-```
+```c
 undefined8 validate(char *input)
 
 {
@@ -77,7 +77,7 @@ LAB_001012b7:
 
 So we can see that it essentially takes our input, and runs it though a while true loop. For each iteration of this loop, we see that it checks one character of our input against a character in `checkValues`. The character it checks depends on which iteration of the loop it is. For instance iteration `0` will check the character of our input at index `0`, iteration `2` will check the character of our input at index `2`, and so on:
 
-```
+```c
     if ((int)input[(long)i] != checkValues[(long)i]) {
       returnValue = 0;
       goto LAB_001012b7;
@@ -85,14 +85,14 @@ So we can see that it essentially takes our input, and runs it though a while tr
 
 We also see there is a termination condition where if the iteration count exceeds the length of the string, it will exit. That is because it has finished checking the string:
 
-```
+```c
     if ((int)inputLen <= i) {
       returnValue = 1;
 ```
 
 Now this check will either return a `1`, or a `0`. In order to solve this challenge, we need it to output a `1`. In order for that to happen, we can't fail any of the character checks. In order for that to happen our input needs to be the same as the characters it checks it against. Looking at the code, we see that the first four characters it sets. However looking at the assembly code shows us that there is more:
 
-```
+```nasm
         00101205 c7 45 c0        MOV        dword ptr [RBP + checkValues[0]],0x66
                  66 00 00 00
         0010120c c7 45 c4        MOV        dword ptr [RBP + checkValues[1]],0x6c
@@ -125,7 +125,7 @@ Now this check will either return a `1`, or a `0`. In order to solve this challe
 
 From this, we can get this list of bytes that our input needs to be:
 
-```
+```text
 0x66
 0x6c
 0x61
@@ -144,7 +144,7 @@ From this, we can get this list of bytes that our input needs to be:
 
 We can use python to convert them into ascii like so:
 
-```
+```pycon
 $    python
 Python 2.7.16 (default, Apr  6 2019, 01:42:57)
 [GCC 8.3.0] on linux2
@@ -160,7 +160,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 
 So we can see that our needed input is `flag{HuCf_lAb}` which is probably the flag (we can tell this, since the flag is usually in a format similar to `flag{x}`, with `x` being some string):
 
-```
+```console
 $    ./rev
 Welcome to the Salty Spitoon™, How tough are ya?
 flag{HuCf_lAb}

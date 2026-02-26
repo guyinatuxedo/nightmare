@@ -6,7 +6,7 @@ For more on this, let's take a look at the memory mappings for a binary that was
 
 Here it is with `NX` enabled:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-- /tmp/tryc
@@ -34,7 +34,7 @@ Start              End                Offset             Perm Path
 
 Here is is with `NX` disabled:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000403000 0x0000000000000000 r-x /tmp/try
@@ -56,7 +56,7 @@ Start              End                Offset             Perm Path
 
 So we can see that for when `NX` is enabled, the stack has the memory permissions `rw`. When `NX` hasn't been enabled, the stack has the memory permissions `rwx`. So when `NX` is enabled we can read and write to it, however when `NX` isn't enabled we can read / write / and execute code. Let's see what happens when we try to jump to somewhere in the stack (essentially executing data in the stack as code) while `NX` is enabled:
 
-```
+```gdb
 gef➤  j *0x00007ffffffde000
 Continuing at 0x7ffffffde000.
 

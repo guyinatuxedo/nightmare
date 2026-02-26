@@ -4,7 +4,7 @@ This section is based off of: https://github.com/shellphish/how2heap/blob/master
 
 This like all of the other explanations is a well documented C source file explaining how this attack works. This was ran on `Ubuntu 16.04` with `libc-2.23.so`. Here is the source code:
 
-```
+```c
 // This is based off of Shellphish's how2heap: https://github.com/shellphish/how2heap/blob/master/glibc_2.26/large_bin_attack.c
 
 #include <stdio.h>
@@ -103,7 +103,7 @@ int main(void)
 
 When we run it:
 
-```
+```console
 $	./largebin1 
 This will be covering large bin attacks again.
 Pretty similar to the last section however with a twist.

@@ -2,7 +2,7 @@
 
 Let's take a look at the binary we are given:
 
-```
+```console
 $    file future_fun
 future_fun: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, not stripped
 $    ./future_fun
@@ -15,7 +15,7 @@ Give the key, if you think you are worthy.
 
 So we are dealing with a 32 bit crackme here. When we take a look at the assembly code, something becomes very apparent:
 
-```
+```nasm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -57,13 +57,13 @@ Starting off I used demovfuscator on it (you can find it here https://github.com
 
 
 To use it to generate a graph of the code flow execution:
-```
+```console
 $    ./demov -g graph.dot -o patched future_fun
 ```
 
 Now since the file `graph.dot` is essentially a text file containing information on a graph, we will have to use `dot` to actually draw it for us:
 
-```
+```console
 $    cat graph.dot | dot -Tpng > graph.png
 ```
 
@@ -71,7 +71,7 @@ In this case I didn't find the graph to be too helpful. However the patched bina
 
 Now looking over the list of functions this binary has, `check_input` sounds like the most important function. Using the patched binary, we can just search for the call function to `check_input` and see that it is at `0x08051986`:
 
-```
+```gdb
 gef➤  b *0x8051986
 Breakpoint 1 at 0x8051986
 gef➤  r
@@ -122,7 +122,7 @@ Now instead of going through and statically reversing this, we can just use a si
 Perf is a performance analyzer for linux, that can tell you a lot of information on processes that run. We will use it (specifically perf stat) to do instruction counting. Essentially we will count the number of instructions that the binary has ran to help determine if we gave it a correct character. If we gave it a correct character, then it should run through the `chekc_element` function again and thus have a higher instruction count than all other characters we tried. However there are some things happening in the background that can affect this count, so it's not always 100% accurate. However what we can do is check the sequence of characters that it gives us via seeing how many checks it passes with gdb, and add the correct characters to the input. If it starts spitting out wrong characters then we will just restart the script which brute forces it. Essentially we will be using Perf to perform a side channel attack on the binary (which is an attack that we execute by monitoring the actions of a target).
 
 Before you run perf, you may need to install this first:
-```
+```console
 $    sudo apt-get install linux-tools-generic
 ```
 
@@ -130,7 +130,7 @@ Also you will probably need to edit the file `/proc/sys/kernel/perf_event_parano
 
 Let's take a look at how perf runs:
 
-```
+```console
 $    perf stat -x : -e instructions:u ./future_fun
 Give the key, if you think you are worthy.
 
@@ -140,7 +140,7 @@ Give the key, if you think you are worthy.
 
 Here we can see that it executed `5201320` instructions. Let's break down the command:
 
-```
+```console
 perf stat         Specify that we are using perf stat
 -x                 Specify that we want out output in CSV format
 -e                 Specify that we are going to be monitoring events
@@ -149,7 +149,7 @@ instructions:u     Specify that we are going to be monitoring userland instructi
 ```
 
 Now we can just throw together a little script to do the brute forcing. This script I got from one of my other writeups that is based off of https://dustri.org/b/defeating-the-recons-movfuscator-crackme.html:
-```
+```text
 #Import the libraries
 from subprocess import *
 import string
@@ -174,7 +174,7 @@ while True:
 ```
 
 when we run it:
-```
+```console
 $    python rev.py ./future_fun
 flag{g
 flag{g0
@@ -186,7 +186,7 @@ flag{g00dnj
 
 In this case, it gave us the valid letters `g00d` before selecting an incorrect character. However we can just append those characters to our input and start over (and we can check what characters are valid by setting a breakpoint in gdb for `0x08051986` in the patched binary, and seeing what character is the last one to run through the loop). After a little bit, we get the full flag `flag{g00d_th1ng5_f0r_w41ting}`.
 
-```
+```console
 $    ./future_fun
 Give the key, if you think you are worthy.
 

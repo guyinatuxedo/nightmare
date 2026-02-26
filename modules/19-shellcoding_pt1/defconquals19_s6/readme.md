@@ -2,7 +2,7 @@
 
 
 Let's take a look at the binary:
-```
+```console
 $    file speedrun-006
 speedrun-006: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=69951b1d604dac8a5508bc53540205548e7af1c1, not stripped
 $    pwn checksec speedrun-006
@@ -22,7 +22,7 @@ guyinatuxedo@tux:/Hackery/defcon/s6$
 
 SO we can see that it is a `64` bit binary with all of the standard binary mitigations, that prompts us for input when we run it. Looking at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(undefined4 uParm1,undefined8 uParm2)
 
 {
@@ -53,7 +53,7 @@ undefined8 main(undefined4 uParm1,undefined8 uParm2)
 
 Looking through the code, the `get_that_shellcode` function seems to be the only thing that really interests us.
 
-```
+```c
 void get_that_shellcode(void)
 
 {
@@ -88,7 +88,7 @@ void get_that_shellcode(void)
 
 Looking through the `get_that_shellcode` function, we see that it scans in `0x1a` bytes of data into `buf`. If it scans in `26` bytes (and none of them can be null bytes because it checks with a `strlen` call) it will run the `shellcode_it` function with our input as the argument:
 
-```
+```c
 
 /* WARNING: Could not reconcile some variable overlaps */
 
@@ -157,7 +157,7 @@ rn *MK_FP(__FS__, 40LL) ^ v1;
 
 So this function will run our shellcode. However before it does that it will alter our shellcode. It will append a bunch of xor statements before our shellcode, which will clear out all of the registers except for the rip register (this includes rsp, so we can't push/pop without crashing). In addition to that, it will insert the `0xcc` byte four times throughout our shellcode (at offsets 5, 10, 20, & 29). It may be a bit hard to tell here, however if we check with gdb it will tell us everything (that's how I reversed it when I first solved this). I will set a breakpoint for where our shellcode starts executing and look at what the shellcode is:
 
-```
+```gdb
 gef➤  b *shellcode_it+325
 Breakpoint 1 at 0x9fe
 gef➤  r
@@ -254,7 +254,7 @@ So what I ended up doing was using two sets of shellcode. The first was just to 
 
 Here is the shellcode that I used to scan it in (with the `0xcc` bytes inserted). There are a lot of nops to ensure the `0xcc` don't mess with any instructions. This shellcode will scan in data with a read syscall (more info here: https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/ ). Also for this, the `rax` register is already set to `0x0` to specify a read syscall so we don't need to edit it. In addition to that the `rdi` register is also set to `0x0` which specifies stdin as a result of the xoring that takes place before our shellcode, so the only registers we need to worry about is that of `rsi` which points to where the data will be scanned in and `rdx` which holds the size for the amount of data to be scanned in. For `rdx` I just move in the value `0xff` which gives us more than enough room. For where to scan in our shellcode, I choose the same memory region that our shellcode runs in. The permissions on it are `rwx` so we won't have a problem writing and executing to it, plus the `rip` register will hold a pointer to it. Plus we have a pointer to that region in the `rip` register. I just moved the contents of the `rip` register (minus a little bit) into the `rsi` register, then added `0x43` to it. That way it moved where the new shellcode will be scanned in past this shellcode, and we won't overwrite this shellcode with the new one. Then I just jumped to `rsi` since that holds a pointer to where our new shellcode is:
 
-```
+```gdb
 gef➤  x/20i $rip
 => 0x7f6e87b34030:    mov    dl,0xff
    0x7f6e87b34032:    nop
@@ -278,7 +278,7 @@ gef➤  x/20i $rip
 
 Then here is the shellcode I used to actually get a shell via an execve syscall to `/bin/sh` (remember I couldn't use pop/push). Checking the syscall chart there are four registers we need to set. I set `rax` to `0x3b` to specify an execve syscall, I set `rdi` to be a ptr to `/bin/sh`, and set `rsi` and `rdx` to zero:
 
-```
+```gdb
 gef➤  x/7i $rip
 => 0x7fc1735c607d:    mov    al,0x3b
    0x7fc1735c607f:    lea    rdi,[rip+0xfffffffffffffff8]        # 0x7fc1735c607e
@@ -291,7 +291,7 @@ gef➤  x/7i $rip
 
 Also to assemble the assembly code into opcodes, I just used nasm. Here's an example assembling the assembly file `shellcode.asm`
 
-```
+```console
 $ cat scan.asm
 [SECTION .text]
 global _start
@@ -348,7 +348,7 @@ Disassembly of section .text:
 ```
 
 Putting it all together, we get the following exploit:
-```
+```python
 from pwn import *
 
 target = process('speedrun-006')
@@ -430,7 +430,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $ python exploit.py
 [!] Could not find executable 'speedrun-006' in $PATH, using './speedrun-006' instead
 [+] Starting local process './speedrun-006': pid 9419

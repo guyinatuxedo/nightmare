@@ -3,7 +3,7 @@
 This isn't a ctf challenge. Essentially it's really well documented C code that carries out a tcache attack, and explains how it works. The source code and the binary can be found in here. Try looking at the source code and running the binary to see how the attack works:
 
 The code:
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -61,7 +61,7 @@ int main(void)
 
 When we run it:
 
-```
+```console
 $   ./tcache_explanation 
 So this is a quick demo of a tcache attack.
 The tcache is a bin that stores recently freed chunks (max 7 per idx by default).

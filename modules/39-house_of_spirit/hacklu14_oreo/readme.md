@@ -2,7 +2,7 @@
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $    pwn checksec oreo
 [*] '/Hackery/pod/modules/house_of_spirit/hacklu14_oreo/oreo'
     Arch:     i386-32-little
@@ -54,7 +54,7 @@ So we can see that we are dealing with a `32` bit binary, with a Stack Canary an
 
 We can see the function at `0x0804898d` acts as our menu function:
 
-```
+```c
 
 void menu(void)
 
@@ -102,7 +102,7 @@ LAB_08048a25:
 
 Next up we have the `addRifles` function:
 
-```
+```c
 void addRifles(void)
 
 {
@@ -136,7 +136,7 @@ void addRifles(void)
 
 So we can see a bit here about how the rifles are stored. They are not stored in an array of heap pointers, but rather a linked list. The head of the linked list is stored in the bss variable `ptr` at the address `0x804a288`. New rifles are inserted at the head of the linked list. An actual rifle object has this structure:
 
-```
+```text
 Size of heap chunk, 0x38
 0x00: Rifle Description
 0x19: Rilfe Name
@@ -145,7 +145,7 @@ Size of heap chunk, 0x38
 
 We can see that we have two writes. The first is `0x38` bytes of data at `0x19` offset, and the second is `0x38` bytes from the start of the chunk. Both of these will give us an overflow, at least to the next pointer of the chunk. The first write will actually allow us to overflow outside of our heap chunk. Next up we have `showRifles`:
 
-```
+```c
 void showRifles(void)
 
 {
@@ -172,7 +172,7 @@ void showRifles(void)
 
 We can see here, this function essentially loops through our linked list and prints the name and description of all of the rifles. Next up we have the `orderRifles` function:
 
-```
+```c
 void orderRifles(void)
 
 {
@@ -206,7 +206,7 @@ void orderRifles(void)
 
 This function essentially loops through our linked list, and frees all of the heap chunks. It then zeroes out `ptr` and increments the bss variable `orders` stored at `0x0804a2a0`:
 
-```
+```c
 void leaveMessage(void)
 
 {
@@ -227,7 +227,7 @@ void leaveMessage(void)
 
 For this function, we can see that it allows us to scan `0x80` bytes worth of data into the char array pointed to by the bss ptr `message`, located at `0x804a2a8`. We can see confirm this in gdb:
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/house_of_spirit/hacklu14_oreo/oreo
 Welcome to the OREO Original Rifle Ecommerce Online System!
@@ -263,7 +263,7 @@ gef➤  x/s 0x804a2c0
 
 Next up:
 
-```
+```c
 void showStats(void)
 
 {
@@ -294,7 +294,7 @@ So starting off, we will get a libc infoleak. Then we will execute a House of Sp
 
 Overwriting `scanf` might seem a bit weird, since it is what scans in our data. However in the `promptInt` function, we can see that our input is first scanned in via `fgets`, then passed to `scanf` so it will work for our use:
 
-```
+```c
 undefined4 promptInt(void)
 
 {
@@ -336,7 +336,7 @@ Now for executing this attack on this ctf challenge. Our goal will be to allocat
 
 Putting it all together, we have the following exploit. This exploit was ran on Ubuntu 16.0 :
 
-```
+```python
 # This exploit is based off of https://dangokyo.me/2017/12/04/hack-lu-ctf-2014-pwn-oreo-write-up/
 
 from pwn import *
@@ -403,7 +403,7 @@ target.sendline("/bin/sh")
 target.interactive()
 ```
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './oreo': pid 3935
 [*] '/Hackery/pod/modules/house_of_spirit/hacklu14_oreo/oreo'

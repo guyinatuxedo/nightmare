@@ -2,7 +2,7 @@
 
 Let's take a look at the binary. Also this challenge is a bit different, the goal is to get it to print `you have logged in already!`:
 
-```
+```console
 $    file heap2
 heap2: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=fb7e2a85c0ae98fe79c4fddcd2a5ce4f2d6807bb, not stripped
 $    ./heap2
@@ -11,7 +11,7 @@ $    ./heap2
 
 So we can see that we are dealing with a `64` bit binary that when we run it, it looks like it displays some sort of menu to us that takes in input via stdin. Taking a look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -71,7 +71,7 @@ So looking at the main function, we see that the menu has four separate options 
 
 So looking at the code, we need to find a way to set `auth+0x20` to not be equal to `0`. Before we do that, we will need to run the `auth` command to allocate the `auth` pointer, so it doesn't crash when we run the `login` command (an unexploitable crash). We can't write to `auth+0x20` with the `auth` command because of the size check. The `reset` command just frees the space, so we can't write data with that (although when we free memory, it can change some of the values stored in that region of memory). Our best bet would be to go with the `service` command since it let's us scan in data into the heap without a size check. We can confirm that it is in the heap by checking the printed pointer for `service` against the memory mappings in gdb:
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/heap_overflow/protostar_heap2/heap2
 [ auth = (nil), service = (nil) ]
@@ -159,7 +159,7 @@ gef➤
 
 Here we can see that the `service` pointer (returned by `strdup`) is between `0x0000555555757000` and `0x0000555555778000`, so it is in the heap. So our plan will be to overwrite `auth+0x20` using the service command. Looking at the difference between the two, we see it is `0x555555757aa0 - 0x555555757a80 = 0x20`, so the `service` command after we run `auth` will start writing data directly where we need to be, so in this case we only need to write one byte. With that, we have everything we need:
 
-```
+```console
 $    ./heap2
 [ auth = (nil), service = (nil) ]
 auth 15935728

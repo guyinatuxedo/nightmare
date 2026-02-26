@@ -4,7 +4,7 @@ This is just a well documented c file which explains what heap grooming is, and 
 
 The C code:
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -47,7 +47,7 @@ int main(void)
 
 When it runs:
 
-```
+```console
 $	./explanation_heap_grooming 
 So today we will be discussing heap grooming.
 The heap has a lot of behavior that is predictable.

@@ -3,7 +3,7 @@
 This isn't a ctf challenge. Essentially it's really well documented C code that carries out a fastbin attack, and explains how it works. The source code and the binary can be found in here. Try looking at the source code and running the binary to see how the attack works:
 
 The code:
-```
+```c
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -94,7 +94,7 @@ int main(void)
 
 When we run it:
 
-```
+```console
 $	./fastbinAttack 
 Today we will be discussing a fastbin attack.
 There are 10 fastbins, which act as linked lists (they're separated by size).

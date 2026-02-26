@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file small_boi
 small_boi: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, BuildID[sha1]=070f96f86ab197c06c4a6896c26254cce3d57650, stripped
 $    pwn checksec small_boi
@@ -22,7 +22,7 @@ So we can see that we are dealing with a `64` bit binary, with `NX`. When we run
 
 So when we look at the binary in Ghidra, we see some interesting assembly:
 
-```
+```nasm
                              //
                              // .text
                              // SHT_PROGBITS  [0x40017c - 0x4001c9]
@@ -103,7 +103,7 @@ So we see a small amount of assembly instructions. We see that it starts at `0x4
 
 So we can get code execution. The problem now is what code will we execute? The binary has very little instructions with it, and isn't linked with libc:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-x /Hackery/pod/modules/16-srop/csaw19_smallboi/small_boi
@@ -116,7 +116,7 @@ Start              End                Offset             Perm Path
 
 In addition to that, the Stack is not executable. However there is a function that will help us:
 
-```
+```nasm
                              //
                              // .text
                              // SHT_PROGBITS  [0x40017c - 0x4001c9]
@@ -145,7 +145,7 @@ This will make a sigreturn call, where the input is what is on the stack. What w
 
 Now for the SROP attack, we will make a syscall to `execve("/bin/sh", NULL, NULL)`. Luckily for us, the string `/bin/sh` is in the binary at `0x4001ca`:
 
-```
+```nasm
                              //
                              // .rodata
                              // SHT_PROGBITS  [0x4001ca - 0x4001d1]
@@ -163,7 +163,7 @@ That is everything we need to write the exploit.
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 # Establish the target
@@ -198,7 +198,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './small_boi': pid 3434
 [*] Switching to interactive mode

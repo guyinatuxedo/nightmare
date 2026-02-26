@@ -3,7 +3,7 @@
 This module essentially explains what a Double Free bug is. It can be used to edit freed chunks, and heap metadata among other things. This can be very useful for other attacks. Checkout the well documented source code or binary to see the explanation.
 
 The code:
-```
+```c
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -83,7 +83,7 @@ int main(void)
 ```
 
 The code running:
-```
+```console
 $   ./double_free_exp 
 The goal of this is to show how we can edit a freed chunk using a Double Free bug.
 Editing freed chunks will allow us to overwrite heap metadata, which is crucial to a lot of heap attacks.

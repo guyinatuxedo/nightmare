@@ -4,7 +4,7 @@ For this part, I found it helpful to patch in halts into the code (just change t
 
 Let's take a look at the assembly code for this challenge:
 
-```
+```console
 $    ./h3disasm challenge2.h3i
 0001: 12040000 push 0000
 0002: 60041400 call 0014
@@ -93,7 +93,7 @@ $    ./h3disasm challenge2.h3i
 
 First off the bat, we can see that there are 53 instructions (a lot more than the previous challenge). Before we start going through the assembly, let's run it:
 
-```
+```console
 $    ./h3emu --trace challenge2.h3i
 0001: push 0000
 0002: call 0014
@@ -132,7 +132,7 @@ So we can see that the program requires input. We can also see that our input th
 
 At the start of the program, we can see that it calls the address 14. Let's see what that does:
 
-```
+```text
 0014: 11000000 swap
 0015: 12040c10 push 100c
 0016: 37041000 lshift 0010
@@ -144,7 +144,7 @@ At the start of the program, we can see that it calls the address 14. Let's see 
 
 So we can see that it pushes the hex value `0x100c`, shifts it over to the right by two bytes (so it is now 0x100c0000), then pushes `0x2b85` onto the stack. Proceeding that it ors the two hex strings together, leaving us with `0x100c2b85`, then runs the sub instruction with our input and that hex string. If the output is zero, it will jump to the address `001c`, so we probably need to give it the input `100c2b85` (with our input being a hex string) in order to pass this check (btw the program interprets our input as hex characters, not ASCII):
 
-```
+```console
 $    ./h3emu --trace challenge2.h3i 100c2b85
 0001: push 0000
 0002: call 0014
@@ -178,7 +178,7 @@ Stack underflow!
 
 So we can see that we passed the check. Proceeding that, it says that there is another Stack underflow, so we need to give it more input:
 
-```
+```console
 $    ./h3emu --trace challenge2.h3i 15935728 100c2b85
 0001: push 0000
 0002: call 0014
@@ -222,7 +222,7 @@ Flags:  C
 
 So we can see with the new input, that there is a new check. This new check is seeing if our second input is equal to the hex string `87010398`. Let's see what happens when we pass it that hex string for the second input:
 
-```
+```console
 $    ./h3emu --trace challenge2.h3i 87010398 100c2b85
 0001: push 0000
 0002: call 0014
@@ -274,7 +274,7 @@ Stack underflow!
 
 So we can see that we passed the check, and it expects more input. So for the first two checks, it just sees if our input is equal to a certain hex string. Let's see how far we can get by essentially replacing the same process of sending it the hex string that it looks for:
 
-```
+```console
 $    ./h3emu --trace challenge2.h3i 15935728 87010398 100c2b85
 0001: push 0000
 0002: call 0014
@@ -333,7 +333,7 @@ IP: 000d
 SP: fffe
 Flags:  C
 ```
-```
+```console
 $    ./h3emu --trace challenge2.h3i 1809f0d9 87010398 100c2b85
 0001: push 0000
 0002: call 0014
@@ -400,7 +400,7 @@ SP: 0000
 Flags: Z  
 Stack underflow!
 ```
-```
+```console
 $    ./h3emu --trace challenge2.h3i 15935728 1809f0d9 87010398 100c2b85
 0001: push 0000
 0002: call 0014
@@ -477,7 +477,7 @@ IP: 0011
 SP: fffe
 Flags:  C
 ```
-```
+```console
 ./h3emu --trace challenge2.h3i abf5ede7 1809f0d9 87010398 100c2b85
 0001: push 0000
 0002: call 0014

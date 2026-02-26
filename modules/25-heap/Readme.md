@@ -10,7 +10,7 @@ The first thing I would like to say is that on linux all of the source code for 
 
 When we call malloc, it returns a pointer to a chunk. Let's take a look at the memory allocation of the chunk for this code:
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +27,7 @@ void main(void)
 
 We can see the memory of the heap chunk here:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────── code:x86:64 ────
    0x55555555514b <main+22>        mov    rax, QWORD PTR [rbp-0x8]
    0x55555555514f <main+26>        mov    DWORD PTR [rax], 0x646e6170
@@ -54,7 +54,7 @@ gef➤  x/4g 0x555555559250
 
 So we can see here is our heap chunk. Every heap chunk has something called a heap header (I often call it heap metadata). On `x64` systems it's the previous `0x10` bytes from the start of the heap chunk, and on `x86` systems it's the previous `0x8` bytes. It contains two separate values, the previous chunk size, and the chunk size.
 
-```
+```text
 0x0:    0x00     - Previous Chunk Size
 0x8:    0x21     - Chunk Size
 0x10:   "panda"     - Content of chunk
@@ -64,7 +64,7 @@ The previous chunk size (if it is set, which it isn't in this case) designates t
 
 Also the first three bits of the malloc size are flags which specify different things (part of the reason for rounding). If the bit is set, it means that whatever the flag specifies is true (and vice versa):
 
-```
+```text
 0x1:     Previous in Use     - Specifies that the chunk before it in memory is in use
 0x2:     Is MMAPPED          - Specifies that the chunk was obtained with mmap()
 0x4:     Non Main Arena      - Specifies that the chunk was obtained from outside of the main arena
@@ -80,7 +80,7 @@ So when malloc frees a chunk, it will typically insert it into one of the bin li
 
 The fast bin consists of 7 singly-linked lists, which are typically referred to by their `idx`. On `x64` the sizes range from `0x20` - `0x80` by default. Each idx (which is an index to the fastbins specifying a linked list of the fast bin) is separated by size. So a chunk of size `0x20` would fit into `idx` `0`, a chunk of size `0x30` would fit into `idx` `1`, and so on and so forth.
 
-```
+```text
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
 Fastbins[idx=0, size=0x10]  ←  Chunk(addr=0x602010, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x602030, size=0x20, flags=PREV_INUSE)
 Fastbins[idx=1, size=0x20]  ←  Chunk(addr=0x602050, size=0x30, flags=PREV_INUSE)
@@ -93,7 +93,7 @@ Fastbins[idx=6, size=0x70]  ←  Chunk(addr=0x6021e0, size=0x80, flags=PREV_INUS
 
 Note the actual structure of a fastbin is a linked list, where it points to the next chunk in the list (granted it points to the heap header of the next chunk):
 
-```
+```gdb
 gef➤  x/g 0x602010
 0x602010: 0x602020
 gef➤  x/4g 0x602020
@@ -112,7 +112,7 @@ The tcache is a new type of binning mechanism introduced in libc version `2.26` 
 Just like the Fastbins, tcache is a LIFO singly-linked list. However a tcache list can only hold `7` chunks of the same sine at a time. If a chunk that meets the size requirement of the tcache is freed and the tcache is full, the chunk is inserted into the next bin that meets its size requirements. Let's see this in action.
 
 Here is our source code:
-```
+```c
 #include <stdlib.h>
 
 void main(void)
@@ -142,7 +142,7 @@ void main(void)
 ```
 
 Here is the state of the heap after everything's been freed:
-```
+```gdb
 gef➤  heap bins
 ───────────────────── Tcachebins for arena 0x7ffff7faec40 ─────────────────────
 Tcachebins[idx=0, size=0x10] count=7  ←  Chunk(addr=0x555555559320, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559300, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592e0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592c0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592a0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559280, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559260, size=0x20, flags=PREV_INUSE)
@@ -166,7 +166,7 @@ So we can see that we allocated and freed 8 chunks of size `0x20` (`0x10` from s
 
 Also just to emphasize that the `0x7` chunk limit is just per list of the tcache, not total chunks in the entire tcache bin, we can see here that the tcache holds `14` chunks across two separate bins:
 
-```
+```gdb
 gef➤  heap bins
 ─────────────────────────────────────────────────────────────────────────────────── Tcachebins for arena 0x7ffff7faec40 ───────────────────────────────────────────────────────────────────────────────────
 Tcachebins[idx=0, size=0x10] count=7  ←  Chunk(addr=0x555555559320, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559300, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592e0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592c0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x5555555592a0, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559280, size=0x20, flags=PREV_INUSE)  ←  Chunk(addr=0x555555559260, size=0x20, flags=PREV_INUSE)
@@ -188,7 +188,7 @@ Fastbins[idx=6, size=0x70] 0x00
 ```
 
 There are a total of `64` tcache lists, with idx values ranging from `0-63`, for chunk sizes between `0x20-0x410`:
-```
+```gdb
 gef➤  heap bins
 ─────────────────────────────────────────────────────────────────────────────────── Tcachebins for arena 0x7ffff7faec40 ───────────────────────────────────────────────────────────────────────────────────
 Tcachebins[idx=0, size=0x10] count=1  ←  Chunk(addr=0x555555559260, size=0x20, flags=PREV_INUSE)
@@ -279,7 +279,7 @@ If it clears anything up, I feel like the best simple analogy I've heard for the
 
 The Small, Large and Unsorted garbage cans are much more similar to each other, given how they work, than to other garbage cans. The Unsorted, Large, and Small Bins all live together in the same array. Each of the bins has different indexes to this array:
 
-```
+```text
 0x00:         Not Used
 0x01:         Unsorted Bin
 0x02 - 0x3f:  Small Bin
@@ -294,7 +294,7 @@ Whenever a chunk is freed it has to be placed into one of the bins. When the chu
 The small bins on `x64` consist of chunk sizes under `0x400` (`102` bytes), while on `x86` they consist of chunk sizes under `0x200` (`512` bytes). The large bins consist of values above those.
 
 Let's take at this C code:
-```
+```c
 #include <stdlib.h>
 
 void main(void)
@@ -313,7 +313,7 @@ void main(void)
 
 Let's see what the heap looks like before the  `malloc(0x1000)`:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -335,7 +335,7 @@ Fastbins[idx=6, size=0x70] 0x00
 ```
 
 Now let's see it after the `malloc(0x1000)`:
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -359,7 +359,7 @@ Fastbins[idx=6, size=0x70] 0x00
 We can see since the unsorted bin chunk could not serve the requested size of `0x1000`, it was sorted to its corresponding list of in the small bin at idx `32`. Let's see what happens when we change the value to a large bin size:
 
 The new C code:
-```
+```c
 #include <stdlib.h>
 
 void main(void)
@@ -377,7 +377,7 @@ void main(void)
 ```
 
 Before the `malloc(10000)`:
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -399,7 +399,7 @@ Fastbins[idx=6, size=0x70] 0x00
 ```
 
 After the `malloc(10000)`:
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -424,7 +424,7 @@ As we can see, the heap chunk was moved into its corresponding bin (the large bi
 
 Let's change the C code to this:
 
-```
+```c
 #include <stdlib.h>
 
 void main(void)
@@ -443,7 +443,7 @@ void main(void)
 
 Before the `malloc(0x200)`:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -466,7 +466,7 @@ Fastbins[idx=6, size=0x70] 0x00
 
 After the `malloc(0x200)`:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -493,7 +493,7 @@ Now let's look at the chunks themselves, either from the Unsorted, Small, or Lar
 
 Small Bin Chunk:
 
-```
+```gdb
 gef➤  x/6g 0x602000
 0x602000: 0x0 0x211
 0x602010: 0x7ffff7dd1d78  0x7ffff7dd1d78
@@ -502,7 +502,7 @@ gef➤  x/6g 0x602000
 
 Large Bin Chunk:
 
-```
+```gdb
 gef➤  x/6g 0x602000
 0x602000: 0x0 0x411
 0x602010: 0x7ffff7dd1f68  0x7ffff7dd1f68
@@ -511,7 +511,7 @@ gef➤  x/6g 0x602000
 
 Unsorted Bin Chunk:
 
-```
+```gdb
 gef➤  x/6g 0x602210
 0x602210: 0x0 0x201
 0x602220: 0x7ffff7dd1b78  0x7ffff7dd1b78
@@ -536,7 +536,7 @@ Let's say you call `malloc(0x10)`, and it's your first time calling `malloc` so 
 
 Malloc will try to allocate chunks from the bin lists before allocating them from the top chunk, since it's faster. However, if there is no chunk in any of the bin lists that could satisfy the request, malloc will pull memory from the top chunk. Let's see that in action with this C Code:
 
-```
+```c
 #include <stdlib.h>
 
 void main(void)
@@ -551,7 +551,7 @@ void main(void)
 ```
 
 Now let's see the top chunk before the `malloc(0xf0)` call:
-```
+```gdb
 gef➤  x/20g 0x602020
 0x602020: 0x0 0x20fe1
 0x602030: 0x0 0x0
@@ -567,7 +567,7 @@ gef➤  x/20g 0x602020
 
 So we can see that it's size is `0x20fe1`. Right now there are no chunks in any of the bin lists, so there is a `0x20fe0` bytes of unallocated space left in the heap (the previous in use bit for the top chunk is always set). Now let's see what happens to the top chunk after the `malloc(0xf0)` call:
 
-```
+```gdb
 gef➤  x/40g 0x602020
 0x602020: 0x0 0x101
 0x602030: 0x0 0x0
@@ -593,7 +593,7 @@ gef➤  x/40g 0x602020
 
 We can see two things happened to the top chunk: (1) it moved down (notice it moved to a higher memory address, but we say 'down' to respect how it is depicted) to `0x602120` from `0x602020` to make room for the new allocated chunk, and (2) it's size was shrunk by `0x100`, because of the `0x100` byte allocation to serve the malloc request. Now let's see what happens to the top chunk after the `free(p1)` call:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -645,7 +645,7 @@ A lot of heap attacks we will see target a bin list. For that we need chunks in 
 
 One term you will probably hear in heap exploitation is `Main Arena`. This is essentially the data structure used for managing heap memory. It actually contains the head pointers for the bin lists, which we can see here:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -679,7 +679,7 @@ gef➤  x/20g 0x7ffff7dd1b20
 
 As you can see, there is a good bit of functionality with the heap (although we haven't covered it all). A lot of this functionality is beneficial to attacking the code. Here is kind of an outline of how these attacks can work from super high level. Also the man, the myth, the legend himself `noopnoop` was the one to show me this, and I think it's a pretty good way for explaining heap exploitation:
 
-```
+```text
 +--------------------+----------------------------+-----------------------+
 |   Bug Used         |  Bin Attack                |   House               |
 +--------------------+----------------------------+-----------------------+
@@ -705,7 +705,7 @@ As we are exploiting the Heap, we may run into some issues along the way. This c
 
 So the `gef` gdb wrapper has this super cool command called `heap bins` (as you've already seen) that will go through and show you the contents of all of the bin lists. Having a command like this to see the status of all of the bin lists is invaluable while doing heap exploitation. I know you've seen several instances of this already, however here is one more:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7ffff7dd1b20 ──────────────────────
@@ -728,7 +728,7 @@ Fastbins[idx=6, size=0x70] 0x00
 
 Another useful tool for debugging failed heap checks, is the libc source code itself. It is all open source so you can just download it and look in `malloc.c` yourself. For instance let's say you are failing this check and we see the wonderful output from `malloc_printerr`:
 
-```
+```c
 *** Error in `./try': malloc(): memory corruption (fast): 0x000000000067f010 ***
 ======= Backtrace: =========
 /lib/x86_64-linux-gnu/libc.so.6(+0x777e5)[0x7f75bc6ae7e5]
@@ -767,7 +767,7 @@ Aborted (core dumped)
 
 We can just grep through the source code of `malloc.c` for the string `memory corruption (fast)` to find the code for the check we are failing:
 
-```
+```c
       if (victim != 0)
         {
           if (__builtin_expect (fastbin_index (chunksize (victim)) != idx, 0))
@@ -791,7 +791,7 @@ Here we can see the check that we failed. The check is being done on a chunk all
 
 When you attempt to use `LD_PRELOAD` to have a binary use a specific libc file, you might find an issue if the linker is not compatible. If you run into that issue where you try to `LD_PRELOAD` a libc version that isn't compatible and you have gdb attached, you should see an error message from gdb like this:
 
-```
+```gdb
 GEF for linux ready, type `gef' to start, `gef config' to configure
 75 commands loaded for GDB 8.2.91.20190405-git using Python engine 3.7
 [*] 5 commands could not be loaded, run `gef missing` to know why.
@@ -817,7 +817,7 @@ Now since the attacks can get a bit more complicated, one thing I will start inc
 
 Here are some references I used while writing this. If you want to learn more, I would recommend looking at them:
 
-```
+```text
 https://azeria-labs.com/heap-exploitation-part-2-glibc-heap-free-bins/
 http://core-analyzer.sourceforge.net/index_files/Page335.html
 https://sourceware.org/glibc/wiki/MallocInternals

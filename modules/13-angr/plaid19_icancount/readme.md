@@ -1,7 +1,7 @@
 # Plaid CTF 2019
 
 Let's take a look at the binary:
-```
+```console
 $    file icancount
 icancount: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=e75719f2cd90c042f04af29a0cd1263bb72c7417, not stripped
 $    pwn checksec icancount
@@ -41,7 +41,7 @@ Wonderful.
 
 So we can see that we are dealing with a `32` bit binary with `PIE`. When we run it, it prompts us for numbers that increments by `1`. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void main(void)
@@ -86,7 +86,7 @@ void main(void)
 
 So we can see that it prints out some text, sets the rng seed to time, then drops us into an infinite loop. The loop starts off by running the `incr_flag` function which we can see it increments `flag_buf` which is stored in the bss at address `0x13048`:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void incr_flag(void)
@@ -124,7 +124,7 @@ Proceeding that in the main function, we see that it allows us to scan in 0x1e b
 
 Following that, it compares our input against `flag_buf`. If they are not equal, the infinite loop breaks and we get told what the correct number should be. If it doesn't break, then it will print a random character and run the `check_flag` function which looks like this:
 
-```
+```c
 void check_flag(void)
 
 {
@@ -222,7 +222,7 @@ void check_flag(void)
 
 This may seem like a mess, but we don't need to understand a lot about what's going on. We can see that the loop runs for `0x13` times (iteration count stored in `i`). If it runs that many times then it will call `printf` (probably will print the flag). Also we can see that it checks our input which is stored in `inputChar` at `0x10a73`:
 
-```
+```gdb
 gef➤  pie b *0xa73
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -317,7 +317,7 @@ $1 = 0x31
 ```
 
 There is an if then check at the end which is ran at the very end, if the check fails the loop ends (which means we don't have the correct input):
-```
+```text
     if (*(byte *)(i + *(int *)(unaff_ESI + 0x2692)) != (byte)((byte)(uint)c ^ (byte)((uint)c >> 8)))
     break;
 ```
@@ -326,14 +326,14 @@ So to solve this challenge, we can use Angr. We need three things, what input it
 
 For the address that designates a failed address, in the `check_flag` function we see at the end there is the if then check, which if it fails it will make a jump to `0x10fae`:
 
-```
+```nasm
         00010f75 38 c2           CMP        f,f
         00010f77 75 35           JNZ        LAB_00010fae
 ```
 
 Which we can see that at the address it just exits. Since this code path is executed when we don't have the right input, I choose to use the address `0xfae`:
 
-```
+```nasm
                              LAB_00010fae                                    XREF[1]:     00010f77(j)  
         00010fae 90              NOP
         00010faf 8d 65 f4        LEA        ESP=>local_10,[EBP + -0xc]
@@ -346,7 +346,7 @@ Which we can see that at the address it just exits. Since this code path is exec
 
 Now we need the instruction address that if it's executed, it means we have the correct input. For this I choose `0xf9a` since that is the `printf` call that has been made if the loop has ran `19` times, and it probably is printing the flag (which means that this code path is ran when we have the correct input):
 
-```
+```c
         00010f98 89 f3           MOV        EBX,ESI
         00010f9a e8 b1 f6        CALL       printf                                           int printf(char * __format, ...)
                  ff ff
@@ -361,7 +361,7 @@ Now we need the instruction address that if it's executed, it means we have the 
 
 Also one last thing about the Angr script. We will set the enter state to be the start of the `check_flag` function. The reason for this being is if we were to start from the beginning of the binary, we would have to essentially brute force the binary because it checks if our input is equal to `flag_buf`, and it is initialized at `0` and incremented by `1` each time (so we would have to brute force it by entering `0`, then `1`, then `2` ...). Also since it expects our input in `flag_buf`, we will just establish our input and set `flag_buf` equal to our input. With that we have everything we need for our Angr Script:
 
-```
+```text
 import angr
 import claripy
 
@@ -416,7 +416,7 @@ print "flag: PCTF{" + flag + "}"
 ```
 
 When we run it:
-```
+```console
 $	python rev.py 
 WARNING | 2019-07-21 16:19:08,277 | angr.analyses.disassembly_utils | Your version of capstone does not support MIPS instruction groups.
 WARNING | 2019-07-21 16:19:08,324 | cle.loader | The main binary is a position-independent executable. It is being loaded with a base address of 0x400000.

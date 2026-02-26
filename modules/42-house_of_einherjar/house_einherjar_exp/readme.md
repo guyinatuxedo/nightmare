@@ -4,7 +4,7 @@ This is a well documented C file that explains how a House of Einherjar attack w
 
 The source Code:
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -92,7 +92,7 @@ int main(void)
 
 When we run it (this was ran on Ubuntu 16.04):
 
-```
+```console
 $	./house_einherjar_exp 
 So let's cover a House of Einjar attack.
 The purpose of this attack is to get malloc to return a chunk outside of the heap.

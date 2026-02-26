@@ -2,7 +2,7 @@
 
 One thing, this wasn't a ctf challenge but a challenge released as part of a talk from an REcon talk. Let's take a look at the binary:
 
-```
+```console
 $    file movfuscated1
 movfuscated1: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, stripped
 $    ./movfuscated1
@@ -13,7 +13,7 @@ Nope.
 
 So we can see it is a `32` bit binary, that is a crackme. Also as the name suggests, it has been obfuscated using Movfuscated (which obfuscates the code by using a lot of `mov` instructions in the binary). Looking at the assembly code for this binary, we can see that it is going to be a pain:
 
-```
+```console
 $    objdump -D movfuscated1 -M intel | less
 
 .    .    .
@@ -45,7 +45,7 @@ However we don't need to reverse this binary necessarily. With a lot of differen
 For this we can use the performance analyzer perf to count the number of instructions ran (we can also count other events such as the cpu-clock or branches). Here are some examples
 
 Count the number of instructions:
-```
+```console
 $    perf stat -e instructions ./movfuscated1
 M/o/Vfuscator 2.0a // domas // @xoreaxeaxeax
 Enter the key: 15935728
@@ -60,7 +60,7 @@ Nope.
 
 We can also format the output of perf to make it easier to parse:
 
-```
+```console
 $    perf stat -x : -e instructions ./movfuscated1
 M/o/Vfuscator 2.0a // domas // @xoreaxeaxeax
 Enter the key: 15935728
@@ -70,7 +70,7 @@ Nope.
 
 Also we can specify what privilege level we want to view the events (so count the number of instructions that run at the user level :u or the kernel level :k, or the user level k):
 
-```
+```console
 $    sudo perf stat -x : -e instructions:u ./movfuscated1
 M/o/Vfuscator 2.0a // domas // @xoreaxeaxeax
 Enter the key: 15935728
@@ -82,7 +82,7 @@ We will want to use u, since the instructions we want to count are being ran wit
 
 So we can see that the number of instructions is the first thing it gives us with this form of output. Now with this, we can write a python program based off of the earlier mentioned writeup which will simply iterate through all printable characters for each slot, choose the character which has the most instructions ran, and move on to the next character. Also one thing I originally learned how to do this from: https://dustri.org/b/defeating-the-recons-movfuscator-crackme.html
 
-```
+```nasm
 # Import the libraries
 from subprocess import *
 import string
@@ -117,7 +117,7 @@ while True:
 ```
 
 When we run it (also if you don't have the config set to run the instruction counting with perf as an unprivileged user, you will need to run this with sudo):
-```
+```console
 $    python rev.py ./movfuscated1
 {
 {R

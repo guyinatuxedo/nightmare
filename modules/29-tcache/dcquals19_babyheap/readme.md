@@ -1,7 +1,7 @@
 # dcquals 2019 babyheap
 
 We see that we are given a libc file and a binary. Let's take a look at them:
-```
+```console
 $    file babyheap
 babyheap: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, BuildID[sha1]=afa4d4d076786b1a690f1a49923d1e054027e8e7, for GNU/Linux 3.2.0, stripped
 $    pwn checksec babyheap
@@ -53,14 +53,14 @@ Show Error
 
 So we can see that we are given a 64 bit binary with all of the standard binary mitigations. When we run it, we see that we are prompted with a menu. With this menu we can malloc memory, free it, and show it. To identify the version of libc, you should be able to just run the libc file (depending on your environment, this may not work). You can also use strings to ID it:
 
-```
+```console
 $    strings libc.so | grep libc-
 libc-2.29.so
 ```
 
 So we can see that it is running `libc-2.29.so`. With this version of libc, we will have to deal with the tcache mechanism. When we take a look at the binary in Ghidra, we don't see a `main` function labeled for us. However, looking through the functions (or checking xreferences) to strings we find this function which looks like the function which handles the menu:
 
-```
+```c
 /* WARNING: Could not reconcile some variable overlaps */
 
 void FUN_0010151b(void)
@@ -186,7 +186,7 @@ LAB_00101799:
 
 Looking at this function, it looks like a pretty standard menu function for ctf challenges. When we take a look at the `mallocSpace` function, we see this:
 
-```
+```c
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
 undefined8 mallocSpace(void)
@@ -268,7 +268,7 @@ LAB_001013ae:
 
 So in this function, we see that it prompts us for a size. We can see that we can only allocate two size chunks, `0xf8` and `0x178`. After that it allows us to scan in content into the chunk equal to `size` number of bytes. Thing is, this gives us a single byte overflow. Since arrays are zero index, if we get to scan in data to index `0xf8` that gives us `0xf9` bytes worth of data to scan into a `0xf8` byte chunk (it should scan in `size - 1` bytes to prevent the bug). In addition to that it saves a pointer to the chunk in the bss in `pointers` (`0x104060`), and the size of the chunk in the bss in `sizes` (`0x104068`). We can also see that out limit on the amount of chunks we can allocate is `10`. These both point to the same 1-D array, it's just every 8 bytes it swaps between a pointer and a size (and vice versa). Next let's look at the `freeSpace` function:
 
-```
+```c
 undefined8 freeSpace(void)
 
 {
@@ -300,7 +300,7 @@ undefined8 freeSpace(void)
 
 Looking at this function, we see that it prompts us for an index. It checks to see if it is valid by checking to see if there is a pointer that corresponds to the index. After that it will clear out the memory using `memset`, and free the pointer. It clears out the pointer and the size that corresponds with the freed index, so there is no UAF (Use After Free) here. Next we take a look at the `showSpace` function:
 
-```
+```c
 undefined8 showSpace(void)
 
 {
@@ -335,7 +335,7 @@ So we have a one byte heap overflow, the ability to allocate `10` heap chunks, a
 
 While doing the infoleak, we will have to deal with the tcache. The tcache is a mechanism designed to reuse recently allocated memory chunks by the same thread, in order to improve performance. By default the tcache list will only hold seven entries, which we can see in the malloc.c source code from this version of libc:
 
-```
+```text
 /* This is another arbitrary limit, which tunables can change.  Each
    tcache bin will hold at most this number of chunks.  */
 # define TCACHE_FILL_COUNT 7
@@ -343,7 +343,7 @@ While doing the infoleak, we will have to deal with the tcache. The tcache is a 
 
 From reversing the binary, we know that we can have `10` blocks allocated at a time. What we will do is allocate `10` blocks, then free `7`. This will free up the tcache. While the tcache is freed, chunks we free will end up in the unsorted bin due to their size. When we take a look at the first chunk to enter into the unsorted bin (after we get at least one more chunk inserted into the unsorted bin), we see something very interesting:
 
-```
+```gdb
 gef➤  x/4g 0x56041198c950
 0x56041198c950: 0x0 0x206b1
 0x56041198c960: 0x7f8d327faca0  0x7f8d327faca0
@@ -353,7 +353,7 @@ gef➤  x/g 0x7f8d327faca0
 
 We can see in the data section, there are two pointers to the libc (specifically to somewhere in the main arena). What we can do is allocate this chunk again with malloc, and only write `8` bytes worth of data to it. Then we will just show this chunk, and since `puts` stops when it reaches a null byte, it will leak the libc address. We will go into more depth of the unsorted bin later. However before we allocate that chunk, we will have to allocate off all of the tcache chunks (which get allocated in the reverse order they were put in, so FILO). So we just have to allocate 7 chunks to free up the tcache, then the next chunk we allocate will give us our infoleak. Here is what the chunk looks like when we prep it for the infoleak:
 
-```
+```gdb
 gef➤  x/4g 0x564aa26bb950
 0x564aa26bb950: 0x0 0x101
 0x564aa26bb960: 0x3832373533393531  0x7f479de2fca0
@@ -365,7 +365,7 @@ gef➤  x/g 0x7f479de2fca0
 
 So before we get into attacking the tcache, let's take a look at what the tcache is exactly. Here we take a look at seven freed chunks in the tcache:
 
-```
+```gdb
 gef➤  x/4g 0x55bf78b7d250
 0x55bf78b7d250: 0x0 0x101
 0x55bf78b7d260: 0x0 0x55bf78b7d010
@@ -394,7 +394,7 @@ Here we can see that the tcache is essentially a linked list. The linked list co
 Also a bit more on tcaching, tcache was introduced in libc version `2.26` (so expect to have it in versions after it, unless if it is removed in a later version). Whenever a chunk is allocated or freed, it will first look in the tcache. If it finds a chunk in the tcache while allocating memory that meets the size requirement it will pull it from the tcache (typically in a LIFO manner). If the tcache is full when a chunk is being freed, then it will go to one of the other bins. Also with the tcache, there are two different data structures associated with it (that we can see from `malloc.c` from: https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c;h=f8e7250f70f6f26b0acb5901bcc4f6e39a8a52b2;hb=23158b08a0908f381459f273a984c6fd328363cb#l2902)
 
 
-```
+```text
 2900 #if USE_TCACHE
 2901
 2902 /* We overlay this structure on the user-data portion of a chunk when
@@ -419,7 +419,7 @@ Also a bit more on tcaching, tcache was introduced in libc version `2.26` (so ex
 So can see that the tcache has a `tcache_perthread_struct` per each thread, and each entry into the tcache is stored as a `tcache_entry` struct (which just contains a pointer to the next entry). In addition to that, we can see the code which will add / remove entries from the tcache.
 
 
-```
+```text
 2926 tcache_put (mchunkptr chunk, size_t tc_idx)
 2927 {
 2928   tcache_entry *e = (tcache_entry *) chunk2mem (chunk);
@@ -447,7 +447,7 @@ So we can see for `tcache_put` it checks to make sure that the index doesn't exc
 
 Now to get back to the exploitation, we need to be able to edit a freed chunk in order to edit the tcache linked list and allocate a chunk to the hook of malloc. Taking a look at the heap metadata, we see that the two sizes for the two chunks when allocated are `0x101` and `0x181`:
 
-```
+```text
 ef➤  x/200g 0x56541cbc3250
 0x56541cbc3250: 0x0 0x101
 0x56541cbc3260: 0x3030303030303030  0x0
@@ -473,7 +473,7 @@ So here is our plan. We will use the one byte overflow to overflow the size valu
 
 Let's take a look at how the memory is corrupted exactly as we do this. First we start out with our chunk which we will overflow (holds 33333333) followed by a chunk stored in the tcache mechanism with a linked list pointer:
 
-```
+```gdb
 gef➤  x/64g 0x55d01d7cc850
 0x55d01d7cc850: 0x0 0x101
 0x55d01d7cc860: 0x3333333333333333  0x0
@@ -497,7 +497,7 @@ gef➤  x/64g 0x55d01d7cc850
 
 Then we will allocate a chunk behind (thanks to a bit of heap grooming) the 33333333 chunk, which will overflow the size value with the byte 0x81.
 
-```
+```gdb
 gef➤  x/64g 0x55d01d7cc790
 0x55d01d7cc790: 0x3434343434343434  0x3434343434343434
 0x55d01d7cc7a0: 0x3434343434343434  0x3434343434343434
@@ -533,7 +533,7 @@ gef➤  x/64g 0x55d01d7cc790
 
 Then we will free the 33333333 chunk, then immediately allocate a new chunk of size 0x174 and use it to overwrite the next pointer in the linked list to the address of the malloc hook:
 
-```
+```gdb
 gef➤  x/64g 0x55d01d7cc790
 0x55d01d7cc790: 0x3434343434343434  0x3434343434343434
 0x55d01d7cc7a0: 0x3434343434343434  0x3434343434343434
@@ -573,7 +573,7 @@ gef➤  x/g 0x7fea6bc49c30
 
 Now that that is done, we can just allocate chunks until we get malloc to return a pointer to the malloc hook (which due to how we groomed the heap, is only two). Proceeding that we can just get the program to call malloc, and we get a shell. Also we need to get our oneshot gadget:
 
-```
+```console
 $ one_gadget libc.so
 0xe237f execve("/bin/sh", rcx, [rbp-0x70])
 constraints:
@@ -599,7 +599,7 @@ constraints:
 
 Putting it all together, we get the following exploit. This exploit was ran on Ubuntu `19.04`:
 
-```
+```python
 from pwn import *
 
 #target = process('./babyheap', env={"LD_PRELOAD":"./libc.so"})
@@ -716,7 +716,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './babyheap': pid 27132
 [*] running in new terminal: /usr/bin/gdb -q  "./babyheap" 27132 -x "/tmp/pwn84K7wz.gdb"

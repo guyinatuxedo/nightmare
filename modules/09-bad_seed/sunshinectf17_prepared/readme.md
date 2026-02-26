@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    pwn checksec prepared
 [*] '/Hackery/pod/modules/bad_seed/sunshinectf17_prepared/prepared'
     Arch:     amd64-64-little
@@ -21,7 +21,7 @@ You should have used 13.
 
 So we can see that we are dealing with a 64 bit binary that prompts us for input. Looking at the main function in Ghidra, we see this:
 
-```
+```c
 
 undefined8 main(void)
 
@@ -77,7 +77,7 @@ So we can see, this is pretty similar to the other challenges in this module. It
 
 Luckily for us, the value `rand` generate is directly based off of the seed. So if we have the same seed, we can generate the same sequence of numbers. Also since the seed is the current time, we know what the seed is. With this we can just write a simple C program which will use time as a seed and generate the numbers it expects:
 
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -101,7 +101,7 @@ int main(void)
 
 When we run it:
 
-```
+```console
 $    ./solve | ./prepared
 0 days without an incident.
 1 days without an incident.

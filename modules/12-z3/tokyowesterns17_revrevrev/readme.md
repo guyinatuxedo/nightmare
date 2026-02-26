@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file rev_rev_rev-a0b0d214b4aeb9b5dd24ffc971bd391494b9f82e2e60b4afc20e9465f336089f
 rev_rev_rev-a0b0d214b4aeb9b5dd24ffc971bd391494b9f82e2e60b4afc20e9465f336089f: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=e33eb178391bae637823f4645d63d63eac3a8d07, stripped
 $    ./rev_rev_rev-a0b0d214b4aeb9b5dd24ffc971bd391494b9f82e2e60b4afc20e9465f336089f
@@ -13,7 +13,7 @@ Invalid!
 
 So we are dealing with a `32` bit program that when we run it, it asks for input (and told us it was invalid). My guess is that this program takes input, alters it, and compares it against a string. Looking through the list of functions (or checking the X-References to strings) we find the `FUN_080485ab` function which looks like where the code we are interested in is:
 
-```
+```c
 undefined4 FUN_080485ab(void)
 
 {
@@ -53,7 +53,7 @@ undefined4 FUN_080485ab(void)
 
 So we can see this function starts off by scanning in `0x21` bytes into `input`. If the `fgets` call scans in no bytes, it exits with an error message. Then it runs `input` through 4 different functions (`op0-op3`). Then it compares our data against `PTR_DAT_0804a038` using `strcmp`, and if it is equivalent then we pass the challenge. We can check what the value of `PTR_DAT_0804a038` via clicking on it and checking it's value. What is happening here is it is scanning in input, altering it with the ops functions, then checking it against `PTR_DAT_0804a038`:
 
-```
+```nasm
                              DAT_08048870                                    XREF[2]:     FUN_080485ab:08048668(*),
                                                                                           0804a038(*)  
         08048870 41              ??         41h    A
@@ -92,7 +92,7 @@ So we can see this function starts off by scanning in `0x21` bytes into `input`.
 
 So first we take a look at the `op0` function and we see this:
 
-```
+```c
 void op0(char *input)
 
 {
@@ -106,7 +106,7 @@ void op0(char *input)
 
 Looking at this function, we can see that it first looks for the character `0xa`, which is a newline character. Then it sets that equal to `0x0`. So essentially it replaces the newline character with a null byte. Let's take a look at `op1`:
 
-```
+```c
 void op1(char *input)
 
 {
@@ -131,7 +131,7 @@ void op1(char *input)
 
 This code essentially takes our input (which has had the newline character stripped) and just reverses it. For instance, if we gave the program `1234`, it would reverse it to `4321`. Now let's look at `op2`.
 
-```
+```c
 void op2(byte *input)
 
 {
@@ -152,7 +152,7 @@ void op2(byte *input)
 
 This function alters the input, by performing various binary operations on our input (and in one case, multiplying it). We can see that it is a for loop that will run once per each character of our input. It will take the hex value of each character of our input and alter it, however it will only take the first 8 bits worth of data (so the least significant byte). This code effectively translates to the following python since this might be a bit easier to understand. Also shifting a value to the right by `2` is the same as multiplying it by `4`:
 
-```
+```text
 def enc(input):
     output = ""
     for c in input:
@@ -169,7 +169,7 @@ def enc(input):
 
 With all of that, let's take a look at the final function our input is ran through `op3`:
 
-```
+```c
 void op3(byte *input)
 
 {
@@ -186,14 +186,14 @@ void op3(byte *input)
 
 So like the previous function, this runs a loop that iterates for each character of the input. However this time it alters each character by performing a binary not (which it's operator in c is `~`). Essentially it takes the binary value of the character, and converts the zeros to ones and ones to zeros. For instance:
 
-```
+```text
 0:    0x30:    00110000
 NOT 0:         11001111 = 0xcf
 ```
 
 it essentially performs the same function as this python script:
 
-```
+```text
 def not_inp(inp):
     output = 0x0
     result = ""
@@ -211,7 +211,7 @@ def not_inp(inp):
 
 So we understand what the four functions do. We could have also figured out what some of the functions do by using gdb, and looking at the value of `input_buf` changes (it's how I figured out what the first two functions did). Set the breakpoints before each of the four functions is called, and the final strcmp:
 
-```
+```gdb
 gdb-peda$ b *0x0804862b
 Breakpoint 1 at 0x804862b
 gdb-peda$ b *0x0804863a
@@ -230,7 +230,7 @@ Your input: tux
 ```
 
 Before `op0` is called:
-```
+```gdb
 Breakpoint 1, 0x0804862b in ?? ()
 gdb-peda$ x/s $eax
 0xffffd07b:    "tux\n"
@@ -239,7 +239,7 @@ Continuing.
 ```
 
 After `op0`, before `op1`:
-```
+```gdb
 Breakpoint 2, 0x0804863a in ?? ()
 gdb-peda$ x/s $eax
 0xffffd07b:    "tux"
@@ -249,7 +249,7 @@ Continuing.
 
 After `op1`, before `op2`:
 
-```
+```gdb
 Breakpoint 3, 0x08048649 in ?? ()
 gdb-peda$ x/s $eax
 0xffffd07b:    "xut"
@@ -258,7 +258,7 @@ Continuing.
 ```
 
 After `op2`, before `op3`:
-```
+```gdb
 Breakpoint 4, 0x08048658 in ?? ()
 gdb-peda$ x/x $eax
 0xffffd07b:    0x1e
@@ -271,7 +271,7 @@ Continuing.
 ```
 
 After `op3`, before `strcmp`:
-```
+```gdb
 Breakpoint 5, 0x0804866d in ?? ()
 gdb-peda$ x/x $eax
 0xffffd07b:    0xe1
@@ -281,7 +281,7 @@ gdb-peda$ x/w $eax
 
 So we can see the text altered as it is passed through the function. Now that we know what happens to the text, we just need to know what it needs to be after all of it. When we see what value `desired_output` holds, we see this:
 
-```
+```nasm
 .rodata:08048870 desired_output_storage db  41h ; A      ; DATA XREF: .data:desired_outputo
 .rodata:08048871                 db  29h ; )
 .rodata:08048872                 db 0D9h ; +
@@ -320,7 +320,7 @@ So we can see that it is equal to a hex string starting with `0x41` and ending w
 
  I made two scripts, one to undo the binary not, and one to figure out the input needed to get the desired output out of `enc_func`. Also to account for `op1` (function that reverses our input) I just inputted the hex string backwards. Now for the script to undo the binary not:
  
-```
+```nasm
 #Establish the flag after the binary not
 flag = [ 0xd5, 0x15, 0x3d, 0xd5, 0x9d, 0x21, 0x71, 0xf1, 0xa1, 0x69, 0x31, 0x61, 0xdd, 0x89, 0xb9, 0x49, 0xb9, 0x09, 0xa1, 0x13, 0x93, 0x09, 0x19, 0xc9, 0xe1, 0xf1, 0xa1, 0x65, 0xd9, 0x29, 0x41]
 
@@ -361,13 +361,13 @@ print "alt_flag = " + str(out)
 
 when we run the script, we see that the hex string before the binary not happens is equal to this:
 
-```
+```text
 alt_flag = [42, 234, 194, 42, 98, 222, 142, 14, 94, 150, 206, 158, 34, 118, 70, 182, 70, 246, 94, 236, 108, 246, 230, 54, 30, 14, 94, 154, 38, 214, 190]
 ```
 
 With this info, we can just use z3 to figure out the input needed for `enc_func` to output that. Z3 is a theorem solver by Microsoft (you can find install instructions here https://github.com/Z3Prover/z3). Z3 will allow us to essentially declare the input it has control over, specify the algorithm that it goes through, and then specify what you want the output to be (and any additional constraints you want to have). Then you can check if Z3 can solve it, and if it can it will solve it and print a solution. Checkout the code for more details:
 
-```
+```python
 #Import z3
 from z3 import *
 
@@ -415,7 +415,7 @@ solve(alt_flag)
 
 Let's try it!
 
-```
+```console
 $ python reverent.py
 The condition is satisfied, would still recommend crying: sat
 TWCTF{qpzisyDnbmboz76oglxpzYdk}

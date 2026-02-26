@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file gibberish_check
 gibberish_check: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=248693b90a85745125ac4d8241d53503e822a4c7, stripped
 $    pwn checksec gibberish_check
@@ -20,7 +20,7 @@ Wrong D:
 
 So we can see that we are dealing with a `x64` bit elf (with `PIE`) that scans in input, and check it. When we take a look at the code in ghidra, we see this:
 
-```
+```c
 
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
@@ -261,7 +261,7 @@ undefined8 FUN_00101d98(void)
 
 One thing of immediate importance is the function `0x101be1`:
 
-```
+```c
 
 void FUN_00101be1(void)
 
@@ -290,7 +290,7 @@ This function essentially uses `PTRACE` to make it harder to debug the binary. H
 
 After we patch out the anti-debugging functionality with just nop instructions (`0x90`s), this is what the code looks like:
 
-```
+```c
 
 /* WARNING: Globals starting with '_' overlap smaller symbols at the same address */
 
@@ -532,7 +532,7 @@ undefined8 FUN_00101d98(void)
 So we can see here, it is essentially calling `checkFunction` several times in a loop, and summing up all of it's outputs. If the sum is equal to `0x1f9`, we solve the challenge.
 
 Which the `checkFunction` function looks like this:
-```
+```c
 
 ulong checkFunction(basic_string<char,std--char_traits<char>,std--allocator<char>> *string,
                    basic_string<char,std--char_traits<char>,std--allocator<char>> *input)
@@ -657,7 +657,7 @@ ulong checkFunction(basic_string<char,std--char_traits<char>,std--allocator<char
 
 Thing is, we don't actually need to understand the internal working of the function, to be able to know what the output will be. We can effectively find out what it does using gdb:
 
-```
+```gdb
 $    gdb ./gibberish_check_patched
 GNU gdb (Ubuntu 8.2.91.20190405-0ubuntu3) 8.2.91.20190405-git
 Copyright (C) 2019 Free Software Foundation, Inc.
@@ -746,7 +746,7 @@ gef➤
 
 Right now we can see that the input to `checkFunction` is the string `dqzkenxmpsdoe_qkihmd"`, and our input `15935728`. In the debugger, we see that this loop runs for `26` times. Each time it runs with a different string, which we can see from running `strings`:
 
-```
+```console
 $    strings gibberish_check_patched
 
 .    .    .
@@ -781,7 +781,7 @@ ttsbclzyyuslmutcylcm
 
 When we try passing our input as one of the strings, we see something interesting. Here it is as it makes the `checkFunction` call:
 
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007fffffffd9c0│+0x0000: 0x0000000000000000     ← $rsp
 0x00007fffffffd9c8│+0x0008: 0x0000000000000000
@@ -820,7 +820,7 @@ gef➤  s
 
 This is the output we see:
 
-```
+```gdb
 ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007fffffffd9c0│+0x0000: 0x0000000000000000     ← $rsp
 0x00007fffffffd9c8│+0x0008: 0x0000000000000000
@@ -858,7 +858,7 @@ We need the collective output of all of the `checkFunction` calls to be `0x1f9` 
 
 With that, we end up with the string `ee1eeeeeeeeeeeeeeeee`. When we try it:
 
-```
+```console
 $    ./gibberish_check
 Find the Key!
 ee1eeeeeeeeeeeeeeeee

@@ -2,13 +2,13 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file reverse.exe reverse.exe: PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
 ```
 
 So we can see that it is another .NET program. This means that it is compiled to an intermediate language instead of just machine code. Also due to it's design, we can decompile it to pretty much it's original source code (makes reversing it a lot easier). When we run it, we see that it presents us with a gui that prompts us for a key. Taking a look at the code in JetBrains, we see the code responsible for checking our input:
 
-```
+```c
     public static string Enc(string s, int e, int n)
     {
       int[] numArray1 = new int[s.Length];
@@ -65,7 +65,7 @@ For the mod function, we see it initializes `numArray` with values ranging from 
 
 So we know that we give input to the program, it is run through an algorithm (that we know), and compared to a final result that we know. Looking at the `mod` function it looks like an AES encryption algorithm (however atm I'm not a crypto guy). I first tried to throw Z3 at this, however it couldn't get it to be able to solve it easily. So I just went the brute force method. When we base 64 decode the string, we see it is only `86` bytes
 
-```
+```pycon
 >>> import base64
 >>> x = base64.b64decode("iB6WcuCG3nq+fZkoGgneegMtA5SRRL9yH0vUeN56FgbikZFE1HhTM9R4tZPghhYGFgbUeHB4tEKRRNR4Ymu0OwljQwmRRNR4jWBweOKRRyCRRAljLGQ=")
 >>> len(x)
@@ -74,7 +74,7 @@ So we know that we give input to the program, it is run through an algorithm (th
 ```
 Since we know the output, and the only unknown is a single byte input, we can brute force it in practically no time. When I rewrote the `mod` function in python and tested it we see that it always outputs two bytes worth of data. So we the key we input will only be 43 characters long. Without knowledge we can brute force it one character at a time, which effectively reduces the work to only `43*256` runs to brute force it (even less if we limit it to ascii characters). Putting it together, we get the following script:
 
-```
+```text
 # https://github.com/p4-team/ctf/blob/master/2018-08-18-whitehat/re06/README.md
 # ^ That writeup helped me with unpacking issues
 
@@ -115,7 +115,7 @@ print flag
 
 We can see when we run the script, it gives us the flag. Also the writeup https://github.com/p4-team/ctf/blob/master/2018-08-18-whitehat/re06/README.md helped me with unpacking issues I was having:
 
-```
+```console
 $    python rev.py
 WhiteHat{N3xT_t1m3_I_wi11_Us3_l4rg3_nUmb3r}
 ```

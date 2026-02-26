@@ -2,7 +2,7 @@
 
 For this we are given a binary and a libc file. In order for this exploit to work, you need to run it with the right libc version (look at the exploit code to see how to do it). Let's take a look at what we have here:
 
-```
+```console
 $    file 0ctfbabyheap
 0ctfbabyheap: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=9e5bfa980355d6158a76acacb7bda01f4e3fc1c2, stripped
 $    pwn checksec 0ctfbabyheap
@@ -26,7 +26,7 @@ Command:
 
 So we can see that we are dealing with a 64 bit binary, with all of the standard elf mitigations. When we run it, we see that we are given a menu with the option to either `Allocate/Fill/Free/Dump/Exit`. When we take a look at the functions in Ghidra we don't see a `main` function. However we can find a function that looks like a menu (either by going through the functions, or checking the x-references to strings we see, and tracing back the function calls):
 
-```
+```c
 undefined8 heapPointers(void)
 
 {
@@ -59,7 +59,7 @@ LAB_00101133:
 
 So we can see that this is a pretty standard menu function. When we take a look at the `allocate` function, we see this:
 
-```
+```c
 void allocate(long heapPointers)
 
 {
@@ -98,7 +98,7 @@ void allocate(long heapPointers)
 
 So we can see a few things here. The first is that it does a check on the amount of chunks it has allocated, and that the max is `0x10` After that it prompts us for a size, that has to be between `1` - `0x1000`. It will then allocate a chunk equal to that size with `calloc`. Proceeding that it will save a pointer to the newly allocated chunk along with its size in `heapPointers` (the arg passed to this function) . Next up we take a look at the `fill` function:
 
-```
+```c
 void fill(long heapPointers)
 
 {
@@ -121,7 +121,7 @@ void fill(long heapPointers)
 
 So looking at this function, we can see a few things. First it prompts you for the index, and checks it. It will then prompt you for a size, and check if it is greater than `0`. Then it will run `requestInput` with the arguments being a pointer to the chunk we specified with an index, and the size we gave it. This function essentially just scans in the amount of bytes equal to the second argument to the pointer passed to it in the first argument. While it checks to see if the size is greater than zero, it doesn't check to see if the data will overflow it so we have a heap overflow bug. Next up we take a look at the `free` function:
 
-```
+```c
 void free(long heapPointers)
 
 {
@@ -141,7 +141,7 @@ void free(long heapPointers)
 
 Starting out we see it prompts us for an index, and performs the same index check on it. After that it will free the chunk pointer, and zero out the various elements of the data stored in `heapPointers` (so no use after free). Also since the `allocate` function looks for the first blank spot, after we free a chunk that index will be the first one allocated after that. Next up we have the `dump` function:
 
-```
+```c
 void dump(long heapPointers)
 
 {
@@ -173,7 +173,7 @@ So we have the ability to freely allocate and free chunks between `1-0x1000` byt
 For the infoleak, we will be using a heap consolidation technique. Below you can see exactly how we allocate/free/manage space:
 
 First we allocate four chunks:
-```
+```text
 0xf0:    0
 0x70:    1
 0xf0:    2
@@ -181,7 +181,7 @@ First we allocate four chunks:
 ```
 
 Proceeding that we will free chunks 0 and 1. This will add those chunks to the free list, and if we allocate a chunk of a similar size we will get that chunk again:
-```
+```text
 0xf0:    (freed)
 0x70:    (freed)
 0xf0:    2
@@ -190,7 +190,7 @@ Proceeding that we will free chunks 0 and 1. This will add those chunks to the f
 
 Now that they have been added to the free list, we can allocate another chunk that is `0x78` bytes large. Due to it’s size (and the fact that we just freed a chunk of similar size) it will take the place of the old chunk 1:
 
-```
+```text
 0xf0:    (freed)
 0x78:    0
 0xf0:    2
@@ -199,7 +199,7 @@ Now that they have been added to the free list, we can allocate another chunk th
 
 With that we can overflow chunk 2's metadata by using the bug we found with filling chunk 0. We will overflow the previous chunk size to be `0x180`, and the previous chunk in use bit to be `0x0`. That way when we free chunk `2`, it will think that the previous chunk isn't in use, and that the previous chunk's size is `0x180`. As a result it will move the heap back to where the first chunk 0 was, so when we allocate new heap space it will start where the first chunk 0 was:
 
-```
+```text
 0xf0:    (freed)
 0x78:    0 Filled with data to overflow 2
 0xf0:    2 (previous chunk overflowed to 0x180, previous in use bit overflowed to 0x0)
@@ -208,7 +208,7 @@ With that we can overflow chunk 2's metadata by using the bug we found with fill
 
 Now that chunk 2's metadata has been overflowed, we can go ahead and free it. This will move the heap back to where the first chunk 0 was. By doing this, it will effectively forget about the new chunk 0, and will allow us to push a libc address into it's data section (the section after the heap metadata) so we can just print the chunk and leak the libc address:
 
-```
+```text
 0xf0:    (freed)
 0x78:    0
 0xf0:    (freed)
@@ -217,7 +217,7 @@ Now that chunk 2's metadata has been overflowed, we can go ahead and free it. Th
 
 Proceeding that we can just allocate a new chunk that is `0xf0` bytes large (same size as original chunk 0), and it will push the libc address for `main_arena+88` into the data section of chunk 0:
 
-```
+```text
 0xf0:    1
 0x78:    0 main_arena+88 in content section
 0xf0:    (freed)
@@ -233,7 +233,7 @@ Now that we have the libc leak, we can execute the write over the malloc hook. I
 In order to do this, we will need to allocate the same chunk twice, which we can do if the chunk has multiple entries in the free list. This can be done if we execute a double free. Luckily for us, the infoleak leaves us in a good situation for this. This is because chunk 0 is essentially forgotten about, so if we format it write we will be able to allocate a chunk where chunk 0 currently is, that way we would have two pointers to the same chunk. Using those two pointers, we can free the same chunk twice and add the entry to the free list twice.
 
 So this will start off from where the infoleak ended. We will continue by freeing chunk 1, so we can reformat our heap space to allocate another pointer to where chunk 0 is:
-```
+```text
 0xf0:    (freed)
 0x78:    0
 0xf0:    (freed)
@@ -242,7 +242,7 @@ So this will start off from where the infoleak ended. We will continue by freein
 
 Proceeding that we can allocate four new chunks. The first chunk will be `0x10` bytes large, and the other three will be `0x60` bytes large. With that, due to the heap metadata the third chunk will directly overlap with the old chunk 0. As a result we would have the two pointers to the same chunk that we need:
 
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    4
@@ -252,7 +252,7 @@ Proceeding that we can allocate four new chunks. The first chunk will be `0x10` 
 
 Proceeding this we can free the chunks `5`, `4`, and `0`. We need to free another chunk in between `5` and `4`, the reason for this being that when we free one of those chunks, it gets placed at the top of the free list. In addition to that if we free a chunk that is at the top of the free list, the program crashes. So if we free a chunk in between, when the same chunk gets freed again it won't be while it is also at the top of the free chunk (thus the program won't crash):
 
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    (freed)
@@ -262,7 +262,7 @@ Proceeding this we can free the chunks `5`, `4`, and `0`. We need to free anothe
 
 Now our free list starts with chunks `5`, `4`, and `0`. Proceeding that we can allocate another two chunks of the same size as `5`, `4`, and `0`. This will allow us to edit the memory that the old  `0` & `5` chunks point to:
 
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    4
@@ -272,7 +272,7 @@ Now our free list starts with chunks `5`, `4`, and `0`. Proceeding that we can a
 
 Now that we have a chunk that is allocated and on top of the free list, we can get ready to add the fake chunk to the free list. To do this we will edit chunk 0, and write the address a little bit before the malloc_hook to it. The reason for this being is that when we allocate this new chunk that starts with this address, it will add that address to the free list (the reason why integer that we picked the one that is in the exploit is because it points to an integer that malloc will think is a free size, so the program doesn't crash):
 
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    4
@@ -282,7 +282,7 @@ Now that we have a chunk that is allocated and on top of the free list, we can g
  
  Now we can just allocate chunk 5 again, and due to the previous steps the address of our fake chunk will get added to the free list:
  
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    4
@@ -292,7 +292,7 @@ Now that we have a chunk that is allocated and on top of the free list, we can g
 
 Now that the fake chunk has been added (and is at the top) of the free list, we can just allocate the fake chunk:
 
-```
+```text
 0x10:    1
 0x60:    2
 0x60:    4
@@ -303,7 +303,7 @@ Now that the fake chunk has been added (and is at the top) of the free list, we 
 
 Now that we have a fake chunk, we can write over the malloc_hook. The value we will write over the malloc hook will be a ROP Gadget that due to our setup, we can just call that one address and get a shell. For this we will be using the tool One_Gadget from https://github.com/david942j/one_gadget to "One Shot" the program with a single ROP Gadget from libc that will give us a shell. To use this tool, you just need to point it at the libc file you are using (we will be using the gadget at `0x4526a`):
 
-```
+```text
 one_gadget libc-2.23.so
 0x45216    execve("/bin/sh", rsp+0x30, environ)
 constraints:
@@ -327,7 +327,7 @@ constraints:
 
 Putting it all together, we have the following exploit. Also this exploit will only work against libc version `libc-2.23.so`. If you are running an OS with a different libc version, you can just used `LD_PRELOAD` to swap out the libc version. Also I ran this exploit on `Ubuntu 16.04.6` sine Ubuntu 18.04 doesn't work well with this libc version (at least when I try this):
 
-```
+```python
 # Import pwntools
 from pwn import *
 

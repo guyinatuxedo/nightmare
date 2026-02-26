@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file vuln-chat
 vuln-chat: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=a3caa1805eeeee1454ee76287be398b12b5fa2b7, not stripped
 $    ./vuln-chat
@@ -18,7 +18,7 @@ djinn: Sorry. That's not good enough
 
 So we can see that we are dealing with a 32 bit elf binary. When we run it, it prompts us for two separate inputs. The first is a username, and the second is a string that is supposed to make it trust us. Taking a look at the main function in Ghidra we see this:
 
-```
+```c
 undefined4 main(void)
 
 {
@@ -48,14 +48,14 @@ undefined4 main(void)
 
 So we can see, the program essentially calls `scanf` twice. The input is first scanned into `name`, then into `password`. The format specifier is stored on the stack in the `fmt` variable. We can see in the assembly code that it is initialized to `%30s` (we have to convert the data to a char sequence):
 
-```
+```nasm
         080485be c7 45 fb        MOV        dword ptr [EBP + fmt],"%30s"
                  25 33 30 73
 ```
 
 So both times by default it will let us scan in 30 characters, which will let us scan in 30 bytes worth of data. Next we take a look at the stack layout in Ghidra:
 
-```
+```c
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -79,7 +79,7 @@ So we can see that `password` is stored at offset `-0x31`, `name` is stored at o
 
 For what function to call, the `printFlag` function at `0x804856b` seems to be a good candidate. It just prints the context of the flag using `cat` (also to get the flag, we need to have a copy of `flag.txt` in the same directory as the binary):
 
-```
+```c
 void printFlag(void)
 
 {
@@ -91,7 +91,7 @@ void printFlag(void)
 
 So let's take a look at how the memory is corrupted during the exploit. First I set a breakpoint for right after the second scanf call:
 
-```
+```gdb
 gef➤  b *0x8048639
 Breakpoint 1 at 0x8048639
 gef➤  r
@@ -173,7 +173,7 @@ Stack level 0, frame at 0xffffd070:
 So we can see that the format string is stored at `0xffffd063`, which is `20` bytes away from our name at `0xffffd04f`. Our second input begins at `0xffffd03b` which is `0x31` bytes away from the return address at `0xffffd06c`. Also one thing, the memory layout here probably looks a bit weird. The reason for this is `x86` is designed around `4` byte values (although it can handle a lot of different sizes for value types), so most addresses (with the except of variable length ones) are aligned to either `0x0`, `0x4`, `0x8`, or `0xc`. However our char array (which can be a wide array of values) starts at `0xffffd03b`, so it messes up the alignment when we view the memory using it as a reference.
 
 Putting it all together, we get the following exploit:
-```
+```python
 from pwn import *
 
 # Establish the target process
@@ -207,7 +207,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './vuln-chat': pid 9724
 ----------- Welcome to vuln-chat -------------

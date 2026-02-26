@@ -6,7 +6,7 @@ So what is address space randomization (aslr)? Processes have memory. All of the
 
 For instance, let's take a look at the address of this one stack variable, one iteration of running this binary:
 
-```
+```gdb
 Breakpoint 1, 0x0000000000401161 in main ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -59,7 +59,7 @@ gef➤  x/g $rbp-0x18
 
 We can see that for this iteration, the variable at `rbp-0x18` has the address `0x7fffabfee6f8`. Let's see what the address is on another iteration of running the binary:
 
-```
+```gdb
 Breakpoint 1, 0x0000000000401161 in main ()
 [ Legend: Modified register | Code | Heap | Stack | String ]
 ───────────────────────────────────────────────────────────────── registers ────
@@ -116,7 +116,7 @@ Now know the addresses of various things in memory regions like the heap, stack,
 
 The bypass is we leak an address from a memory region that we want to know what it's address space is. For this it might help to take a look at the memory mappings of a process with `vmmap`:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-- /tmp/try
@@ -149,7 +149,7 @@ So here we can see various memory regions such as the `heap`, the `stack`, `libc
 
 Position Independent Executable (pie) is another binary mitigation extremely similar to aslr. It is basically aslr but for the actual binary's code / memory regions. For instance, let's take a look at a binary that is compiled without `pie`:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x0000000000401132 <+0>:    push   rbp
@@ -176,7 +176,7 @@ End of assembler dump.
 
 We can see here that all of the instruction addresses are fixed. The address `0x401132` will always point to the first instruction of the `main` function. We can even set a break point for it, and view it as an instruction:
 
-```
+```gdb
 gef➤  b *0x401132
 Breakpoint 2 at 0x401132
 gef➤  r
@@ -234,7 +234,7 @@ gef➤  x/i 0x401132
 
 With pie, everything in the "binary's" memory regions is compiled to have an offset versus a fixed address. Each time the binary is run, the binary generates a random number known as a base. Then the address of everything becomes the base plus the offset. For this to make more since let's first look at the memory mapping:
 
-```
+```text
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-- /tmp/try
 0x0000000000401000 0x0000000000402000 0x0000000000001000 r-x /tmp/try
@@ -261,7 +261,7 @@ Start              End                Offset             Perm Path
 
 When I say "binary's" memory regions I mean these regions specifically:
 
-```
+```text
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-- /tmp/try
 0x0000000000401000 0x0000000000402000 0x0000000000001000 r-x /tmp/try
 0x0000000000402000 0x0000000000403000 0x0000000000002000 r-- /tmp/try
@@ -271,7 +271,7 @@ When I say "binary's" memory regions I mean these regions specifically:
 
 Now let's see what the main function looks like when we compile it with pie:
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x0000000000001145 <+0>:    push   rbp
@@ -299,7 +299,7 @@ End of assembler dump.
 As you can see, all of the instructions are now addressed to an offset versus a fixed address. Every time that the binary runs each of those instructions will have a different address. Let's see this in action.
 
 Run 0:
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x000055ce0fb38000 0x000055ce0fb39000 0x0000000000000000 r-- /tmp/try
@@ -327,7 +327,7 @@ Start              End                Offset             Perm Path
 ```
 
 Run 1:
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x000055c5ba9e8000 0x000055c5ba9e9000 0x0000000000000000 r-- /tmp/try
@@ -358,7 +358,7 @@ As we can see, pie has changed the memory addresses for the binary's memory spac
 
 Also one thing, pie can make it a bit annoying to set breakpoints. Luckily gef has a cool feature to help with this.
 
-```
+```gdb
 gef➤  disas main
 Dump of assembler code for function main:
    0x0000000000001145 <+0>:    push   rbp
@@ -385,7 +385,7 @@ End of assembler dump.
 
 Let's say we wanted to break at `0x116f`. We can't set a breakpoint for that offset directly. However we can still set a breakpoint for it:
 
-```
+```gdb
 gef➤  pie b *0x116f
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)

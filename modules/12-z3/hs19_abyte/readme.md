@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file a-byte 
 a-byte: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=88fe0ee8aed1a070d6555c7e9866e364a40f686c, stripped
 $	./a-byte 159
@@ -11,7 +11,7 @@ u do not know da wae
 
 So we can see that we are dealing with a `64` bit function, that takes in data by passing arguments to the program. Looking through the functions, we find `FUN_0010073a` which appears to hold most of the code that is relevant to us.
 
-```
+```c
 undefined8 FUN_0010073a(int argc,long argv)
 
 {
@@ -56,7 +56,7 @@ LAB_00100891:
 
 So we can see that it only wants a single argument in addition to the program name (argc has to be two). Then it checks to see if our input that we gave it via and argument is `0x23` bytes long. If so it will then go through and set all of the bytes equal to the byte xored by 1. It then checks to see if our input is equal to `desiredOutput`, and if it is it looks like we solved the challenge. Looking at the decompiled code, it looks like `desiredOutput` is set equal to just the character `i`. The decompilation got that wrong, and looking at the assembly code shows us what it is actually set equal to:
 
-```
+```nasm
         001007d5 c6 45 d0 69     MOV        byte ptr [RBP + desiredOutput],0x69
         001007d9 c6 45 d1 72     MOV        byte ptr [RBP + local_37],0x72
         001007dd c6 45 d2 62     MOV        byte ptr [RBP + local_36],0x62
@@ -97,7 +97,7 @@ So we can see that it only wants a single argument in addition to the program na
 
 So we can see that we are dealing with a char array on the stack, that it moves in input one byte at a time. We can see that the amount of bytes it moves in is `35` (excluding the null byte terminator at the end), the same amount for the length of the data we pass in as an argument. So we know what input we control, we know the algorithm that it is passed through, and we know what the end result will need to be. This is everything we need to make a simple Z3 script to find the solution for us:
 
-```
+```python
 from z3 import *
 
 # Designate the desired output
@@ -133,7 +133,7 @@ elif z.check() == unsat:
 
 When we run it:
 
-```
+```console
 $	python reverent.py 
 Condition is satisfied, would still recommend crying: sat
 hsctf{w0w_y0u_kn0w_d4_wA3_8h2bA029}

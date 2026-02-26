@@ -2,7 +2,7 @@
 
 When we take a look at the binary, we see this:
 
-```
+```console
 $    file beleaf
 beleaf: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=6d305eed7c9bebbaa60b67403a6c6f2b36de3ca4, stripped
 $    pwn checksec beleaf
@@ -24,7 +24,7 @@ So we can see that we are dealing with a `64` bit binary. When we run the binary
 
 Looking at the main function at `0x1008a1`, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -65,7 +65,7 @@ undefined8 main(void)
 
 So we can see, it starts off by scanning in input. If our input is less than `0x21` (`33`) bytes, the code exits (so our input probably has to be `33`) bytes, Looking at it later, we see that it enters into a for loop. It will run each character through the `transformFunc` (or at least until the code calls `exit`). It will then compare the output of that functions (stored in `transformedInput`) against the corresponding character in the bss array `desiredOutput` (characters are stored at offsets of `8`) bytes. If the two are not equivalent, `exit` is called and we fail the challenge. We can see the contents of `desiredOutput` by double clicking on it. When we look at `desiredOutput`, we see this:
 
-```
+```nasm
                              desiredOutput                                   XREF[2]:     main:0010096b(*),
                                                                                           main:00100972(R)  
         003014e0 01              ??         01h
@@ -105,7 +105,7 @@ So we can see, it starts off by scanning in input. If our input is less than `0x
 
 So here we see that our first output has to be equal to `0x1`, our second has to be `0x9`, our third has to be `0x11`, and so on and so forth. Looking at the `transformFunc`, we see this:
 
-```
+```c
 long transformFunc(char input)
 
 {
@@ -128,7 +128,7 @@ long transformFunc(char input)
 
 Here we can see that it essentially just takes a character, and looks at what it's index is in the `lookup` bss array. The characters are stored at offsets of `4` bytes. Let's take a look at the array:
 
-```
+```nasm
                              lookup                                          XREF[6]:     transformFunc:00100820(*),
                                                                                           transformFunc:00100827(R),
                                                                                           transformFunc:00100844(*),
@@ -216,7 +216,7 @@ Here we can see that it essentially just takes a character, and looks at what it
 
 Here we can see that the character `f` is stored at `00301024`. This will output `1` since `((0x00301024 - 0x00301020) / 4) = 1` (`0x00301020` is the start of the array). This also corresponds to the first byte of the `desiredOutput` array, since it is `1`. The second byte is `0x9`, so the character that should correspond to it is `(0x00301020 + (4*9)) = 0x301044`, and we can see that the character there is `l`:
 
-```
+```nasm
         00301044 6c              ??         6Ch    l
         00301045 00              ??         00h
         00301046 00              ??         00h
@@ -226,7 +226,7 @@ Here we can see that the character `f` is stored at `00301024`. This will output
 
 So the second character is `l`. Moving on through the rest of the list, we can find the full string `flag{we_beleaf_in_your_re_future}`:
 
-```
+```console
 $    ./beleaf
 Enter the flag
 >>> flag{we_beleaf_in_your_re_future}

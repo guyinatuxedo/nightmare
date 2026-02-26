@@ -2,14 +2,14 @@
 
 Let's take a look at the binary
 
-```
+```console
 $    file bikinibonanza.exe
 bikinibonanza.exe: PE32 executable (GUI) Intel 80386 Mono/.Net assembly, for MS Windows
 ```
 
 So we can see it is another .NET challenge. When we run it, we see that it is just a gui with a single form that prompts us for input (you may need to install a few Microsoft packages to get it to work). Looking at it with the JetBrains decompiler, we can see what is going on with the form:
 
-```
+```c
     private void eval_ᜀ(object _param1, EventArgs _param2)
     {
       string strB = (string) null;
@@ -39,7 +39,7 @@ So we can see it is another .NET challenge. When we run it, we see that it is ju
 
 So we can see here that it is establishing a string with the value `NeEd_MoRe_Bawlz`, taking the current hour from the system time, and a string `strB` which will store the output, and passing them as arguments to the `this.eval_ᜀ` function. In addition to that it takes our input (which is stored in the textbox from the form) and storing it in the string variable `text`. Later on we see that it compares the `text` variable against the output of the `this.eval_ᜀ` function stored in the `strB` variable. We can see that if they aren't even then it runs a function which prints error messages that we get when we submit random text, so we probably need to have the strings be even in order to solve the challenge (also the object `Sorry You Suck` is a victory picture). Let's take a look at the function which outputs to `strB`:
 
-```
+```c
     private void eval_ᜀ(string _param1, int _param2, ref string _param3)
     {
       int index = 0;
@@ -71,7 +71,7 @@ So we can see here that the three parameters it gets are param0 (the `NeEd_MoRe_
 
 Looking at what it actually does, we see that it essentially will loop through the function for each character in `NeEd_MoRe_Bawlz`, then writes the output of it, ran through a separate function. to param2. Looking at what happens each iteration of the first while loop, it appears that another while loop will run another while loop that runs for as many times equal to the current hour. In that loop it will take the current character, and the iteration continues, and feed into another function, then write the output to the current character. After that while loop, it will add it to the output string. Then it finished by passing the value of the output string to another function, then taking its output and writing it to the output string. Let's take a look at the first function:
 
-```
+```c
     private int eval_ᜀ(int _param1, int _param2)
     {
       return new int[30]
@@ -112,7 +112,7 @@ Looking at what it actually does, we see that it essentially will loop through t
 
 So we can see that it establishes an integer array, then xors the current_character with whatever object has an index that is equivalent to the iteration count of the while loop that is in. Let's take a look at the other function:
 
-```
+```text
     private string eval_ᜀ(string _param1)
     {
       return BitConverter.ToString(new MD5CryptoServiceProvider().ComputeHash(Encoding.ASCII.GetBytes(param0))).Replace("-", "");
@@ -121,7 +121,7 @@ So we can see that it establishes an integer array, then xors the current_charac
 
 We can see that this just essentially creates an MD5 hash of the input. So to figure out the string that is needed to, we can just recreate the xor function and then just take the MD5 hash of the output. To deal with the hour, we can just run it 24 times so we will have a hash for every possible value. Here is the python code for it:
 
-```
+```nasm
 # Import hashlib
 import hashlib
 
@@ -163,7 +163,7 @@ enc(enc_input)
 
 When we run it:
 
-```
+```console
 $    python solve.py
 cfdf804ce0c601f97c3dc7c2026e44fd
 d96090e563ea15b7c440684727b0fecf

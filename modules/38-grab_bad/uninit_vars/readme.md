@@ -4,7 +4,7 @@ This is a well document C file that explains an uninitialized variable bug.
 
 Here is the source code:
 
-```
+```c
 #include <stdio.h>
 
 void trashed(void)
@@ -50,7 +50,7 @@ int main()
 
 When it runs:
 
-```
+```console
 $	./uninit_vars 
 Let's talk about uninitialized variables.
 An uninitialized variable is one that is declared, but not assigned a value.

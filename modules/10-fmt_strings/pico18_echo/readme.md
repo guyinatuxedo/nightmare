@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```c
 $    file echo
 echo: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.32, BuildID[sha1]=a5f76d1d59c0d562ca051cb171db19b5f0bd8fe7, not stripped
 $    pwn checksec echo
@@ -24,7 +24,7 @@ guyinatuxedo
 
 So we can see that we are dealing with a 32 bit executable. When we run it, it prompts us for input and prints it back to us. We can also see that with `%x` that there is a format string bug (when printf doesn't specify the format for data to be printed, and the data can). Looking at the main function in ghidra, we see this:
 
-```
+```c
 
 void main(void)
 
@@ -61,7 +61,7 @@ void main(void)
 
 So we can see a few things here. First the format string bug takes place in a loop that on paper will run infinitely (the while true loop). However before that, we see that it actually scans the contents of the flag file to a char array on the stack for `main`, so it's not too far away (also we need to have a `flag.txt` file in the same directory as the executable when we run it). If we can find the offset to it's pointer, we can just print it using `%s` with the format string bug. We can check the offset using gdb. We will essentially just leak a bunch of values, check to see where the flag is in memory, and see if any of those values is a pointer to the flag:
 
-```
+```c
 $    cat flag.txt
 flag{flag}
 $    gdb ./echo
@@ -147,7 +147,7 @@ gef➤  search-pattern flag{flag}
 
 So we can see that on the stack the contents of `flag{flag}` resides at `0xffffd02c`. We can also see that we can reach it using the format string bug at offset `8`. With this, we can leak the flag.
 
-```
+```c
 $    ./echo
 Time to learn about Format Strings!
 We will evaluate any format string you give us with printf().

@@ -3,7 +3,7 @@
 This module essentially explains what heap consolidation achieved via a buffer overflow is. It can be used to edit freed chunks, and heap metadata among other things. This can be very useful for other attacks. Checkout the well documented source code or binary to see the explanation.
 
 The code:
-```
+```c
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -81,7 +81,7 @@ int main(void)
 ```
 
 The code running:
-```
+```console
 $   ./heap_consolidation_explanation 
 The goal of this is to show how we can edit a freed chunk using a heap overflow bug to cause consolidation.
 Editing freed chunks will allow us to overwrite heap metadata, which is crucial to a lot of attacks.

@@ -4,7 +4,7 @@ The goal of this challenge is to print the contents of the flag file.
 
 Let's take a look at the binary:
 
-```
+```console
 $ file prophecy
 prophecy: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, not stripped
 $ ./prophecy
@@ -20,7 +20,7 @@ $ ./prophecy
 So we can see that it prompts us for  a name and a key. When we look at the code in Ghidra, it is clear that the binary has been obfuscated. The program is run in a while true loop, and the code has been split into a lot of different sections. Which section runs depends on the value of the integer `codeFlow`. Also most of the code we are interested in is ran in the `parser` function, which is called in main. With that knowledge, let's find the pieces of code that scan in our name and secret.
 
 Name: (address: 0x40254b)
-```
+```c
                                                   this = operator<<<std--char_traits<char>>
                                                                    (cout,
                                                   "|PROPHECY PROPHECY PROPHECY PROPHECY PROPHECY| ",
@@ -63,7 +63,7 @@ Name: (address: 0x40254b)
 Here we can see that it prompts for the secret name. It scans in 200 bytes into `name_input` 200 bytes, then checks to see if it scanned in more than 0 bytes. Checking the references for `name_input` we find the following code block.
 
 address: 0x402b57
-```
+```text
                                                         containsStarcraft =
                                                              strstr(nameInput,".starcraft",
                                                                     puVar4[-8]);
@@ -74,7 +74,7 @@ address: 0x402b57
 Looking here, we can see that it checks to see if `nameInput` contains the string `.starcraft`. So the name we need to input is probably `.starcraft`
 
 Secret: (address: 0x40289d)
-```
+```c
                                                         this = operator<<<std--char_traits<char>>
                                                                          (cout,
                                                   "[*]Give me the key to unlock the prophecy",
@@ -99,7 +99,7 @@ Secret: (address: 0x40289d)
 Here we can see that it prints out `[*]Give me the key to unlock the prophecy`. Proceeding that it makes a read call, which it will scan 300 (0x12c) bytes into `keyInput`. It then make sures that the read scanned in more than 0 bytes. Checking the references for `keyInput`we find a bit of code that alters `keyInput`:
 
 address:  0x402a3d
-```
+```text
                                                               keyLen = strlen(keyInput,puVar5[-8]);
                                                               keyInput[keyLen + local_3e8 + -1] = 0;
 ```
@@ -109,7 +109,7 @@ This line of code will essentially set the byte directly before the first null b
 HERE!!!!
 
 address: 0x402f08
-```
+```c
             nameInputTrsfr = nameInput;
             *(undefined8 *)(puVar4 + -8) = 0x402e94;
             nameInputTransfer = strlen(nameInput,puVar4[-8]);
@@ -139,7 +139,7 @@ tl;dr If the name you input is `.starcraft` it will create the file `/tmp/.starc
 
 So the file it created is probably read later on in the code. We see in the imports that the function fread is in the code. Let's run the binary in gdb and set a breakpoint for `fread` so we can see where our input is read:
 
-```
+```gdb
 gef➤  b *fread
 Breakpoint 1 at 0x400b30
 gef➤  r
@@ -207,7 +207,7 @@ $cs: 0x0033 $ss: 0x002b $ds: 0x0000 $es: 0x0000 $fs: 0x0000 $gs: 0x0000
 So we can see from the stack section of the output from gdb, that there is a call to fread at `0x403197`. Note that this is the only fread call we get. When we go to the section of code in Ghidra, we see the following:
 
 address:    0x403197
-```
+```c
                                                       local_430 = fread(input0,1,4,__s_00,puVar4[-8]
                                                                        );
                                                       codeFlow = 0x1cd65a05;
@@ -217,7 +217,7 @@ address:    0x403197
 
 So we can see here that it will read 4 bytes of data from the file `/tmp/.starcraft` and then creates a bool `check:0` that is true if the 4 bytes of data it scans in is equal to the hex string `0x17202508`. We can continue where we left off in gdb to see exactly what data it's scanning in. After the fread call finishes, set a breakpoint for the cmp instruction for the bool:
 
-```
+```gdb
 gdb-peda$ finish
 
 . . .
@@ -246,7 +246,7 @@ Continuing.
 
 and once we reach the compare
 
-```
+```gdb
 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x4031b0 <parser()+8480>  mov    rcx, QWORD PTR [rbp-0xb0]
      0x4031b7 <parser()+8487>  mov    DWORD PTR [rcx], r11d
@@ -271,7 +271,7 @@ So we can see that the values it's compared against the hex string `0x17202508` 
 
 Now this isn't the only check the binary does.  It does six more checks, so these are all of the checks:
 
-```
+```text
 0x4031c1:    input = 0x17202508
 0x4034eb:    input = 0x4b
 0x403cb4:    input = 0x3
@@ -283,7 +283,7 @@ Now this isn't the only check the binary does.  It does six more checks, so thes
 
 So there are a couple of formatting errors you have to worry about, but once you put it all together you get this:
 
-```
+```python
 #First import pwntools
 from pwn import *
 
@@ -318,7 +318,7 @@ target.interactive()
 
 and when we run it against the server:
 
-```
+```console
 $ python rev.py
 [+] Starting local process './prophecy': pid 4763
 ----------------------------------------------

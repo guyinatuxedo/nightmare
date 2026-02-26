@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file auth 
 auth: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=42ebad5f08a8e9d227f3783cc951f2737547e086, not stripped
 $	pwn checksec auth 
@@ -31,7 +31,7 @@ So we can see that we are dealing with a `64` bit binary, with a Stack Canary an
 
 When we look at the main function in Ghidra, we see this:
 
-```
+```c
 
 undefined8 main(void)
 
@@ -169,7 +169,7 @@ So we can see that it prompts us for input, and checks if it is equal to a comma
 
 For `login` we see this:
 
-```
+```c
       iVar1 = strncmp(cmd,"login",5);
       if (iVar1 == 0) {
         if (loggedIn == (void **)0x0) {
@@ -196,14 +196,14 @@ For `login` we see this:
 ```
 
 So we can see, it does a check if we are already logged in. If we aren't then it will log us in, which will create a struct in the heap, which contains the following things:
-```
+```text
 0x0:	ptr to username (stored in heap)
 0x8:	int representing auth level
 ```
 
 For `reset` we see this:
 
-```
+```c
             if (resetCheck == 0) {
               if (loggedIn == (void **)0x0) {
                 puts("Not logged in!");
@@ -218,7 +218,7 @@ For `reset` we see this:
 
 So for this, if we are logged in, it will log us out. What that does is it frees the pointer for our username, and zeroes it out. However it does not free the user struct itself. For `set-auth` we see this:
 
-```
+```c
         if (setauthCheck == 0) {
           if (loggedIn == (void **)0x0) {
             puts("Login first.");
@@ -248,7 +248,7 @@ So essentially this allows us to set the auth level, however it has to be below 
 
 So one thing about malloc (at least on older versions), it won't clear out memory that has been freed. To get a better look at it, let's login as a user to allocate space on the heap:
 
-```
+```gdb
 gef➤  r
 Starting program: /home/guyinatuxedo/Downloads/auth 
 Available commands:
@@ -343,7 +343,7 @@ gef➤  x/10g 0x603410
 
 So we can see here, our user struct which is stored at `0x603420`, and the auth level (`4`). Now we can see that the chunk for the user struct, and the chunk for the actual username are the same size `0x21`. Now for performance reasons, malloc will reuse previously freed chunks if they are a good fit for the size. Now we are going to reset our login which will only free the name (remember this):
 
-```
+```c
               else {
                 free(*loggedIn);
                 loggedIn = (void **)0x0;
@@ -353,7 +353,7 @@ So we can see here, our user struct which is stored at `0x603420`, and the auth 
 
 Proceeding that we will allocate a new user struct. Since the size of our user struct and the name chunk are the same, it should reuse our old struct:
 
-```
+```gdb
 gef➤  c
 Continuing.
 reset
@@ -448,7 +448,7 @@ Now to set the auth level to `5`, we will essentially be doing the same thing. E
 
 Putting it all together, we have the following exploit. I noticed that on newer versions of libc, it would clear out freed data which would break this challenge. So I just included `libc-2.23.so` which I ran on Ubuntu 16.04:
 
-```
+```console
 $	cat exploit.py 
 from pwn import *
 
@@ -470,7 +470,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $	python exploit.py 
 [+] Starting local process './auth': pid 57963
 [*] Switching to interactive mode

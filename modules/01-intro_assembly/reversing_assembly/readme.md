@@ -7,13 +7,13 @@ The purpose of these challenges is to get some experience reversing assembly cod
 ## Hello World
 
 First let's take a look at the assembly code:
-```
+```console
 $    objdump -D hello_world -M intel | less
 ```
 
 After searching through for the string `main` to find the main function, we see this:
 
-```
+```objdump
 080483fb <main>:
  80483fb:       8d 4c 24 04             lea    ecx,[esp+0x4]
  80483ff:       83 e4 f0                and    esp,0xfffffff0
@@ -39,14 +39,14 @@ After searching through for the string `main` to find the main function, we see 
 
 Looking at the code, we see a function call to `puts`:
 
-```
+```text
 push   0x80484b0
 call   80482d0 <puts@plt>
 ```
 
 Looking through the rest of the code, we really don't see much else that is interesting for our perspective. So this code probably just prints a string. When we run the binary, we see that is correct:
 
-```
+```console
 $    ./hello_world
 hello world!
 ```
@@ -55,13 +55,13 @@ hello world!
 
 We start off by viewing the assembly code with `objdump`:
 
-```
+```console
 $    objdump -D if_then -M intel | less
 ```
 
 After parsing through for the `main` function, we see this.
 
-```
+```objdump
 080483fb <main>:
  80483fb:       8d 4c 24 04             lea    ecx,[esp+0x4]
  80483ff:       83 e4 f0                and    esp,0xfffffff0
@@ -91,19 +91,19 @@ After parsing through for the `main` function, we see this.
 
 We can see that it loads the value `0xa` into `ebp-0xc`:
 
-```
+```text
 mov    DWORD PTR [ebp-0xc],0xa
 ```
 
 Immediately proceeding that, we see that it runs a `cmp` instruction on it to check if it is equal. If they are not equal it will jump to `main+0x2e`. Since it was just loaded with the value `0xa`, it should not make the jump:
 
-```
+```text
 cmp    DWORD PTR [ebp-0xc],0xa
 jne    8048429 <main+0x2e>
 ```
 
 proceeding that it should make a call to puts:
-```
+```nasm
 sub    esp,0xc
 push   0x80484c0
 call   80482d0 <puts@plt>
@@ -111,7 +111,7 @@ call   80482d0 <puts@plt>
 
 So after looking at this code, we see that it should make that `puts` call. When we run it, we see that is what it does:
 
-```
+```console
 $    ./if_then
 x = ten
 ```
@@ -120,13 +120,13 @@ x = ten
 
 Let's take a look at the assembly code:
 
-```
+```console
 $    objdump -D loop -M intel | less
 ```
 
 Quickly searching for the main function, we find it:
 
-```
+```objdump
 080483fb <main>:
  80483fb:       8d 4c 24 04             lea    ecx,[esp+0x4]
  80483ff:       83 e4 f0                and    esp,0xfffffff0
@@ -155,21 +155,21 @@ Quickly searching for the main function, we find it:
 
 In this function, we can see that it will initialize a stack variable at `ebp-0xc` to `0`, then jump to `0x804842c` (`main+0x31`):
 
-```
+```text
 mov    DWORD PTR [ebp-0xc],0x0
 jmp    804842c <main+0x31>
 ```
 
 Looking at the instructions at `0x804842c` we see this:
 
-```
+```text
 cmp    DWORD PTR [ebp-0xc],0x13
 jle    8048415 <main+0x1a>
 ```
 
 We see that it compares the stack value at `ebp-0xc` against `0x13`, and if it is less than or equal then it will jump to `0x8048415` (`0x80483fb + 0x1a`). That brings us to a printf call:
 
-```
+```nasm
 sub    esp,0x8
 push   DWORD PTR [ebp-0xc]
 push   0x80484c0
@@ -178,13 +178,13 @@ call   80482d0 <printf@plt>
 
 It looks like it is printing out the contents of `ebp-0xc` in some sort of format string. After that we can see that it increments the value of `ebp-0xc`, before doing the `cmp` again:
 
-```
+```text
 add    DWORD PTR [ebp-0xc],0x1
 ```
 
 So right, putting all of the pieces together, now we are probably looking at a for loop that will run `20` times, and print the iteration counter each time. Something that looks similar to this:
 
-```
+```c
 int i = 0;
 for (i = 0; i < 20; i ++)
 {
@@ -194,7 +194,7 @@ for (i = 0; i < 20; i ++)
 
 When we run the binary, we see that it is true:
 
-```
+```console
 $    ./loop
 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19
 ```

@@ -7,7 +7,7 @@ So this is a well documented C source file that explains how a House of Spirit a
 It might seem a bit redundant since we can already write to this memory region. However if we can get malloc to return a pointer to a memory region, depending on the code we should be able to edit/view/manipulate that region of memory differently.
 
 Here is the source code:
-```
+```c
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -87,7 +87,7 @@ int main(void)
 ```
 
 When we run it:
-```
+```console
 $	./house_spirit_exp 
 So we will be covering a House of Spirit Attack.
 A House of Spirit Attack allows us to get malloc to return a fake chunk to a region we have some control over (such as the bss or stack).

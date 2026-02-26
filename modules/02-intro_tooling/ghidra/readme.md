@@ -10,7 +10,7 @@ Installation is pretty simple. Install Java, then you just run ghidra (since ghi
 
 Since we are primarily using Ghidra's GUI, I feel that the best way to learn how to use Ghidra would be to either try it yourself, or watch some videos (versus just reading a lot of text). Feel free to look into this yourself, and / or try some of these videos/links that helpful people on the internet made. You don't need to understand :
 
-```
+```text
 https://www.youtube.com/watch?v=fTGTnrgjuGA
 https://threatvector.cylance.com/en_us/home/an-introduction-to-code-analysis-with-ghidra.html
 https://ghidra-sre.org/InstallationGuide.html

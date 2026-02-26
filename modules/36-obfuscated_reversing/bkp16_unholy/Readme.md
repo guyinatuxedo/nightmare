@@ -5,7 +5,7 @@ The purpose of this challenge is to leak the flag.
 This writeup is based off of this other writeup: `https://github.com/smokeleeteveryday/CTF_WRITEUPS/tree/master/2016/BKPCTF/reversing/unholy`
 
 We are given a tar file. Let's see what's inside of it:
-```
+```console
 $    cd unholy
 $    ls
 main.rb  unholy.so
@@ -25,7 +25,7 @@ is_key_correct? arr
 
 So we can see here, we have a ruby file and an x64 shared library. The ruby script appears to simply scan in input, and then passed it to the shared library to be checked. Let's take a look at the shared library to see how it checks the input. First we see that `Init_unholy` we see
 
-```
+```c
 void Init_unholy(void)
 
 {
@@ -39,7 +39,7 @@ void Init_unholy(void)
 
 In `method_check_key`, we see this code block:
 
-```
+```c
     i = 0;
     do {                // Returns the int element of the ruby array passed as an argument
       uVar3 = rb_ary_entry(puParm2);
@@ -57,7 +57,7 @@ In `method_check_key`, we see this code block:
 
 This chunk of code appears to take the values passed to it, and stores the first 8 values as integers in the matrix `matrix`. For the last value `x` it sets it equal to the hex string `0x61735320`.  So this organizes our input into a matrix.
 
-```
+```text
       uVar1 = 0;
       uVar5 = uVar3 & 0xffffffff;
       uVar3 = uVar3 >> 0x20;
@@ -76,7 +76,7 @@ This chunk of code appears to take the values passed to it, and stores the first
 Looking at this section of the code, we see that this performs various binary operations using the matrix which was made in the previous code block. Now we could reverse this, or if we googled the hard coded hex string `0x9E3779B9`we see results for the encryption algorithms TEA and XTEA. Looking at the source code for XTEA encryption (https://en.wikipedia.org/wiki/XTEA) it looks rather similar to the code above:
 
 This sample code is from `https://en.wikipedia.org/wiki/XTEA`:
-```
+```c
 void encipher(unsigned int num_rounds, uint32_t v[2], uint32_t const key[4]) {
     unsigned int i;
     uint32_t v0=v[0], v1=v[1], sum=0, delta=0x9E3779B9;
@@ -91,7 +91,7 @@ void encipher(unsigned int num_rounds, uint32_t v[2], uint32_t const key[4]) {
 
 Looking at these two, we can tell that we are dealing with an XTEA encryption algorithm (operating in ECB Mode). Luckily for us we can decrypt it, provided we have the key and what the encrypted data is. In an earlier piece of the code we can see the key:
 
-```
+```text
   key[0] = 0x74616877;
   key[1] = 0x696f6773;
   key[2] = 0x6e6f676e;
@@ -100,7 +100,7 @@ Looking at these two, we can tell that we are dealing with an XTEA encryption al
 
 Here we can see the four pieces of the key, each a four byte hex string that when you convert it to ascii spells `whatisgoingonhere`. Now  the only thing left is to figure out what the encrypted data is, and this is where python comes into the mix. Ghidra's decompilation didn't quite catch this so we will have to look at the disassembly for this:
 
-```
+```nasm
         00100c89 48 8d 0d        LEA        RCX,[s_exec_"""\nimport_struct\ne=range_00100d   = "exec \"\"\"\\nimport struct\\
                  27 01 00 00
         00100c90 ba 88 13        MOV        EDX,0x1388
@@ -130,7 +130,7 @@ Here we can see the four pieces of the key, each a four byte hex string that whe
 
 This essentially writes python code to `stacker`, then runs it. Looking at the python code that it runs, we can see how the encrypted data is verified:
 
-```python
+```nasm
 #Import libraries
 import struct
 import sys
@@ -177,7 +177,7 @@ for r in y:
 
 Here we can see that the output from the XTEA function is multiplied against static values stored in the Y matrix, then compared against the values in the n array. With this we can use Z3 to figure out what values we need in order to pass those checks, and then using the key from earlier decrypt those values using the XTEA python library to find what the correct input is:
 
-```
+```python
 #This script is based off of the writeup from: https://github.com/smokeleeteveryday/CTF_WRITEUPS/tree/master/2016/BKPCTF/reversing/unholy
 
 #Import libraries
@@ -262,7 +262,7 @@ print "The flag is: " + flag
 
 and when we run it:
 
-```
+```console
 $ python rev.py 
 The condition is satisfiable, would still recommend crying: sat
 The flag is: BKPCTF{hmmm _why did i even do this} Ssa

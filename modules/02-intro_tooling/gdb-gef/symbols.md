@@ -19,7 +19,7 @@ This means that most of time we will only be using a debugger on code that we co
 
 For this section we will use a slightly modified version of the Hello World program you just wrote.
 
-```
+```c
 #include <stdio.h>
 
 int main(void)
@@ -35,7 +35,7 @@ The primary difference here is that the words, "Hello, World", are now stored in
 To turn on Debugging Symbols during compilation use the "-g" argument for GCC. 
 
 
-```
+```console
 $ gcc -g hello.c -o hello
 $ ./hello 
 Hello, World!
@@ -65,7 +65,7 @@ You will see above in the last line that symbols were read into GDB. Now let's p
 
 First, we can use GDB's `list` or `l` command to list out the source code. We can even specify down further to print out a specific function or line number.
 
-```
+```c
 gef➤  l
 1	#include <stdio.h>
 2	
@@ -102,13 +102,13 @@ gef➤  l 6
 
 We can also now set breakpoints at specific line numbers in addition to at functions! This is super helpful when we are debugging our own code.
 
-```
+```gdb
 gef➤  b 6
 Breakpoint 1 at 0x65d: file hello.c, line 6.
 
 ```
 
-```
+```c
 gef➤  run
 Starting program: /home/devey/nightmare/modules/02-intro_tooling/gdb-gef/hello_world 
 [ Legend: Modified register | Code | Heap | Stack | String ]
@@ -178,7 +178,7 @@ As you can see, now it shows you the code of the line you are breaking on, which
 Using what you remember from the last section without symbols, lets figure out how to print the value of the string stored in greeting. 
 
 
-```
+```gdb
 gef➤  x/s $rax
 0x555555554704:	"Hello, World!\n"
 gef➤  p $rax
@@ -193,12 +193,12 @@ gef➤  x/s 0x555555554704
 All of those work fine, but we can also just print the variable name directly!
 
 Like this:
-```
+```gdb
 gef➤  p greeting
 $2 = 0x555555554704 "Hello, World!\n"
 ```
 Or like this:
-```
+```gdb
 gef➤  x/s greeting
 0x555555554704:	"Hello, World!\n"
 ```

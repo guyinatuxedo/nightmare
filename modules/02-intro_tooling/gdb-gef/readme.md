@@ -10,7 +10,7 @@ A debugger is software that allows us to perform various types of analysis of a 
 
 Now you can tell if you have it installed by just looking at gdb. For instance this is the look of gdb if you have gef installed:
 
-```
+```gdb
 $ gdb
 GNU gdb (Ubuntu 8.2.91.20190405-0ubuntu3) 8.2.91.20190405-git
 Copyright (C) 2019 Free Software Foundation, Inc.
@@ -35,7 +35,7 @@ gef➤
 
 If you don't have it installed this is what vanilla gdb looks like:
 
-```
+```gdb
 $    gdb
 GNU gdb (Ubuntu 8.2.91.20190405-0ubuntu3) 8.2.91.20190405-git
 Copyright (C) 2019 Free Software Foundation, Inc.
@@ -59,7 +59,7 @@ Type "apropos word" to search for commands related to "word".
 
 To run the binary `hello_world` in gdb:
 
-```
+```gdb
 gdb ./hello_world 
 GNU gdb (Ubuntu 8.1-0ubuntu3) 8.1.0.20180409-git
 Copyright (C) 2018 Free Software Foundation, Inc.
@@ -89,7 +89,7 @@ In order to enter debugger mode, we can set breakpoints. Breakpoints are places 
 The most common breakpoint to set is on main, which we can set with 'break main' or 'b main'. Most GDB commands can be shortened. Check out this cheat sheet for more: <CHEATSHEET> 
 
 
-```
+```gdb
 gef➤  break main
 Breakpoint 1 at 0x8048409
 gef➤  r
@@ -149,7 +149,7 @@ For each of these methods, work through the program after setting a breakpoint i
 
 Let's take a look at the main function using 'disassemble' or 'disass':
 
-```
+```gdb
 gef➤  disass main
 Dump of assembler code for function main:
    0x080483fb <+0>:	lea    ecx,[esp+0x4]
@@ -175,13 +175,13 @@ End of assembler dump.
 Let's say we wanted to break on the call to `puts`. We can do this by setting a breakpoint for that instruction.
 
 Like this:
-```
+```gdb
 gef➤  b *main+25
 Breakpoint 1 at 0x8048414
 ```
 
 Or like this:
-```
+```gdb
 gef➤  b *0x08048414
 Note: breakpoint 1 also set at pc 0x08048414
 Breakpoint 2 at 0x08048414
@@ -189,7 +189,7 @@ Breakpoint 2 at 0x08048414
 
 When we run the binary and it tries to execute that instruction, the process will pause and drop us into the debugger console:
 
-```
+```gdb
 gef➤  r
 Starting program: /home/devey/nightmare/modules/02-intro_tooling/hello_world 
 [ Legend: Modified register | Code | Heap | Stack | String ]
@@ -243,7 +243,7 @@ gef➤
 
 In the debugger console is where we can actually use the debugger to provide various types of analysis, and change things about the binary. For now let's keep looking at breakpoints. To show all breakpoints:
 
-```
+```gdb
 gef➤  info breakpoints
 Num     Type           Disp Enb Address    What
 1       breakpoint     keep y   0x08048414 <main+25>
@@ -256,7 +256,7 @@ or to be short, "info b" or "i b".
 
 To delete a breakpoint Num `2`:
 
-```
+```gdb
 gef➤  delete 2
 
 ```
@@ -264,7 +264,7 @@ or to be short "del 2" or "d 2".
 
 We can also set breakpoints for functions like `puts`:
 
-```
+```c
 gef➤  b *puts
 Breakpoint 1 at 0x80482d0
 gef➤  r
@@ -316,7 +316,7 @@ Breakpoint 1, 0xf7e4a360 in puts () from /lib32/libc.so.6
 
 So one thing that gdb is really useful for is viewing the values of different things. Once we are dropped into a debugger while the process is viewing, let's view the contents of the `esp` register. To get there we will break on main, run, and then advance three instructions: 
 
-```
+```gdb
 gef➤  break main 
 gef➤  run
 gef➤  nexti
@@ -373,7 +373,7 @@ gef➤
 
 We can see that the register `esp` holds the value `0xffffd0d0`, which is a pointer. Let's see what it points to:
 
-```
+```gdb
 gef➤  x/a 0xffffd0d0
 0xffffd0d0:	0x80484b0
 gef➤  x/10c 0x80484b0
@@ -387,7 +387,7 @@ So we can see that it points to the string `hello world!`, which will be printed
 
 let's view the contents of all of the registers:
 
-```
+```gdb
 gef➤  info registers
 eax            0xf7fb9dd8	0xf7fb9dd8
 ecx            0xffffd100	0xffffd100
@@ -410,7 +410,7 @@ gs             0x63	0x63
 
 Now let's view the stack frame:
 
-```
+```gdb
 gef➤  info frame
 Stack level 0, frame at 0xffffd100:
  eip = 0x8048414 in main; saved eip = 0xf7dfbe81
@@ -423,7 +423,7 @@ Stack level 0, frame at 0xffffd100:
 
 Now let's view the disassembly for the main function:
 
-```
+```gdb
 gef➤  disass main
 Dump of assembler code for function main:
    0x080483fb <+0>:	lea    ecx,[esp+0x4]
@@ -452,7 +452,7 @@ As you can see, we are at the instruction for puts.
 
 Let's say we wanted to change the contents of what will be printed. Importantly, in many programs your ability to do this is dependent on the size of the string you are trying to replace. If you overwrite it with something that is too large, you run the risk of overwriting other memory and breaking the program. There are plenty of workarounds but this is rarely applicable from a bin-ex perspective. 
 
-```
+```gdb
 gef➤  set {char [12]} 0x080484b0 = "hello venus"
 gef➤  x/s 0x080484b0
 0x80484b0:	"hello venus"
@@ -501,7 +501,7 @@ $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063
 
 Now let's say we wanted to change the value stored at the memory address `0x08048451` to `0xfacade`:
 
-```
+```gdb
 gef➤  x/g 0x08048451
 0x8048451 <__libc_csu_init+33>:	0xff08838d
 gef➤  set *0x08048451 = 0xfacade
@@ -512,7 +512,7 @@ gef➤  x/g 0x08048451
 
 Let's say we wanted to jump directly to an instruction like `0x08048451`, and skip all instructions in between:
 
-```
+```gdb
 gef➤  j *0x08048451
 Continuing at 0x0x08048451.
 ```
