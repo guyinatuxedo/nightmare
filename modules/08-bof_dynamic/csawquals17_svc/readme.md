@@ -237,7 +237,7 @@ So we have a buffer overflow bug that we can use to get the return address. Howe
 
 In order to bypass this, we will need to leak the stack canary. That way we can just overwrite the stack canary with itself, so it will pass the stack canary check and execute the return address (which we will overwrite). We will leak it with the `puts` call, which will print data that it is given a pointer to until it reaches a null byte. With stack canaries the least significant byte is a null byte. So we will just send enough data just to overflow the least significant byte of the stack canary, then print our input. This will print all of our data and the highest seven eight bytes of the stack canary, and since we the lowest byte will always be a null byte, we know the full stack canary. Then we can just execute the buffer overflow again and write over the stack canary with itself in order to defeat this mitigation.
 
-In order to leak the canary we will need to send `0xa9` bytes worth of data. The first `0xa8` will be to fill up the `input` char array, and the last byte will be to overwrite the least signifcant byte of the stack canary. Let's take a look at the memory for a bit more detail:
+In order to leak the canary we will need to send `0xa9` bytes worth of data. The first `0xa8` will be to fill up the `input` char array, and the last byte will be to overwrite the least significant byte of the stack canary. Let's take a look at the memory for a bit more detail:
 
 ```
 gef➤  x/24g 0x7ffe80d6b4e0
@@ -255,7 +255,7 @@ gef➤  x/24g 0x7ffe80d6b4e0
 0x7ffe80d6b590: 0x0000000000400e40  0x00007fa279664b97
 ```
 
-here we can see our input `15935728` starts at `0x7ffe80d6b4e0`. `0xa8` bytes down the stack we can see the stack canary `0x05345bfe35ee0700` at `0x7ffe80d6b588` followed by the saved base pointer and return addess. After the overflow this is what the memory looks like:
+here we can see our input `15935728` starts at `0x7ffe80d6b4e0`. `0xa8` bytes down the stack we can see the stack canary `0x05345bfe35ee0700` at `0x7ffe80d6b588` followed by the saved base pointer and return address. After the overflow this is what the memory looks like:
 
 ```
 gef➤  x/24g 0x7ffe80d6b4e0
@@ -313,7 +313,7 @@ Start              End                Offset             Perm Path
 0x00007ffffffde000 0x00007ffffffff000 0x0000000000000000 rw- [stack]
 ```
 
-So we can see all of the memory regions here. The memory region I am going to break ASLR in is the `libc-2.23.so` region starting at `0x00007ffff768b000` and ending at `0x00007ffff784b000`. There are two resons for this. The first is that if we leak an address in this region, it will give us access to a lot of gadgets so we can do a lot of things with our code. The second is that we can get an infoleak in this region. Looking at the imported functions in Ghidra, we can see that `puts` is an imported function. Puts will print the data pointed to by a pointer it is handed, until it reaches a null byte. The GOT table is a section of memory in the elf that holds various libc addresses. It does this so the binary knows where it can find those addresses, since it doesn't know what they will be when it compiles. Since PIE is disabled, the GOT entry addresses aren't randomized and we know what they are. So if we were to pass the GOT entry address for `puts` to `puts` (which we can call since it is an imported function, meaning it is compiled into the binary, and we know it's address because there is no pie) we will get the libc address of `puts`. 
+So we can see all of the memory regions here. The memory region I am going to break ASLR in is the `libc-2.23.so` region starting at `0x00007ffff768b000` and ending at `0x00007ffff784b000`. There are two reasons for this. The first is that if we leak an address in this region, it will give us access to a lot of gadgets so we can do a lot of things with our code. The second is that we can get an infoleak in this region. Looking at the imported functions in Ghidra, we can see that `puts` is an imported function. Puts will print the data pointed to by a pointer it is handed, until it reaches a null byte. The GOT table is a section of memory in the elf that holds various libc addresses. It does this so the binary knows where it can find those addresses, since it doesn't know what they will be when it compiles. Since PIE is disabled, the GOT entry addresses aren't randomized and we know what they are. So if we were to pass the GOT entry address for `puts` to `puts` (which we can call since it is an imported function, meaning it is compiled into the binary, and we know it's address because there is no pie) we will get the libc address of `puts`. 
 
 Also a quick tangent, pie (position independent executable) essentially means there is ASLR for addresses in the elf. For this binary that would include these regions. If this was enabled and we wanted to do what we are doing with the `puts` infoleak, we would need another infoleak in this region:
 
@@ -344,14 +344,14 @@ plt address: 0x4008cc
 got address: 0x602018
 ```
 
-To find the rop gadget we need, we can use a ROP gadget finding utillity called ROPGadget (https://github.com/JonathanSalwan/ROPgadget):
+To find the rop gadget we need, we can use a ROP gadget finding utility called ROPGadget (https://github.com/JonathanSalwan/ROPgadget):
 
 ```
 $ python ROPgadget.py --binary svc | grep "pop rdi"
 0x0000000000400ea3 : pop rdi ; ret
 ```
 
-The last mitigation we will overcome is the Non-Executable Stack. This essentially means that the stack does not have the execute permission. So we cannot execute code on the stack. Our method to bypass this will be using a mix of a simple ROP chain, and a ret2libc (return to libc) attack. ROP (return oriented programming) is when we essentially take bits of code that is already in the binary, and stich them together to make code that does what we want. It will be comprised of ROP gadgets, which are essentially pointers to bits of code that end in a `ret` instruction, which will make it move to the next gadget. Since these are all valid instruction pointers to code that should run, it will be marked as executable and we won't have any issues. Also a fun side not, if we were to make a ROP gadget that jumps in the middle of an instruction, it would completely change what the instruction does.
+The last mitigation we will overcome is the Non-Executable Stack. This essentially means that the stack does not have the execute permission. So we cannot execute code on the stack. Our method to bypass this will be using a mix of a simple ROP chain, and a ret2libc (return to libc) attack. ROP (return oriented programming) is when we essentially take bits of code that is already in the binary, and stitch them together to make code that does what we want. It will be comprised of ROP gadgets, which are essentially pointers to bits of code that end in a `ret` instruction, which will make it move to the next gadget. Since these are all valid instruction pointers to code that should run, it will be marked as executable and we won't have any issues. Also a fun side not, if we were to make a ROP gadget that jumps in the middle of an instruction, it would completely change what the instruction does.
 
 One more thing, since our exploit relies off of the libc memory region, the version of libc running will make a bit of a difference with the exploit's offsets. It isn't anything too big, but you will need to make a few changes. If you are running a different libc version than what I am, your offsets here should be different. To see what libc version you are running, you can use the `vmmap` command:
 

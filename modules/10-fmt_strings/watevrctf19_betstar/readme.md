@@ -250,7 +250,7 @@ And the winner is *drumroll*: 5655605c.f7fb55c0
 5. End the game
 ```
 
-So we can see the addresses the we leaked are `0x5655605c` (the string in the binary `And the winner is *drumroll*: `), and `0xf7fb55c0` (libc `STDIN`). Notice how these addresses are the first two addresses we can leak with the fmt string `%x.%x`, and that these two addresses are the first two values below our format strin `%x.%x`, which is at the top of the stack. This isn't a coincidence. We can reliably use this as a remote infoleak for both `PIE` and `libc`. We can find the offsets from those values to the libc/pie bases like this:
+So we can see the addresses the we leaked are `0x5655605c` (the string in the binary `And the winner is *drumroll*: `), and `0xf7fb55c0` (libc `STDIN`). Notice how these addresses are the first two addresses we can leak with the fmt string `%x.%x`, and that these two addresses are the first two values below our format string `%x.%x`, which is at the top of the stack. This isn't a coincidence. We can reliably use this as a remote infoleak for both `PIE` and `libc`. We can find the offsets from those values to the libc/pie bases like this:
 
 ```
 gef➤  vmmap

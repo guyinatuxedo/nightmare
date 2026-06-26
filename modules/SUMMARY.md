@@ -6,6 +6,7 @@
   - [Reversing with GHIDRA](./02-intro_tooling/ghidra/readme.md)
   - [Debugging with GDB](./02-intro_tooling/gdb-gef/readme.md)
   - [Scripting with Python pwntools](./02-intro_tooling/pwntools/readme.md)
+  - [Setup with pwninit](./02-intro_tooling/pwninit/pwninit.md)
   - [Beginner Reversing](./03-beginner_re/csaw18_x86tour_pt1/readme.md)
     - [Pico'18: Strings](./03-beginner_re/pico18_strings/readme.md)
     - [Helithumper RE](./03-beginner_re/helithumper_re/readme.md)
@@ -45,7 +46,7 @@
 
 - [Bad Seed](./randomness.md)
   - [H3: Time](./09-bad_seed/h3_time/readme.md)
-  - [HSCTF'19: Tuxtalkshow](./09-bad_seed/hsctf19_tuxtalkshow/reamde.md)
+  - [HSCTF'19: Tuxtalkshow](./09-bad_seed/hsctf19_tuxtalkshow/readme.md)
   - [SunshineCTF'17: Prepared](./09-bad_seed/sunshinectf17_prepared/readme.md)
 
 - [Z3 & Symbolic Execution (angr)](./z3_angr.md)

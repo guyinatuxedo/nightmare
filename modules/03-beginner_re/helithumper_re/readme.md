@@ -90,7 +90,7 @@ We also see there is a termination condition where if the iteration count exceed
       returnValue = 1;
 ```
 
-Now this check will either return a `1`, or a `0`. In order to solve this challenge, we need it to ouput a `1`. In order for that to happen, we can't fail any of the character checks. In order for that to happen our input needs to be the same as the characters it checks it against. Looking at the code, we see that the first four characters it sets. However looking at the assembly code shows us that there is more:
+Now this check will either return a `1`, or a `0`. In order to solve this challenge, we need it to output a `1`. In order for that to happen, we can't fail any of the character checks. In order for that to happen our input needs to be the same as the characters it checks it against. Looking at the code, we see that the first four characters it sets. However looking at the assembly code shows us that there is more:
 
 ```
         00101205 c7 45 c0        MOV        dword ptr [RBP + checkValues[0]],0x66

@@ -8,4 +8,9 @@ language = "en"
 [output.html]
 default-theme = "navy"
 git-repository-url = "https://github.com/guyinatuxedo/nightmare/"
-git-repository-icon = "fa-github"
+git-repository-icon = "fab-github"
+sidebar-header-nav = false
+
+
+[output.html.fold]
+enable = false

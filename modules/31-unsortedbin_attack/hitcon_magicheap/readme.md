@@ -239,7 +239,7 @@ So we have a buffer overflow bug. We will leverage this bug to write a value to 
 
 #### Unsorted Bin Attack
 
-The Unsorted Bin contains just a single bin. All chunks are first placed in this bin, before beign moved to the other bins. The unsorted bin is a doubly linked list, with a `fwd` and `bk` pointer.
+The Unsorted Bin contains just a single bin. All chunks are first placed in this bin, before being moved to the other bins. The unsorted bin is a doubly linked list, with a `fwd` and `bk` pointer.
 
 When we allocate and free a chunk of size `0xf0`, we can see it here in the unsorted bin:
 

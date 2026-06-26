@@ -29,7 +29,7 @@ With this instruction the contents of the `dx` register get moved into the `gs` 
   not dx
 ```
 
-Here we see that the value `0xffff` is moved into the `dx` register, then noted. When a value is notted, the bits are flopped. And since with the value `0xffff`, all of the bits are `1s` (for 16 bit values), the result of `dx` will be zero. Also we see that between lines `132` and `145`, there is nothing that would change the value of `dx` to something other than `0x0`. So when the contents of `dx` gets moved into `gs`, the value of `gs` has to be `0x0`.
+Here we see that the value `0xffff` is moved into the `dx` register, then not. When not is applied to a value, the bits are flopped. And since with the value `0xffff`, all of the bits are `1s` (for 16 bit values), the result of `dx` will be zero. Also we see that between lines `132` and `145`, there is nothing that would change the value of `dx` to something other than `0x0`. So when the contents of `dx` gets moved into `gs`, the value of `gs` has to be `0x0`.
 
 #### What is the value of si after line 151 executes?
 
@@ -132,4 +132,4 @@ print_string:
     .end:
 ```
 
-Here is a loop that is printing all of the characters of the string. At the start of this loop the pointer points to the beginning of the string (line 197), then gets incremented (line 202) by one meaning that it moves on to the next character untill it hits the null byte (`0x0`), which the comparison happens at line 192. It will print each character with the interrupt a line `200` (check out https://en.wikipedia.org/wiki/INT_10H for more info, the value `0x0e` in the `ah` register is an argument to the interrupt). Since the first character of the string is `a` which in hex is `0x61`, the value of `al` the first time it is ran should be `0x61`. So the value of the `ax` register should be `0x0e61`.
+Here is a loop that is printing all of the characters of the string. At the start of this loop the pointer points to the beginning of the string (line 197), then gets incremented (line 202) by one meaning that it moves on to the next character until it hits the null byte (`0x0`), which the comparison happens at line 192. It will print each character with the interrupt a line `200` (check out https://en.wikipedia.org/wiki/INT_10H for more info, the value `0x0e` in the `ah` register is an argument to the interrupt). Since the first character of the string is `a` which in hex is `0x61`, the value of `al` the first time it is ran should be `0x61`. So the value of the `ax` register should be `0x0e61`.

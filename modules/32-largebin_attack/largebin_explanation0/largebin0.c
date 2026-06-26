@@ -51,7 +51,7 @@ int main(void)
 	printf("Now they are both in the unsorted bin.\n");
 	printf("Since large bin sized chunks are inserted into the unsorted bin, before being moved to the large bin for potential reuse before they are thrown into that bin.\n");
 	printf("We will now allocate a fastbin sized chunk. This will move our second (larger) chunk into the large bin (since it is the larger chunk in the unsorted bin).\n");
-	printf("The first (smaller) chunk will have part of it's space used for the allocation, and then the remaining chunk will be inserted into the unsorted bin.\n\n");
+	printf("The first (smaller) chunk will have part of its space used for the allocation, and then the remaining chunk will be inserted into the unsorted bin.\n\n");
 
 	malloc(0x10);
 
@@ -68,7 +68,7 @@ int main(void)
 	ptr1[0] = 0;
 	ptr1[1] = (unsigned long)((&target) - 0x2);
 
-	printf("We will also need to overwrite it's size values with a smaller value.\n\n");
+	printf("We will also need to overwrite its size values with a smaller value.\n\n");
 
 	ptr1[-1] = 0x300;
 

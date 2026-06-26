@@ -103,7 +103,7 @@ undefined4 menu(undefined4 param_1)
 }
 ```
 
-We can see that this function essentially just prompts us for our input. We are prompted with three options. The first is for a new game, the second is to initialize a game, and the third is to quit. When we take a look at the funcion responsible for initializing a game `initGame`, we see this:
+We can see that this function essentially just prompts us for our input. We are prompted with three options. The first is for a new game, the second is to initialize a game, and the third is to quit. When we take a look at the function responsible for initializing a game `initGame`, we see this:
 
 ```
 

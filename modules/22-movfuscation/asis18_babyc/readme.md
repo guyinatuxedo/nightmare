@@ -13,7 +13,7 @@ Wrong!
 
 ```
 
-So it looks like we are dealing with a `32` bit crackme challenge that takes in input via stdin. A crackme challenge is one that takes in input, and checks if it is what it expects (and we have to figure out the correct input). Looking at the assembly code of the binary in Ghidra, it becomes apparant very quickly that this binary has been obfuscated:
+So it looks like we are dealing with a `32` bit crackme challenge that takes in input via stdin. A crackme challenge is one that takes in input, and checks if it is what it expects (and we have to figure out the correct input). Looking at the assembly code of the binary in Ghidra, it becomes apparent very quickly that this binary has been obfuscated:
 
 ```
         08048343 a3 f0 5f        MOV        [DAT_081f5ff0],EAX
@@ -286,4 +286,4 @@ From this, I decided to see if it was checking if the first character was `A`. A
 0x804a17a:      starts at 0x804a0c5
 ```
 
-The process of figuring out what characters they are checking for is exactly the same as with the first character. With that, we can figure out that the first three character it is checking for is `Ah_`. THat leaves us with the string `Ah_m0vfu3c4t0r!`, which is the first `14` characters of the string, so we have what we need to make the hash for the flag.
+The process of figuring out what characters they are checking for is exactly the same as with the first character. With that, we can figure out that the first three character it is checking for is `Ah_`. That leaves us with the string `Ah_m0vfu3c4t0r!`, which is the first `14` characters of the string, so we have what we need to make the hash for the flag.

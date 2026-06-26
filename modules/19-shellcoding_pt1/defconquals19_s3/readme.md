@@ -18,7 +18,7 @@ Send me your drift
 You're not ready.
 ```
 
-So we can see that it has all of the standard binary mitiations, and that it is a 64 bit elf that prompts us for input. When we look at the main function in Ghidra, we see this:
+So we can see that it has all of the standard binary mitigations, and that it is a 64 bit elf that prompts us for input. When we look at the main function in Ghidra, we see this:
 
 ```
 undefined8 main(void)
