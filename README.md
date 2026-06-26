@@ -24,7 +24,7 @@ I have found that resources that have many of these things to be few and far bet
 
 If you want, there is a static github pages site which people say looks better: <https://guyinatuxedo.github.io/>
 
-If you want to manually build the site, I just used mdbook. After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
+If you want to manually build the site, please ensure you checkout the `book` branch first (as it contains the necessary configuration files). After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
 
 ## Github
 
