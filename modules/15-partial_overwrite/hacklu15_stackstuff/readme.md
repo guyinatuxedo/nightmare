@@ -296,7 +296,7 @@ So we can see that the offset is `0x7fffffffdee8 - 0x7fffffffdea0 = 0x48`. Since
 
 ## Exploitation
 
-So for our exploit, we will be doing a partial overwrite. We will be doing this to bypass PIE's address randomization, however there will be abit of brute forcing needed (we will cover that later). However before we do that, we will be doing an overwrite of the saved return address and the QWORD next to it. For that we will need to find a valid instruction pointer to place there, which will essentially just return, and act as a placeholder to execute the address which we partially overwrote. However the problem with this is that PIE is enabled, and since we don't have any infoleaks we can't call rop gadgets from the PIE or libc segments. This is where vsyscalls will come in handy:
+So for our exploit, we will be doing a partial overwrite. We will be doing this to bypass PIE's address randomization, however there will be a bit of brute forcing needed (we will cover that later). However before we do that, we will be doing an overwrite of the saved return address and the QWORD next to it. For that we will need to find a valid instruction pointer to place there, which will essentially just return, and act as a placeholder to execute the address which we partially overwrote. However the problem with this is that PIE is enabled, and since we don't have any infoleaks we can't call rop gadgets from the PIE or libc segments. This is where vsyscalls will come in handy:
 
 ```
 ef➤  vmmap

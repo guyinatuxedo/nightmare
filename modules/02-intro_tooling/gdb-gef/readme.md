@@ -4,7 +4,7 @@ This file was contributed to by `deveynull` (also made the hello_world binary)
 
 So throughout this project, we will be using a lot of different tools. The purpose of this module is to show you some of the basics of three of those tools. We will start with gdb-gef.
 
-First off, gdb is a debugger (specifically the gnu debugger). Gef is an a gdb wrapper, designed  to give us some extended features (https://github.com/hugsy/gef). To install it, you can find the instructions on the github page. it's super simple.
+First off, gdb is a debugger (specifically the gnu debugger). Gef is an a gdb wrapper, designed  to give us some extended features (<https://github.com/hugsy/gef>). To install it, you can find the instructions on the github page. it's super simple.
 
 A debugger is software that allows us to perform various types of analysis of a process as it's running, and alter it in a variety of different ways.
 
@@ -85,9 +85,9 @@ hello world!
 [Inferior 1 (process 9133) exited normally]
 ```
 
-In order to enter debugger mode, we can set breakpoints. Breakpoints are places in the program where GDB will know to stop execution to allow you to examine the contents of the stack. 
-The most common breakpoint to set is on main, which we can set with 'break main' or 'b main'. Most GDB commands can be shortened. Check out this cheat sheet for more: <CHEATSHEET> 
-
+In order to enter debugger mode, we can set breakpoints. Breakpoints are places in the program where GDB will know to stop execution to allow you to examine the contents of the stack.
+The most common breakpoint to set is on main, which we can set with 'break main' or 'b main'. Most GDB commands can be shortened. Check out this cheat sheet for more
+`<CHEATSHEET>`
 
 ```
 gef➤  break main
@@ -108,8 +108,8 @@ $eip   : 0x08048409  →  <main+14> sub esp, 0x4
 $eflags: [zero carry PARITY adjust SIGN trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
 ────────────────────────────────────────────────────────────────────────── stack ────
-0xffffd0e4│+0x0000: 0xffffd100  →  0x00000001	 ← $esp
-0xffffd0e8│+0x0004: 0x00000000	 ← $ebp
+0xffffd0e4│+0x0000: 0xffffd100  →  0x00000001  ← $esp
+0xffffd0e8│+0x0004: 0x00000000  ← $ebp
 0xffffd0ec│+0x0008: 0xf7dfbe81  →  <__libc_start_main+241> add esp, 0x10
 0xffffd0f0│+0x000c: 0xf7fb8000  →  0x001d4d6c
 0xffffd0f4│+0x0010: 0xf7fb8000  →  0x001d4d6c
@@ -135,13 +135,13 @@ $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063
 Breakpoint 1, 0x08048409 in main ()
 ```
 
-
-Now you can step through the function by typing 'nexti' until the program ends. 'nexti' will have you go instruction by intruction through the program, but will not step into function calls such as puts. 
+Now you can step through the function by typing 'nexti' until the program ends. 'nexti' will have you go instruction by instruction through the program, but will not step into function calls such as puts.
 
 Other ways to navigate a program are:
-* 'next' - which will take you through one line of code, but will step over function calls such as puts. 
+
+* 'next' - which will take you through one line of code, but will step over function calls such as puts.
 * 'step' - which will take you through one line of code, but will step into function calls
-* 'stepi' - whch will take you through one instruction at a time, stepping into function calls
+* 'stepi' - which will take you through one instruction at a time, stepping into function calls
 
 For each of these methods, work through the program after setting a breakpoint in main. Take specific care to see what step and stepi see after entering puts. Most of the time, because those are part of standard libraries, we don't need to step into anything.
 
@@ -152,22 +152,22 @@ Let's take a look at the main function using 'disassemble' or 'disass':
 ```
 gef➤  disass main
 Dump of assembler code for function main:
-   0x080483fb <+0>:	lea    ecx,[esp+0x4]
-   0x080483ff <+4>:	and    esp,0xfffffff0
-   0x08048402 <+7>:	push   DWORD PTR [ecx-0x4]
-   0x08048405 <+10>:	push   ebp
-   0x08048406 <+11>:	mov    ebp,esp
-   0x08048408 <+13>:	push   ecx
-   0x08048409 <+14>:	sub    esp,0x4
-   0x0804840c <+17>:	sub    esp,0xc
-   0x0804840f <+20>:	push   0x80484b0
-   0x08048414 <+25>:	call   0x80482d0 <puts@plt>
-   0x08048419 <+30>:	add    esp,0x10
-   0x0804841c <+33>:	mov    eax,0x0
-   0x08048421 <+38>:	mov    ecx,DWORD PTR [ebp-0x4]
-   0x08048424 <+41>:	leave  
-   0x08048425 <+42>:	lea    esp,[ecx-0x4]
-   0x08048428 <+45>:	ret    
+   0x080483fb <+0>: lea    ecx,[esp+0x4]
+   0x080483ff <+4>: and    esp,0xfffffff0
+   0x08048402 <+7>: push   DWORD PTR [ecx-0x4]
+   0x08048405 <+10>: push   ebp
+   0x08048406 <+11>: mov    ebp,esp
+   0x08048408 <+13>: push   ecx
+   0x08048409 <+14>: sub    esp,0x4
+   0x0804840c <+17>: sub    esp,0xc
+   0x0804840f <+20>: push   0x80484b0
+   0x08048414 <+25>: call   0x80482d0 <puts@plt>
+   0x08048419 <+30>: add    esp,0x10
+   0x0804841c <+33>: mov    eax,0x0
+   0x08048421 <+38>: mov    ecx,DWORD PTR [ebp-0x4]
+   0x08048424 <+41>: leave  
+   0x08048425 <+42>: lea    esp,[ecx-0x4]
+   0x08048428 <+45>: ret    
 End of assembler dump.
 
 ```
@@ -175,12 +175,14 @@ End of assembler dump.
 Let's say we wanted to break on the call to `puts`. We can do this by setting a breakpoint for that instruction.
 
 Like this:
+
 ```
 gef➤  b *main+25
 Breakpoint 1 at 0x8048414
 ```
 
 Or like this:
+
 ```
 gef➤  b *0x08048414
 Note: breakpoint 1 also set at pc 0x08048414
@@ -206,13 +208,13 @@ $eip   : 0x08048414  →  0xfffeb7e8  →  0x00000000
 $eflags: [zero carry PARITY ADJUST SIGN trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
 ────────────────────────────────────────────────────────────────────────── stack ────
-0xffffd0d0│+0x0000: 0x080484b0  →  "hello world!"	 ← $esp
+0xffffd0d0│+0x0000: 0x080484b0  →  "hello world!"  ← $esp
 0xffffd0d4│+0x0004: 0xffffd194  →  0xffffd34e  →  "/home/devey/nightmare/modules/02-intro_tooling/hel[...]"
 0xffffd0d8│+0x0008: 0xffffd19c  →  0xffffd389  →  "CLUTTER_IM_MODULE=xim"
 0xffffd0dc│+0x000c: 0x08048451  →  <__libc_csu_init+33> lea eax, [ebx-0xf8]
 0xffffd0e0│+0x0010: 0xf7fe59b0  →   push ebp
 0xffffd0e4│+0x0014: 0xffffd100  →  0x00000001
-0xffffd0e8│+0x0018: 0x00000000	 ← $ebp
+0xffffd0e8│+0x0018: 0x00000000  ← $ebp
 0xffffd0ec│+0x001c: 0xf7dfbe81  →  <__libc_start_main+241> add esp, 0x10
 ──────────────────────────────────────────────────────────────────── code:x86:32 ────
     0x8048409 <main+14>        sub    esp, 0x4
@@ -247,7 +249,7 @@ In the debugger console is where we can actually use the debugger to provide var
 gef➤  info breakpoints
 Num     Type           Disp Enb Address    What
 1       breakpoint     keep y   0x08048414 <main+25>
-	breakpoint already hit 1 time
+ breakpoint already hit 1 time
 2       breakpoint     keep y   0x08048414 <main+25>
 
 ```
@@ -260,6 +262,7 @@ To delete a breakpoint Num `2`:
 gef➤  delete 2
 
 ```
+
 or to be short "del 2" or "d 2".
 
 We can also set breakpoints for functions like `puts`:
@@ -283,14 +286,14 @@ $eip   : 0xf7e4a360  →  <puts+0> push ebp
 $eflags: [zero carry parity ADJUST SIGN trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
 ────────────────────────────────────────────────────────────────────────── stack ────
-0xffffd0cc│+0x0000: 0x08048419  →  <main+30> add esp, 0x10	 ← $esp
+0xffffd0cc│+0x0000: 0x08048419  →  <main+30> add esp, 0x10  ← $esp
 0xffffd0d0│+0x0004: 0x080484b0  →  "hello world!"
 0xffffd0d4│+0x0008: 0xffffd194  →  0xffffd34e  →  "/home/devey/nightmare/modules/02-intro_tooling/hel[...]"
 0xffffd0d8│+0x000c: 0xffffd19c  →  0xffffd389  →  "CLUTTER_IM_MODULE=xim"
 0xffffd0dc│+0x0010: 0x08048451  →  <__libc_csu_init+33> lea eax, [ebx-0xf8]
 0xffffd0e0│+0x0014: 0xf7fe59b0  →   push ebp
 0xffffd0e4│+0x0018: 0xffffd100  →  0x00000001
-0xffffd0e8│+0x001c: 0x00000000	 ← $ebp
+0xffffd0e8│+0x001c: 0x00000000  ← $ebp
 ──────────────────────────────────────────────────────────────────── code:x86:32 ────
    0xf7e4a356 <popen+134>      call   0xf7dfb608 <free@plt>
    0xf7e4a35b <popen+139>      add    esp, 0x10
@@ -314,7 +317,7 @@ Breakpoint 1, 0xf7e4a360 in puts () from /lib32/libc.so.6
 
 ## Viewing Things
 
-So one thing that gdb is really useful for is viewing the values of different things. Once we are dropped into a debugger while the process is viewing, let's view the contents of the `esp` register. To get there we will break on main, run, and then advance three instructions: 
+So one thing that gdb is really useful for is viewing the values of different things. Once we are dropped into a debugger while the process is viewing, let's view the contents of the `esp` register. To get there we will break on main, run, and then advance three instructions:
 
 ```
 gef➤  break main 
@@ -335,12 +338,12 @@ $eip   : 0x0804840f  →  <main+20> push 0x80484b0
 $eflags: [zero carry PARITY ADJUST SIGN trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
 ────────────────────────────────────────────────────────────────────────── stack ────
-0xffffd0d4│+0x0000: 0xffffd194  →  0xffffd34e  →  "/home/devey/nightmare/modules/02-intro_tooling/hel[...]"	 ← $esp
+0xffffd0d4│+0x0000: 0xffffd194  →  0xffffd34e  →  "/home/devey/nightmare/modules/02-intro_tooling/hel[...]"  ← $esp
 0xffffd0d8│+0x0004: 0xffffd19c  →  0xffffd389  →  "CLUTTER_IM_MODULE=xim"
 0xffffd0dc│+0x0008: 0x08048451  →  <__libc_csu_init+33> lea eax, [ebx-0xf8]
 0xffffd0e0│+0x000c: 0xf7fe59b0  →   push ebp
 0xffffd0e4│+0x0010: 0xffffd100  →  0x00000001
-0xffffd0e8│+0x0014: 0x00000000	 ← $ebp
+0xffffd0e8│+0x0014: 0x00000000  ← $ebp
 0xffffd0ec│+0x0018: 0xf7dfbe81  →  <__libc_start_main+241> add esp, 0x10
 0xffffd0f0│+0x001c: 0xf7fb8000  →  0x001d4d6c
 ──────────────────────────────────────────────────────────────────── code:x86:32 ────
@@ -362,10 +365,10 @@ $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063
 gef➤  p 0x80484b0
 $1 = 0x80484b0
 gef➤  x/10c 0x80484b0
-0x80484b0:	0x68	0x65	0x6c	0x6c	0x6f	0x20	0x77	0x6f
-0x80484b8:	0x72	0x6c
+0x80484b0: 0x68 0x65 0x6c 0x6c 0x6f 0x20 0x77 0x6f
+0x80484b8: 0x72 0x6c
 gef➤  x/s 0x80484b0
-0x80484b0:	"hello world!"
+0x80484b0: "hello world!"
 
 gef➤  
 
@@ -375,12 +378,12 @@ We can see that the register `esp` holds the value `0xffffd0d0`, which is a poin
 
 ```
 gef➤  x/a 0xffffd0d0
-0xffffd0d0:	0x80484b0
+0xffffd0d0: 0x80484b0
 gef➤  x/10c 0x80484b0
-0x80484b0:	0x68	0x65	0x6c	0x6c	0x6f	0x20	0x77	0x6f
-0x80484b8:	0x72	0x6c
+0x80484b0: 0x68 0x65 0x6c 0x6c 0x6f 0x20 0x77 0x6f
+0x80484b8: 0x72 0x6c
 gef➤  x/s 0x80484b0
-0x80484b0:	"hello world!"
+0x80484b0: "hello world!"
 ```
 
 So we can see that it points to the string `hello world!`, which will be printed by `puts` (since `puts` takes a single argument which is a char pointer). One thing in gdb when you examine things with `x`, you can specify what you want to examine it as. Possible things include as an address `x/a`, a number of characters `x/10c` string `x/s`, as a qword `x/g`, or as a dword `x/w`.
@@ -389,22 +392,22 @@ let's view the contents of all of the registers:
 
 ```
 gef➤  info registers
-eax            0xf7fb9dd8	0xf7fb9dd8
-ecx            0xffffd100	0xffffd100
-edx            0xffffd124	0xffffd124
-ebx            0x0	0x0
-esp            0xffffd0d0	0xffffd0d0
-ebp            0xffffd0e8	0xffffd0e8
-esi            0xf7fb8000	0xf7fb8000
-edi            0x0	0x0
-eip            0x8048414	0x8048414 <main+25>
-eflags         0x296	[ PF AF SF IF ]
-cs             0x23	0x23
-ss             0x2b	0x2b
-ds             0x2b	0x2b
-es             0x2b	0x2b
-fs             0x0	0x0
-gs             0x63	0x63
+eax            0xf7fb9dd8 0xf7fb9dd8
+ecx            0xffffd100 0xffffd100
+edx            0xffffd124 0xffffd124
+ebx            0x0 0x0
+esp            0xffffd0d0 0xffffd0d0
+ebp            0xffffd0e8 0xffffd0e8
+esi            0xf7fb8000 0xf7fb8000
+edi            0x0 0x0
+eip            0x8048414 0x8048414 <main+25>
+eflags         0x296 [ PF AF SF IF ]
+cs             0x23 0x23
+ss             0x2b 0x2b
+ds             0x2b 0x2b
+es             0x2b 0x2b
+fs             0x0 0x0
+gs             0x63 0x63
 
 ```
 
@@ -426,36 +429,36 @@ Now let's view the disassembly for the main function:
 ```
 gef➤  disass main
 Dump of assembler code for function main:
-   0x080483fb <+0>:	lea    ecx,[esp+0x4]
-   0x080483ff <+4>:	and    esp,0xfffffff0
-   0x08048402 <+7>:	push   DWORD PTR [ecx-0x4]
-   0x08048405 <+10>:	push   ebp
-   0x08048406 <+11>:	mov    ebp,esp
-   0x08048408 <+13>:	push   ecx
-   0x08048409 <+14>:	sub    esp,0x4
-   0x0804840c <+17>:	sub    esp,0xc
-   0x0804840f <+20>:	push   0x80484b0
-=> 0x08048414 <+25>:	call   0x80482d0 <puts@plt>
-   0x08048419 <+30>:	add    esp,0x10
-   0x0804841c <+33>:	mov    eax,0x0
-   0x08048421 <+38>:	mov    ecx,DWORD PTR [ebp-0x4]
-   0x08048424 <+41>:	leave  
-   0x08048425 <+42>:	lea    esp,[ecx-0x4]
-   0x08048428 <+45>:	ret    
+   0x080483fb <+0>: lea    ecx,[esp+0x4]
+   0x080483ff <+4>: and    esp,0xfffffff0
+   0x08048402 <+7>: push   DWORD PTR [ecx-0x4]
+   0x08048405 <+10>: push   ebp
+   0x08048406 <+11>: mov    ebp,esp
+   0x08048408 <+13>: push   ecx
+   0x08048409 <+14>: sub    esp,0x4
+   0x0804840c <+17>: sub    esp,0xc
+   0x0804840f <+20>: push   0x80484b0
+=> 0x08048414 <+25>: call   0x80482d0 <puts@plt>
+   0x08048419 <+30>: add    esp,0x10
+   0x0804841c <+33>: mov    eax,0x0
+   0x08048421 <+38>: mov    ecx,DWORD PTR [ebp-0x4]
+   0x08048424 <+41>: leave  
+   0x08048425 <+42>: lea    esp,[ecx-0x4]
+   0x08048428 <+45>: ret    
 End of assembler dump.
 
 ```
 
 ## Changing Values
 
-As you can see, we are at the instruction for puts. 
+As you can see, we are at the instruction for puts.
 
-Let's say we wanted to change the contents of what will be printed. Importantly, in many programs your ability to do this is dependent on the size of the string you are trying to replace. If you overwrite it with something that is too large, you run the risk of overwriting other memory and breaking the program. There are plenty of workarounds but this is rarely applicable from a bin-ex perspective. 
+Let's say we wanted to change the contents of what will be printed. Importantly, in many programs your ability to do this is dependent on the size of the string you are trying to replace. If you overwrite it with something that is too large, you run the risk of overwriting other memory and breaking the program. There are plenty of workarounds but this is rarely applicable from a bin-ex perspective.
 
 ```
 gef➤  set {char [12]} 0x080484b0 = "hello venus"
 gef➤  x/s 0x080484b0
-0x80484b0:	"hello venus"
+0x80484b0: "hello venus"
 gef➤  nexti
 hello venus
 [ Legend: Modified register | Code | Heap | Stack | String ]
@@ -472,13 +475,13 @@ $eip   : 0x08048419  →  <main+30> add esp, 0x10
 $eflags: [ZERO carry PARITY adjust sign trap INTERRUPT direction overflow resume virtualx86 identification]
 $cs: 0x0023 $ss: 0x002b $ds: 0x002b $es: 0x002b $fs: 0x0000 $gs: 0x0063 
 ────────────────────────────────────────────────────────────────────────── stack ────
-0xffffd0d0│+0x0000: 0x080484b0  →  "hello venus"	 ← $esp
+0xffffd0d0│+0x0000: 0x080484b0  →  "hello venus"  ← $esp
 0xffffd0d4│+0x0004: 0xffffd194  →  0xffffd34e  →  "/home/devey/nightmare/modules/02-intro_tooling/hel[...]"
 0xffffd0d8│+0x0008: 0xffffd19c  →  0xffffd389  →  "CLUTTER_IM_MODULE=xim"
 0xffffd0dc│+0x000c: 0x08048451  →  <__libc_csu_init+33> lea eax, [ebx-0xf8]
 0xffffd0e0│+0x0010: 0xf7fe59b0  →   push ebp
 0xffffd0e4│+0x0014: 0xffffd100  →  0x00000001
-0xffffd0e8│+0x0018: 0x00000000	 ← $ebp
+0xffffd0e8│+0x0018: 0x00000000  ← $ebp
 0xffffd0ec│+0x001c: 0xf7dfbe81  →  <__libc_start_main+241> add esp, 0x10
 ──────────────────────────────────────────────────────────────────── code:x86:32 ────
     0x804840c <main+17>        sub    esp, 0xc
@@ -503,10 +506,10 @@ Now let's say we wanted to change the value stored at the memory address `0x0804
 
 ```
 gef➤  x/g 0x08048451
-0x8048451 <__libc_csu_init+33>:	0xff08838d
+0x8048451 <__libc_csu_init+33>: 0xff08838d
 gef➤  set *0x08048451 = 0xfacade
 gef➤  x/g 0x08048451
-0x8048451 <__libc_csu_init+33>:	0xfacade
+0x8048451 <__libc_csu_init+33>: 0xfacade
 
 ```
 
@@ -517,5 +520,4 @@ gef➤  j *0x08048451
 Continuing at 0x0x08048451.
 ```
 
-That was a lot, keep referring to this, your notes, and GDB cheatsheets as you go along. 
-
+That was a lot, keep referring to this, your notes, and GDB cheatsheets as you go along.

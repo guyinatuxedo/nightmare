@@ -1,4 +1,4 @@
-# Unlink explannation
+# Unlink explanation
 
 So this is just a c file that explains what an unlink attack is. If you are running it and it is not working, then it probably means you are running it with a libc version that has tcache enabled. If you are then you can either swap out which libc version you are running the binary with (depending on what version of linux you are on you might also have to use a different loader) or just run it on an older version of Ubuntu (like 16.04).
 

@@ -179,7 +179,7 @@ Proceeding that is a check to ensure that the index provided does have a corresp
       if ((-1 < index) &&
 ```
 
-However what is interesting with this, is we see that the object that is freed isn't related to the index we provide. It takes the value stored in `DAT_00303268`, subtracts 0x28 (in the psuedocode it shows `-10`, but the assembly code shows us the truth) from it, then deletes it. This doesn't necissarily coincide with the index we gave it:
+However what is interesting with this, is we see that the object that is freed isn't related to the index we provide. It takes the value stored in `DAT_00303268`, subtracts 0x28 (in the pseudocode it shows `-10`, but the assembly code shows us the truth) from it, then deletes it. This doesn't necessarily coincide with the index we gave it:
 
 ```
         piVar1 = DAT_00303268;

@@ -206,7 +206,7 @@ With that we can overflow chunk 2's metadata by using the bug we found with fill
 0x30:    3
 ```
 
-Now that chunk 2's metadata has been overflowed, we can go ahead and free it. This will move the heap back to where the first chunk 0 was. By doing this, it will effictively forget about the new chunk 0, and will allow us to push a libc address into it's data section (the section after the heap metadata) so we can just print the chunk and leak the libc address:
+Now that chunk 2's metadata has been overflowed, we can go ahead and free it. This will move the heap back to where the first chunk 0 was. By doing this, it will effectively forget about the new chunk 0, and will allow us to push a libc address into it's data section (the section after the heap metadata) so we can just print the chunk and leak the libc address:
 
 ```
 0xf0:    (freed)
@@ -250,7 +250,7 @@ Proceeding that we can allocate four new chunks. The first chunk will be `0x10` 
 0x30:    3
 ```
 
-Proceeding this we can free the chunks `5`, `4`, and `0`. We need to free another chunk in between `5` and `4`, the reason for this being that when we free one of those chunks, it gets placed at the top of the free list. In addition to that if we free a chunk that is at the top of the free list, the program crashes. So if we free a chunk in between, when the same chunk get's freed again it won't be while it is also at the top of the free chunk (thus the program won't crash):
+Proceeding this we can free the chunks `5`, `4`, and `0`. We need to free another chunk in between `5` and `4`, the reason for this being that when we free one of those chunks, it gets placed at the top of the free list. In addition to that if we free a chunk that is at the top of the free list, the program crashes. So if we free a chunk in between, when the same chunk gets freed again it won't be while it is also at the top of the free chunk (thus the program won't crash):
 
 ```
 0x10:    1

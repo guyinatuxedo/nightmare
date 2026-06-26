@@ -209,7 +209,7 @@ Here we can see is the `remove_book` function. It checks to see if the book is v
 
 ### Infoleak
 
-Since PIE is disabled, we know the addresses of the got table entries. Since RELRO is disabled, we can write to it. Our plan will essentially be to overwrite a pointer that is printed with that of a got table address, and print it, using the use after free bug. This will print out the libc address for the corresponding function for the got table, which we can use to calculate the address of `system` (with gdb, we can print the addresses of the functions and see the offset). From there we will use the use after free bug to overwrite the rights sections of the books with format strings, to overwrite the got table entry for free with `system` (since free is bassed a pointer to data we control, it will make passing a char pointer `/bin/sh\x00` to `system` easy).
+Since PIE is disabled, we know the addresses of the got table entries. Since RELRO is disabled, we can write to it. Our plan will essentially be to overwrite a pointer that is printed with that of a got table address, and print it, using the use after free bug. This will print out the libc address for the corresponding function for the got table, which we can use to calculate the address of `system` (with gdb, we can print the addresses of the functions and see the offset). From there we will use the use after free bug to overwrite the rights sections of the books with format strings, to overwrite the got table entry for free with `system` (since free is passed a pointer to data we control, it will make passing a char pointer `/bin/sh\x00` to `system` easy).
 
 For leaking the libc address, I started off by just allocating a lot of books of the same size (`50` because I felt like it). After that, I removed a lot of the books I allocated, then allocated one more, and checked with gdb to see the offset between that and a pointer which is printed. Here is an example in gdb, where I allocated five `50` byte chunks, freed them, then allocated a new book with the name `15935728`:
 
@@ -241,7 +241,7 @@ Now for the actual write itself, I will do three writes of two bytes each. The r
 
 ### Exploit
 
-Putting it all together, we get the following exploit. Also when I was doing the exploit dev for this one, I'm not sure why but I had some I/O issues. In addition to that, this exploit is dependant on the libc version. So if you have a different libc version, you will need to swap out the libc file in the exploit:
+Putting it all together, we get the following exploit. Also when I was doing the exploit dev for this one, I'm not sure why but I had some I/O issues. In addition to that, this exploit is dependent on the libc version. So if you have a different libc version, you will need to swap out the libc file in the exploit:
 
 ```
 from pwn import *

@@ -280,7 +280,7 @@ So here we see it prompts us for an index, and prints the data we specified for 
 
 ## Exploitation
 
-So we have a null byte overflow bug. We will leverage this to cause heap consolidation to the start of one of our trip chunks (the ones we can write to). We will leverage this first for a libc infoleak, then a write. Then we will use that space to allocate one of those `0x10` chunks with a ptr that get's written to. We will then overwrite that ptr to malloc hook, and overwrite it with a oneshot gadget. Then we will just call.
+So we have a null byte overflow bug. We will leverage this to cause heap consolidation to the start of one of our trip chunks (the ones we can write to). We will leverage this first for a libc infoleak, then a write. Then we will use that space to allocate one of those `0x10` chunks with a ptr that gets written to. We will then overwrite that ptr to malloc hook, and overwrite it with a oneshot gadget. Then we will just call.
 
 The first problem we have to deal with is that by the `0x10` chunks are allocated right next to our trip chunks:
 
@@ -749,7 +749,7 @@ gef➤  x/200g 0x235b650
 0x235bc80:    0x0    0x0
 ```
 
-Next we will allocate chunks, untill we have one of those `0x10` chunks overlapping with our second chunk:
+Next we will allocate chunks, until we have one of those `0x10` chunks overlapping with our second chunk:
 
 ```
 gef➤  x/150g 0x235b650

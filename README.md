@@ -19,15 +19,16 @@ It's true there are a lot of resources out there to learn binary exploitation / 
 ```
 
 I have found that resources that have many of these things to be few and far between. As a result it can make learning these skills difficult since you don't really know what to learn, or how to learn it. This is essentially my attempt to help fix some of those problems.
+
 ## Static Site
 
-If you want, there is a static github pages site which people say looks better: https://guyinatuxedo.github.io/
+If you want, there is a static github pages site which people say looks better: <https://guyinatuxedo.github.io/>
 
-If you want to manually build the site, I just used mdbook. After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
+If you want to manually build the site, please ensure you checkout the `book` branch first (as it contains the necessary configuration files). After installing rust and cargo, just install mdbook with `sudo cargo install mdbook`. Then just run `mdbook build`.
 
 ## Github
 
-A copy of all of the challenges listed, can be found on the github: https://github.com/guyinatuxedo/nightmare
+A copy of all of the challenges listed, can be found on the github: <https://github.com/guyinatuxedo/nightmare>
 
 ## Special Thanks
 
@@ -49,256 +50,300 @@ Also if you notice any typos or mistakes, feel free to mention it in the Discord
 
 Here is the index for all of the content in this course. Feel free to go through the whole thing, or only parts of it (don't let me tell you how to live your life). For the order that you do the challenges in a module, I would recommend starting with the first.
 
-
 ## Intro Departure
 
-#### 0.) Intro to the Project    
+#### 0.) Intro to the Project
 
-#### 1.) Intro to Assembly     
--    Intro to assembly
--    Sample assembly reverse challs
+#### 1.) Intro to Assembly
 
-#### 2.) Intro to Tooling     
--    gdb-gef     
--    pwntools
--    ghidra
+- Intro to assembly
+- Sample assembly reverse challs
 
-#### 3.) Beginner RE     
--    pico18_strings     
--    helithumper_re
--    csaw18_tourofx86pt1     
--    csaw19_beleaf
+#### 2.) Intro to Tooling
+
+- gdb-gef
+- pwntools
+- ghidra
+
+#### 3.) Beginner RE
+
+- pico18_strings
+- helithumper_re
+- csaw18_tourofx86pt1
+- csaw19_beleaf
 
 ## Stack pt 0 Stack Tendencies
 
 #### 4.) Buffer Overflow of Variables
 
--    Csaw18/boi
--    TokyoWesterns17/just_do_it
--    Tamu19_pwn1
+- Csaw18/boi
+- TokyoWesterns17/just_do_it
+- Tamu19_pwn1
 
 #### 5.) Buffer Overflow Call Function
--    Csaw18_getit     
--    Tu17_vulnchat
--    Csaw16_warmup
 
-#### 5.1) aslr/pie intro     
--    quick aslr/pie explanation
+- Csaw18_getit
+- Tu17_vulnchat
+- Csaw16_warmup
+
+#### 5.1) aslr/pie intro
+
+- quick aslr/pie explanation
 
 #### 6.) Buffer Overflow Call Shellcode
--    Tamu19_pwn3  
--    Csaw17_pilot
--    Tu18_shelleasy  
 
-#### 6.1) nx intro     
--    nx explanation
+- Tamu19_pwn3  
+- Csaw17_pilot
+- Tu18_shelleasy  
+
+#### 6.1) nx intro
+
+- nx explanation
 
 #### 7.) ROP Chain Statically compiled
--    dcquals19_speedrun1
--    bkp16_simplecalc
--    dcquals16_feedme
 
-#### 7.1) stack canary intro     
--    stack canary introduction
+- dcquals19_speedrun1
+- bkp16_simplecalc
+- dcquals16_feedme
 
-#### 7.2) relro intro     
--    relro introduction
+#### 7.1) stack canary intro
+
+- stack canary introduction
+
+#### 7.2) relro intro
+
+- relro introduction
 
 #### 8.) ROP Dynamically Compiled
--    csaw17_svc    
--    fb19_overfloat    
--    hs19_storytime    
--    csaw19_babyboi
--    utc19_shellme
+
+- csaw17_svc
+- fb19_overfloat
+- hs19_storytime
+- csaw19_babyboi
+- utc19_shellme
 
 ## General pt 0 Stardust Challenges
 
-#### 9.) Bad Seed     
--    h3_time      
--    hsctf19_tuxtalkshow        
--    sunshinectf17_prepared    
+#### 9.) Bad Seed
 
+- h3_time
+- hsctf19_tuxtalkshow
+- sunshinectf17_prepared
 
-#### 10.) Format strings     
--    backdoor17_bbpwn  
--    twesterns16_greeting
--    pico_echo
--    watevr19_betstar
+#### 10.) Format strings
 
-#### 11.) Index Array    
--    dcquals16_xkcd
--    sawmpctf19_dreamheaps
--    sunshinectf2017_alternativesolution
+- backdoor17_bbpwn  
+- twesterns16_greeting
+- pico_echo
+- watevr19_betstar
 
-#### 12.) Z3    
--    tokyowesterns17_revrevrev        
--    tuctf_future    
--    hsctf19_abyte    
+#### 11.) Index Array
 
-#### 13.) Angr    
--    securityfest_fairlight    
--    plaid19_icancount
--    defcamp15_r100
+- dcquals16_xkcd
+- sawmpctf19_dreamheaps
+- sunshinectf2017_alternativesolution
+
+#### 12.) Z3
+
+- tokyowesterns17_revrevrev
+- tuctf_future
+- hsctf19_abyte
+
+#### 13.) Angr
+
+- securityfest_fairlight
+- plaid19_icancount
+- defcamp15_r100
 
 ## Stack pt 1 Return to Stack, truly a perfect game
 
-#### 14.) Ret2system     
--    asis17_marymorton    
--    hxp18_poorcanary    
--    tu_guestbook
+#### 14.) Ret2system
 
-#### 15.) Partial Overwrite     
--    Tu17_vulnchat2     
--    Tamu19_pwn2
--    hacklu15_stackstuff
+- asis17_marymorton
+- hxp18_poorcanary
+- tu_guestbook
 
-#### 16.) SROP     
--    backdoorctf_funsignals    
--    inctf17_stupiddrop
--    swamp19_syscaller
--    csaw19_smallboi
+#### 15.) Partial Overwrite
+
+- Tu17_vulnchat2
+- Tamu19_pwn2
+- hacklu15_stackstuff
+
+#### 16.) SROP
+
+- backdoorctf_funsignals
+- inctf17_stupiddrop
+- swamp19_syscaller
+- csaw19_smallboi
 
 #### 17.) Stack Pivot / Partial Overwrite
--    defconquals19_speedrun4
--    insomnihack18_onewrite
--    xctf16_b0verfl0w
 
-#### 18.) Ret2Csu / Ret2dl     
--    ropemporium_ret2csu
--    0ctf 2018 babystack
+- defconquals19_speedrun4
+- insomnihack18_onewrite
+- xctf16_b0verfl0w
+
+#### 18.) Ret2Csu / Ret2dl
+
+- ropemporium_ret2csu
+- 0ctf 2018 babystack
 
 ## General pt 1 Armstrong challenges
 
-#### 19.) Shellcoding pt 1    
--    defconquals19_s3    
--    Csaw18_shellpointcode
--    defconquals19_s6
+#### 19.) Shellcoding pt 1
 
-#### 20.) Patching/Jumping    
--    dcquals18_elfcrumble                
--    plaid19_plaid_part_planning_III        
--    csaw16_gametime    
+- defconquals19_s3
+- Csaw18_shellpointcode
+- defconquals19_s6
 
+#### 20.) Patching/Jumping
 
-#### 21.) .NET Reversing    
--    csaw13_dotnet        
--    csaw13_bikinibonanza
--    whitehat18_re06
+- dcquals18_elfcrumble
+- plaid19_plaid_part_planning_III
+- csaw16_gametime
 
-#### 22.) Movfuscation    
--    sawmpctf19_future    
--    asis18quals_babyc    
--    other_movfuscated
+#### 21.) .NET Reversing
+
+- csaw13_dotnet
+- csaw13_bikinibonanza
+- whitehat18_re06
+
+#### 22.) Movfuscation
+
+- sawmpctf19_future
+- asis18quals_babyc
+- other_movfuscated
 
 #### 23.) Custom Architectures
--    h3_challenge0    
--    h3_challenge1
--    h3_challenge2
--    h3_challenge3
+
+- h3_challenge0
+- h3_challenge1
+- h3_challenge2
+- h3_challenge3
 
 ## Heap Pt 0 rip Angel Beats
 
 #### 24.) Basic Heap overflow
--    protostar_heap1
--    protostar_heap0
--    protostar_heap2
 
-#### 25.) Intro to heap exploitation / binning    
--    explanation
+- protostar_heap1
+- protostar_heap0
+- protostar_heap2
 
-#### 26.) Heap Grooming     
--    explanation     
--    swamp19_heapgolf
--    pico_areyouroot  
+#### 25.) Intro to heap exploitation / binning
 
-#### 27.) Edit Freed Chunk (pure explanation)    
--    Use After Free     
--    Double Free     
--    Null Byte Heap Consolidation
+- explanation
 
-#### 28.) Fastbin Attack    
--    explanation     
--    0ctf18_babyheap
--    csaw17_auir    
+#### 26.) Heap Grooming
 
-#### 29.) tcache        
--    explanation
--    dcquals19_babyheap
--    plaid19_cpp        
+- explanation
+- swamp19_heapgolf
+- pico_areyouroot  
 
-#### 30.) unlink        
--    explanation
--    hitcon14_stkof    
--    zctf16_note        
+#### 27.) Edit Freed Chunk (pure explanation)
 
-#### 31.) Unsorted Bin Attack     
--    explanation
--    hitcon_magicheap     
--    0ctf16_zer0storage     
+- Use After Free
+- Double Free
+- Null Byte Heap Consolidation
 
-#### 32.) Large Bin Attack    
--    largebin0_explanation
--    largebin1_explanation
+#### 28.) Fastbin Attack
 
-#### 33.) Custom Malloc     
--    csawquals17_minesweeper     
--    csawquals18_AliensVSSamurai
--    csawquals19_traveller
+- explanation
+- 0ctf18_babyheap
+- csaw17_auir
+
+#### 29.) tcache
+
+- explanation
+- dcquals19_babyheap
+- plaid19_cpp
+
+#### 30.) unlink
+
+- explanation
+- hitcon14_stkof
+- zctf16_note
+
+#### 31.) Unsorted Bin Attack
+
+- explanation
+- hitcon_magicheap
+- 0ctf16_zer0storage
+
+#### 32.) Large Bin Attack
+
+- largebin0_explanation
+- largebin1_explanation
+
+#### 33.) Custom Malloc
+
+- csawquals17_minesweeper
+- csawquals18_AliensVSSamurai
+- csawquals19_traveller
 
 ## General Pt 2 Generic Isekai #367
 
-#### 34.) Qemu / Emulated Targets     
--   csaw18_tour_of_x86_pt_2     
--   csaw15_hackingtime             
--   csaw17_realism
+#### 34.) Qemu / Emulated Targets
 
-#### 35.) Integer Exploitation     
--   puzzle
--   int_overflow_post
--   signed_unsigned_int_expl
+- csaw18_tour_of_x86_pt_2
+- csaw15_hackingtime
+- csaw17_realism
 
-#### 36.) Obfuscated Reversing     
--    csaw15_wyvern     
--    csaw17_prophecy
--    bkp16_unholy
+#### 35.) Integer Exploitation
 
-#### 37.) FS Exploitation    
--    swamp19_badfile
+- puzzle
+- int_overflow_post
+- signed_unsigned_int_expl
 
-#### 38.) Grab Bag         
--    csaw18_doubletrouble
--    hackim19_shop        
--    unit_vars_expl
--    csaw19_gibberish
+#### 36.) Obfuscated Reversing
+
+- csaw15_wyvern
+- csaw17_prophecy
+- bkp16_unholy
+
+#### 37.) FS Exploitation
+
+- swamp19_badfile
+
+#### 38.) Grab Bag
+
+- csaw18_doubletrouble
+- hackim19_shop
+- unit_vars_expl
+- csaw19_gibberish
 
 ## Heap pt 1 heap x heap
 
-#### 39.) House of Spirit     
--    explanation
--    hacklu14_oreo
+#### 39.) House of Spirit
 
-#### 40.) House of Lore         
--    explanation
+- explanation
+- hacklu14_oreo
 
-#### 41.) House of Force        
--    explanation
--    bkp16_cookbook
+#### 40.) House of Lore
 
-#### 42.) House of Einherjar     
--    explanation
+- explanation
 
-#### 43.) House of Orange     
--    explanation
+#### 41.) House of Force
+
+- explanation
+- bkp16_cookbook
+
+#### 42.) House of Einherjar
+
+- explanation
+
+#### 43.) House of Orange
+
+- explanation
 
 #### 44.) More tcache
--    csaw19_poppingCaps0
--    csaw19_poppingCaps1
+
+- csaw19_poppingCaps0
+- csaw19_poppingCaps1
 
 #### 45.) Automatic Exploit Generation
--    csaw20_rop
+
+- csaw20_rop
 
 #### Ending Documentation
--    References
--    What's next
 
-
+- References
+- What's next
